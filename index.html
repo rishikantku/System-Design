@@ -3914,7 +3914,287 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
     <p class="pd-prompt">You're building a CDN for a news website. Articles are cached at 200 edge locations globally. When an editor updates an article, the old version must be invalidated across all edges within 10 seconds. Design the cache invalidation system.</p>
     <div class="pd-hints"><strong>Hint areas to cover:</strong><ul><li>How do you propagate invalidation to 200 edge locations within 10 seconds?</li><li>What data structure do you use at each edge to track cached URLs?</li><li>How do you handle an edge that's down during invalidation?</li><li>How do you handle partial invalidation (only some edges cleared) during a network partition?</li><li>What's your fallback if invalidation fails? (Hint: TTL as safety net)</li><li>Trade-off: tag-based invalidation vs URL-by-URL invalidation</li></ul></div>
   </div>
-</div></div>
+</div>
+
+<div class="recall">
+  <div class="rc-icon">&#128279;</div>
+  <div>Before this section, hold on to three things. From <strong>Ch 2</strong>: a consistency model
+  is a statement about which orderings of operations are observable. From <strong>Ch 4</strong>:
+  a replica is a second copy of data that must somehow be kept in agreement with the first. From
+  <strong>Ch 5</strong>: partitioning breaks a workload into independent pieces so that no single
+  machine sees all of it. A cache is all three at once, which is why it is more dangerous than it looks.</div>
+</div>
+
+<h3>What a Cache Actually Is &mdash; A Replica You Have Decided Not to Keep Consistent</h3>
+
+<p>The usual framing is that a cache is a performance optimisation. That framing is what makes
+caching bugs so surprising when they arrive, because it hides the actual decision you made.</p>
+
+<p>Here is the more useful framing. A cache is a <strong>replica</strong>. It is a second copy of
+data living somewhere other than the system of record. Chapter 4 spent a long time on the problem
+of keeping replicas in agreement, and every mechanism it described &mdash; synchronous replication,
+consensus, quorums &mdash; costs latency. A cache is what you get when you look at that price list
+and say: <em>I am not paying it. I will hold a second copy and I will accept that it can be
+wrong.</em></p>
+
+<p>That is a legitimate and extremely common engineering decision. But notice what it means: you
+have not avoided the replication problem. You have <strong>chosen a point on the consistency
+spectrum from Chapter 2</strong>, usually without writing it down, and the point you chose is
+somewhere below eventual consistency &mdash; because unlike a real replica, a cache entry with a
+TTL has no anti-entropy process that will eventually reconcile it. It just sits there being wrong
+until it expires.</p>
+
+<div class="flow"><span class="fl-key">THE STALENESS WINDOW &mdash; what a TTL actually promises</span>
+
+  t=0     <span class="fl-hi">read miss</span> -- value V1 loaded into cache, TTL 60s
+  t=5     read hit  -- V1                             <span class="fl-dim">correct</span>
+  t=12    <span class="fl-key">WRITE to database: V1 -&gt; V2</span>
+  t=13    read hit  -- <span class="fl-bad">V1</span>                             <span class="fl-bad">WRONG</span>
+  t=40    read hit  -- <span class="fl-bad">V1</span>                             <span class="fl-bad">WRONG</span>
+  t=60    entry expires
+  t=61    read miss -- V2 loaded                      <span class="fl-dim">correct again</span>
+
+  <span class="fl-note">The window of wrongness is 48 seconds, not 60. It runs from the write to</span>
+  <span class="fl-note">the expiry -- so it depends on WHEN the write lands inside the TTL, which</span>
+  <span class="fl-note">you do not control. "TTL 60s" means "stale for a uniformly random</span>
+  <span class="fl-note">duration between 0 and 60 seconds", averaging 30.</span></div>
+<div class="flow-cap">A TTL is not a staleness bound you chose. It is the <em>maximum</em> of a distribution
+whose mean is half of it, and the tail matters more than the mean when the stale value is a
+permission, a price, or a feature flag.</div>
+
+<div class="misconception">
+  <div class="label">&#9888; Common misconception</div>
+  <div class="mc-wrong">&ldquo;We set a 60-second TTL, so our data is at most 60 seconds old.&rdquo;</div>
+  <div class="mc-right">
+    <p>True, and almost never the thing you actually care about. The question is not how old the
+    data is, it is <strong>how long a wrong answer stays observable after the moment it became
+    wrong</strong> &mdash; and those are different quantities.</p>
+    <p>Worse, the sentence quietly assumes there is one cache. With an L1 in-process cache in front
+    of an L2 Redis tier, staleness <em>composes</em>: a 10-second local TTL in front of a 60-second
+    shared TTL gives you a worst case of 70 seconds, not 60. Every layer you add multiplies the
+    number of places a stale value can hide, and the layers do not expire in a coordinated way.</p>
+    <p>The honest version of the sentence is: &ldquo;a value can be observed up to 70 seconds after
+    it stopped being true, and I have decided that is acceptable for this field.&rdquo; Say it that
+    way and you will immediately notice the fields for which it is not acceptable.</p>
+  </div>
+</div>
+
+<h3>Hit-Rate Arithmetic &mdash; Why 95% and 99% Are Completely Different Systems</h3>
+
+<p>Cache hit rate is reported as a percentage, which is exactly the wrong unit for reasoning about
+it, because the thing you care about is the miss rate and the miss rate is what hits your database.
+Percentages hide that the interesting scale is multiplicative.</p>
+
+<p>Take 100,000 read QPS at the cache. At a 99% hit rate, 1,000 QPS reach the database. At 95%,
+5,000 QPS do. A four-point drop in a number you were monitoring as &ldquo;still above 95, looks
+fine&rdquo; is a <strong>5&times; increase in database load</strong>. At 90% it is 10&times;. This
+is the single most important number in cache operations and it is the one most dashboards are
+designed to obscure.</p>
+
+<div class="flow"><span class="fl-key">MISS RATE IS THE LOAD MULTIPLIER, AND IT IS NOT LINEAR</span>
+
+  hit rate    misses/sec                      DB load vs. the 99% case
+  --------    ----------                      ------------------------
+  <span class="fl-hi">99.9%</span>              100                      <span class="fl-hi">0.1x</span>
+  <span class="fl-hi">99%</span>              1,000                      1x   <span class="fl-dim">(baseline)</span>
+  98%              2,000                      2x
+  95%              5,000                      <span class="fl-key">5x</span>
+  90%             10,000                      <span class="fl-bad">10x</span>
+  <span class="fl-bad">80%</span>             20,000                      <span class="fl-bad">20x</span>
+
+<span class="fl-note">  Provision the database for the hit rate you will have during an INCIDENT,</span>
+<span class="fl-note">  not the one on your dashboard today. A cold cache is a 0% hit rate, and</span>
+<span class="fl-note">  that is the load your database sees the moment the cache tier restarts.</span></div>
+<div class="flow-cap">The practical consequence: your database capacity plan is really a bet on your cache
+hit rate holding. If the database cannot survive a cold cache at all, you do not have a cache in
+front of a database &mdash; you have a database whose availability is a function of Redis.</div>
+
+<div class="exercise">
+  <div class="label">&#9998; Mini exercise 13</div>
+  <div class="ex-q">
+    <p>A read path serves 200,000 QPS from Redis at a 98% hit rate. The origin database is
+    provisioned for 12,000 QPS and currently sees 4,000. You are asked to approve a change that
+    adds a new, rarely-read field to the cached object, roughly doubling the number of distinct
+    keys while the Redis memory budget stays fixed.</p>
+    <p><strong>Work out:</strong> what happens, whether the database survives it, and what you
+    should ask for instead.</p>
+  </div>
+  <details><summary>Show the worked answer</summary><div class="ex-a">
+    <p><strong>Doubling the key count at a fixed memory budget halves the fraction of the working
+    set you can hold.</strong> The exact new hit rate depends on the access distribution, but the
+    direction is certain and the magnitude is usually brutal. If the workload is Zipfian &mdash;
+    and read workloads almost always are &mdash; you keep most of the <em>hits</em> because the hot
+    keys still fit, so the hit rate might fall from 98% to roughly 94&ndash;96% rather than to 49%.
+    That sounds survivable. It is not.</p>
+    <p>At 98%, misses are 4,000 QPS &mdash; matching the observed database load. At 95%, misses are
+    <strong>10,000 QPS</strong>. At 94%, <strong>12,000 QPS</strong> &mdash; exactly the
+    provisioned ceiling, with zero headroom and no allowance for the retry traffic that arrives the
+    moment latency rises. A change described in the review as &ldquo;adding a small field&rdquo;
+    has consumed the entire capacity margin of a different team's database.</p>
+    <p><strong>What to ask for instead.</strong> The real error is that one cache entry is serving
+    two access patterns with different temperatures. Split them: keep the hot object cached as it
+    is, and put the rarely-read field in a second key fetched only when needed. Cold data does not
+    belong in the same entry as hot data, because eviction operates on entries and cannot see that
+    only part of the entry is valuable.</p>
+    <p><strong>The transferable principle:</strong> <em>a cache is a fixed-size budget, so every
+    new thing you cache is implicitly a proposal to evict something else.</em> The question is never
+    &ldquo;should we cache this?&rdquo; in isolation &mdash; it is &ldquo;what should this displace,
+    and is that trade good?&rdquo; This is the same reasoning as Chapter 5's hot-partition analysis:
+    a shared fixed resource makes every local decision a global one. It recurs in Chapter 10, where
+    one caller's retry budget is spent out of the same pool as everyone else's.</p>
+  </div></details>
+</div>
+
+<h3>The Stampede Is a Coordination Problem, and the Fix Is to Coordinate Less</h3>
+
+<p>Chapter 9 already introduced the thundering herd. It is worth revisiting because the standard
+fixes are usually ranked in the wrong order, and because the right one is an instance of the spine
+that runs through this whole guide.</p>
+
+<p>The mechanism: one popular key expires. In the microsecond after expiry, every concurrent
+request for that key misses simultaneously, and all of them go to the database to recompute the
+same value. A key served at 10,000 QPS behind a 50 ms recomputation generates roughly
+<strong>500 simultaneous identical database queries</strong> at the instant it expires. The
+database does 500 times the necessary work, gets slower, which lengthens the recomputation window,
+which lets more requests pile in. That is a positive feedback loop, and it is why stampedes look
+like cliffs rather than bumps.</p>
+
+<p>Three fixes are commonly offered, and they are not equally good:</p>
+
+<ul>
+  <li><strong>TTL jitter</strong> &mdash; expire at <code>60s &plusmn; rand(10s)</code> instead of
+  exactly 60s. This is genuinely useful but it solves a <em>different</em> problem: it stops many
+  <em>different</em> keys from expiring at the same instant (the avalanche). It does nothing for a
+  single hot key, because a single key has a single expiry no matter how you jitter it.</li>
+  <li><strong>Early recomputation</strong> &mdash; probabilistically refresh a key as it approaches
+  expiry, so it is usually renewed before anyone misses. Effective, and elegant, but it is a
+  heuristic: it reduces the probability of a stampede without bounding it.</li>
+  <li><strong>Request coalescing</strong> &mdash; on a miss, the first request takes a lock and
+  recomputes; every other request for the same key waits for that one result. This is the right
+  answer, because it does not reduce the odds of the herd, it makes the herd
+  <strong>structurally impossible</strong>. N concurrent misses produce exactly one database query,
+  by construction, regardless of N.</li>
+</ul>
+
+<div class="flow"><span class="fl-key">COALESCING: N MISSES BECOME ONE QUERY</span>
+
+  <span class="fl-bad">WITHOUT</span>                          <span class="fl-hi">WITH COALESCING</span>
+
+  req 1  -- miss --&gt; <span class="fl-bad">DB</span>            req 1  -- miss --&gt; <span class="fl-hi">wins lock</span> --&gt; DB
+  req 2  -- miss --&gt; <span class="fl-bad">DB</span>            req 2  -- miss --&gt; waits
+  req 3  -- miss --&gt; <span class="fl-bad">DB</span>            req 3  -- miss --&gt; waits
+   ...                              ...
+  req 500 - miss --&gt; <span class="fl-bad">DB</span>            req 500 - miss --&gt; waits
+                                                      |
+  <span class="fl-bad">500 identical queries</span>            <span class="fl-hi">1 query</span>, result fanned out to 500
+
+<span class="fl-note">  The lock is per-key and held for the recompute duration only. Note the</span>
+<span class="fl-note">  trade you just made: 499 requests now have a LATENCY dependency on one</span>
+<span class="fl-note">  request. If the lock holder hangs, they all hang -- so the wait needs a</span>
+<span class="fl-note">  timeout, and the timeout needs a fallback (serve stale, or fail open).</span></div>
+<div class="flow-cap">You have converted a load problem into a latency-coupling problem. That is nearly
+always the right direction &mdash; load problems cascade and latency problems are local &mdash; but
+it is a trade, not a free win, and an interviewer will want to hear you say so.</div>
+
+<div class="misconception">
+  <div class="label">&#9888; Common misconception</div>
+  <div class="mc-wrong">&ldquo;We added a cache, so the system is faster.&rdquo;</div>
+  <div class="mc-right">
+    <p>You added a <em>distributed system</em>. The median request got faster; that part is real.
+    But you also acquired: a new failure domain that can be unavailable, a new consistency model
+    nobody wrote down, a capacity plan that now depends on a hit rate, a cold-start problem, a
+    stampede risk, and an entire class of bug where the system misbehaves only for the users whose
+    key happens to be cached.</p>
+    <p>The p50 improved. The p99 usually got <em>worse</em>, because the p99 request is the one that
+    missed the cache and now pays the cache round trip <em>plus</em> the database round trip. If
+    you are measuring cache success by average latency, you are measuring the half of the
+    distribution that was never the problem.</p>
+  </div>
+</div>
+
+<h3>Cache Penetration &mdash; When the Miss Is the Attack</h3>
+
+<p>Penetration is the case where the requested key does not exist in the database at all. The cache
+misses (nothing to cache), the database is queried, the database returns nothing, and so nothing is
+cached &mdash; which means the <em>next</em> identical request repeats the whole journey. Every
+request for a non-existent key is a guaranteed database hit. An attacker who requests
+<code>/user/-1</code>, <code>/user/-2</code>, <code>/user/-3</code> in a loop has a direct,
+unthrottled channel to your database that your cache is powerless to intercept.</p>
+
+<p>Two defences, and they compose well:</p>
+
+<ul>
+  <li><strong>Negative caching</strong> &mdash; cache the absence. Store a tombstone for
+  &ldquo;this key does not exist&rdquo; with a short TTL, typically much shorter than the positive
+  TTL, because a key that starts existing should become visible quickly. The short TTL is what
+  bounds the damage of caching a &ldquo;no&rdquo; that was only temporarily true.</li>
+  <li><strong>A Bloom filter</strong> in front &mdash; a probabilistic set membership structure
+  that answers &ldquo;definitely not present&rdquo; or &ldquo;possibly present&rdquo;. Its
+  one-sided error is exactly the right shape here: a false positive costs you one wasted lookup,
+  and a false negative is impossible, so you can never wrongly reject a key that does exist.
+  Roughly 10 bits per key gives about a 1% false positive rate, so a filter covering 100 million
+  keys fits in about 120 MB &mdash; small enough to hold in process, in front of the cache.</li>
+</ul>
+
+<div class="teach-qa">
+  <h3>&#129504; Checking your understanding &mdash; Caching</h3>
+  <div class="tq-sub">Answers supplied. These are the questions a staff interviewer uses to find out whether you understand caching or have only operated one.</div>
+
+  <div class="tq">
+    <div class="tq-q">Why is cache invalidation genuinely hard, rather than just annoying?</div>
+    <div class="tq-a">Because it is a distributed agreement problem wearing a small hat. To invalidate correctly you must ensure that every copy, in every layer, on every node, has dropped the value before any reader can observe the new one. That is a coordination problem across an unreliable network &mdash; the same problem Chapter 6 needed consensus for. Most systems dodge it rather than solve it, using TTLs to make wrongness self-healing instead of preventing it. The dodge is correct engineering. It just should be a stated decision, not an accident.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">Should you update the cache on write, or delete the entry?</div>
+    <div class="tq-a"><strong>Delete, almost always.</strong> Updating writes a value into the cache that you computed at write time, which introduces a race: two concurrent writers can interleave their cache updates in the opposite order to their database writes, leaving the cache permanently holding the older value with no expiry to save you. Deleting has no such race &mdash; the worst outcome is an extra miss. Deleting also avoids caching values nobody will read, which is a real cost under a fixed memory budget. The exception is a very hot key with an expensive recompute, where the miss you save is worth the race you must then handle explicitly.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">What is the actual difference between write-through and write-back?</div>
+    <div class="tq-a">Write-through updates cache and database synchronously, so the write is durable when it returns and the cache is never ahead of the database. Write-back updates only the cache and flushes to the database later, which is dramatically faster for write-heavy workloads and means <strong>an acknowledged write can be lost if the cache node dies before the flush</strong>. That is not a caching nuance, it is a durability decision: write-back turns your cache into the system of record for a window of time. It is the correct choice for view counters and telemetry, and a serious mistake for anything a user would notice losing.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">Why is LRU so dominant, given that it is obviously not optimal?</div>
+    <div class="tq-a">Because it is a good approximation of the optimal policy under the access patterns real systems actually have, and it is cheap. The optimal policy (B&eacute;l&aacute;dy's) requires knowing the future. LRU approximates it by assuming recency predicts reuse, which holds for Zipfian workloads &mdash; and almost all human-driven workloads are Zipfian. Its famous failure is the sequential scan: one full table scan touches every key once, evicting your entire hot set in favour of data nobody will read again. This is why production systems use LRU variants &mdash; segmented LRU, or LFU-with-decay as in Redis's <code>allkeys-lfu</code> &mdash; that require a key to be touched more than once before it can displace established residents.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">Your cache tier goes down entirely. What happens, and what should happen?</div>
+    <div class="tq-a">What happens by default: 100% of read traffic arrives at a database provisioned for the miss rate, which is 20&times; to 100&times; over capacity. The database saturates, latency rises, clients time out and retry, and the retries add load &mdash; a metastable failure that will not recover on its own even after the cache returns, because the retry backlog keeps the database saturated. What should happen: the cache client must fail open with a <em>concurrency limit</em> to the database rather than an unbounded pass-through, shedding load beyond it. Serving 15% of users correctly and rejecting 85% quickly is a far better outcome than serving 0% because everything is timing out. This is Chapter 10's material and it is the reason caching and load shedding cannot be designed separately.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">When should you not use a cache at all?</div>
+    <div class="tq-a">When the read-to-write ratio is near 1, because you will pay the invalidation cost on every write and get almost no hits in return. When the working set exceeds the cache by a wide margin and access is uniform rather than Zipfian, because you will thrash and pay the cache round trip on top of every database round trip for a hit rate near zero. And when a stale read is genuinely unacceptable &mdash; authorisation decisions, account balances, anything where being wrong for 30 seconds is a security or financial incident. In that last case the answer is not a shorter TTL; it is that the cache must be on the write path or absent, because a TTL is a bound on wrongness, never an elimination of it.</div>
+  </div>
+</div>
+
+<div class="usecase">
+  <div class="label">&#127919; Which caching choice real systems make, and why</div>
+  <div class="uc-row"><div class="uc-sys">CDN / static assets</div><div class="uc-why">Long TTL plus content-hashed URLs. The trick is that the URL changes when the content does, so invalidation is never needed &mdash; a new version is simply a different key. This is the strongest available answer and it works whenever you control the URL.</div></div>
+  <div class="uc-row"><div class="uc-sys">Social feed / timeline</div><div class="uc-why">Cache-aside with a generous TTL. Staleness is invisible to users because there is no ground truth they can compare against &mdash; nobody knows which post <em>should</em> have been at the top. <span class="srcref">Ch 4</span></div></div>
+  <div class="uc-row"><div class="uc-sys">Session / auth tokens</div><div class="uc-why">Short TTL and an explicit revocation channel. This is the case where TTL alone is insufficient: logout must take effect now, so revocation is pushed rather than waited out.</div></div>
+  <div class="uc-row"><div class="uc-sys">Product price / inventory</div><div class="uc-why">Very short TTL or write-through. Showing a stale price is a commercial and sometimes legal problem, so this is a case where the cache is on the write path.</div></div>
+  <div class="uc-row"><div class="uc-sys">View counters / telemetry</div><div class="uc-why">Write-back, batched. Losing 30 seconds of counts on a node failure is acceptable; taking a database write per view is not. An explicit durability trade made in favour of throughput.</div></div>
+  <div class="uc-row"><div class="uc-sys">Feature flags / config</div><div class="uc-why">Long TTL with push invalidation, and a local in-process cache so the flag check never blocks on the network. The failure mode that matters is not staleness, it is a flag service outage taking down every caller that depends on it.</div></div>
+</div>
+
+<div class="takeaway">
+  <div class="label">&#127793; Takeaway &mdash; Caching</div>
+  <p><strong>A cache is a replica you have chosen not to keep consistent.</strong> Everything difficult about caching follows from that one sentence.</p>
+  <ul>
+    <li><strong>Name the staleness you accepted.</strong> &ldquo;TTL 60s&rdquo; is a mechanism; &ldquo;a wrong answer stays observable for up to 70 seconds across both layers&rdquo; is the decision.</li>
+    <li><strong>Miss rate is the load multiplier, and it is multiplicative.</strong> 99% &rarr; 95% is 5&times; the database load. Capacity-plan for the hit rate you will have in an incident, which is zero.</li>
+    <li><strong>Coalesce rather than jitter for a single hot key.</strong> Jitter reduces probability; coalescing makes the herd structurally impossible. You pay in latency coupling, which is the cheaper currency.</li>
+    <li><strong>Delete on write, do not update.</strong> Updating buys you one avoided miss and sells you a permanent-staleness race.</li>
+    <li><strong>Cache the absence too.</strong> Otherwise every request for a key that does not exist is an unthrottled path to your database.</li>
+    <li><strong>Design the cache-down case explicitly.</strong> If a cache outage takes the database with it, the cache is not an optimisation &mdash; it is a hard dependency you have not admitted to.</li>
+  </ul>
+  <p>Chapter 10 picks up exactly where the last point leaves off: once you accept that your origin can be overwhelmed, the question becomes how to distribute what arrives and how to refuse what you cannot serve.</p>
+</div>
+</div>
 <div class="chapter" id="ch10">
   <div class="ch-num">Chapter 10</div>
   <div class="ch-title">Load Balancing & Rate Limiting</div>
@@ -3985,7 +4265,316 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
     <p class="pd-prompt">You're building a payments API used by 50,000 merchants. Each merchant gets 100 requests/minute. Some merchants are enterprise tier with 10,000 requests/minute. Design the rate limiting system.</p>
     <div class="pd-hints"><strong>Hint areas to cover:</strong><ul><li>How do you store per-merchant state at scale?</li><li>How do you handle tiered limits (standard vs enterprise)?</li><li>What happens when your rate limiter (Redis) goes down? Fail open or closed?</li><li>How do you prevent a merchant from circumventing limits by using multiple IPs?</li><li>How do you implement a 'daily quota' (10,000 total/day) in addition to per-minute rate?</li><li>What metrics do you expose to merchants about their rate limit status?</li></ul></div>
   </div>
-</div></div>
+</div>
+
+<div class="recall">
+  <div class="rc-icon">&#128279;</div>
+  <div>Two things carry over. From <strong>Ch 1</strong>: you cannot distinguish a slow node from a
+  dead one, so every routing decision is made on stale information about backend health. From
+  <strong>Ch 9</strong>: your origin's capacity plan is a bet on a cache hit rate, so the load
+  arriving here is far more variable than the request rate suggests.</div>
+</div>
+
+<h3>Load Balancing Is a Queueing Problem, Not a Distribution Problem</h3>
+
+<p>The word &ldquo;balancing&rdquo; is misleading. It suggests the goal is to give each backend an
+equal number of requests, and that is not the goal &mdash; it is a proxy for the goal, and a
+surprisingly poor one. What you actually want to minimise is the <strong>maximum queue depth</strong>
+across the fleet, because the slowest backend is what your p99 is made of.</p>
+
+<p>Those two objectives diverge the moment requests cost different amounts, which is always. If one
+request in a hundred takes 500 ms and the rest take 5 ms, then handing every backend the same
+<em>count</em> of requests hands them wildly different amounts of <em>work</em>. Round robin is
+optimal for a workload nobody has.</p>
+
+<p>The obvious fix is least-connections: send each request to whichever backend currently has the
+fewest in flight. This genuinely tracks load rather than count. Its problem is that it requires
+global state &mdash; every load balancer must know every backend's current depth &mdash; and
+maintaining that across a fleet of load balancers is both expensive and, per Chapter 1, always
+slightly wrong. Worse, when several load balancers independently observe that backend&nbsp;7 is
+least loaded, they all send it their next request simultaneously. The information was true when
+they read it and false by the time they acted on it. This is <strong>herd behaviour caused by
+accurate monitoring</strong>, and it is a genuinely counter-intuitive failure.</p>
+
+<h3>The Power of Two Choices &mdash; The Best Return on One Extra Probe in All of Systems</h3>
+
+<p>Here is the result, and it is one of the most useful things in this chapter. Suppose you place
+<em>n</em> requests onto <em>n</em> backends.</p>
+
+<ul>
+  <li>Choose each backend <strong>purely at random</strong>: the most-loaded backend ends up with
+  about <strong>log&nbsp;n / log&nbsp;log&nbsp;n</strong> requests. At n&nbsp;=&nbsp;1,000 that is
+  roughly 5.</li>
+  <li>Sample <strong>two backends at random and pick the less loaded of the two</strong>: the
+  most-loaded backend ends up with about <strong>log&nbsp;log&nbsp;n</strong> requests. At
+  n&nbsp;=&nbsp;1,000 that is roughly 3.</li>
+</ul>
+
+<p>That does not sound dramatic until you notice it is an <em>exponential</em> improvement in the
+tail, and that it costs one additional probe and no shared state whatsoever. Going from two choices
+to three buys you almost nothing more; essentially the entire benefit arrives with the second
+sample. This is why <strong>power of two choices</strong> (P2C) is the default in modern proxies
+&mdash; it captures nearly all of the benefit of least-connections while remaining fully
+decentralised, which also means it cannot produce the herd effect that global least-connections
+does.</p>
+
+<div class="flow"><span class="fl-key">POWER OF TWO CHOICES -- why one extra probe collapses the tail</span>
+
+  <span class="fl-bad">PURE RANDOM</span>                       <span class="fl-hi">TWO CHOICES</span>
+
+  pick 1 backend at random          pick 2 at random, send to the shallower
+
+  b1 [##      ]  2                  b1 [##      ]  2
+  b2 [######  ]  <span class="fl-bad">6  &lt;-- tail</span>        b2 [###     ]  3
+  b3 [#       ]  1                  b3 [##      ]  2
+  b4 [####    ]  4                  b4 [###     ]  <span class="fl-hi">3  &lt;-- tail</span>
+
+  max load ~ log n / log log n      max load ~ log log n
+  n=1000  -&gt;  <span class="fl-bad">~5</span>                    n=1000  -&gt;  <span class="fl-hi">~3</span>
+
+<span class="fl-note">  No shared state. No coordination. Each load balancer decides alone, and</span>
+<span class="fl-note">  because it decides alone it cannot stampede the same "least loaded"</span>
+<span class="fl-note">  backend that every other load balancer just observed. Global knowledge</span>
+<span class="fl-note">  would be MORE accurate and produce WORSE outcomes.</span></div>
+<div class="flow-cap">This is the guide's recurring spine in its purest form: <em>make the decision local
+instead of coordinating</em>. It appeared in Ch 4 as partitioning by conversation, in Ch 6 as
+keeping the balance on one shard, in Ch 7 as moving the invariant onto one row. Here, a
+deliberately incomplete local view beats a complete global one.</div>
+
+<div class="misconception">
+  <div class="label">&#9888; Common misconception</div>
+  <div class="mc-wrong">&ldquo;Round robin distributes load evenly across the backends.&rdquo;</div>
+  <div class="mc-right">
+    <p>Round robin distributes <strong>requests</strong> evenly. Load is requests multiplied by
+    cost, and request cost in any real service varies by one or two orders of magnitude &mdash; a
+    cache hit versus a cache miss, a user with 3 followers versus one with 3 million.</p>
+    <p>The failure mode is specific and worth being able to name: a backend that receives an
+    unlucky run of expensive requests slows down, its queue grows, and round robin
+    <strong>keeps sending it requests at exactly the same rate</strong>, because round robin has no
+    feedback channel. A struggling backend is given precisely as much work as a healthy one until
+    it fails outright. Least-connections and P2C both have this feedback implicitly &mdash; a
+    backend with a deep queue is visibly deep &mdash; which is the real reason to prefer them,
+    ahead of any argument about statistical evenness.</p>
+  </div>
+</div>
+
+<h3>Distributed Rate Limiting &mdash; Where the Obvious Design Is the Wrong One</h3>
+
+<p>Single-node rate limiting is easy: a token bucket in memory, refilled at a fixed rate. The
+difficulty is entirely in the distributed case, and the obvious design fails in an instructive
+way.</p>
+
+<p>The obvious design is a shared counter in Redis, incremented by every gateway on every request.
+It is exactly correct, and it means <strong>every single request now has a synchronous network
+round trip to one machine</strong> before it can be served. You have added roughly 1 ms of latency
+to 100% of traffic, created a hard dependency on Redis for your entire edge, and built a hotspot
+that limits your total throughput to what one Redis key can sustain. You have spent a great deal to
+enforce a limit whose entire purpose is approximate.</p>
+
+<p>The better design applies the same move as P2C. Each gateway holds a
+<strong>local</strong> token bucket sized to its fair share &mdash; with <em>k</em> gateways and a
+global limit of <em>R</em>, each gets <em>R/k</em> &mdash; and gateways reconcile with a shared
+store asynchronously, every few hundred milliseconds, to redistribute unused allowance. The common
+path touches no network. The limit is enforced approximately, with a bounded error proportional to
+the reconciliation interval.</p>
+
+<p>The right question at this point is not &ldquo;how do we make it exact?&rdquo; but
+<strong>&ldquo;what is the cost of being wrong by 5%?&rdquo;</strong> For abuse prevention: nothing,
+the limit is a heuristic anyway. For a paid API tier: also nothing, because you will refund a
+disputed overage far more cheaply than you will operate a globally exact counter. For metering that
+bills the customer directly: now exactness matters &mdash; and the correct response is to move
+billing off the request path entirely and compute it from an event log, rather than to make the
+rate limiter strongly consistent.</p>
+
+<div class="flow"><span class="fl-key">FIXED WINDOW -- the 2x burst hiding at the boundary</span>
+
+  limit: 100 requests per minute
+
+<span class="fl-dim">  |------ window 1 ------|------ window 2 ------|</span>
+<span class="fl-dim">  10:00                10:01                10:02</span>
+
+<span class="fl-bad">               100 reqs   100 reqs</span>
+<span class="fl-bad">            at 10:00:59   at 10:01:01</span>
+<span class="fl-bad">                     \      /</span>
+<span class="fl-bad">                      \    /</span>
+<span class="fl-bad">          200 requests in a 2-second span</span>
+
+<span class="fl-note">  Both windows are individually within their limit. The limiter is working</span>
+<span class="fl-note">  exactly as specified and the backend still sees 2x the intended peak.</span>
+
+  <span class="fl-hi">SLIDING WINDOW COUNTER</span> -- the cheap fix, and the one to name in an interview:
+    weight the previous window by how much of it still overlaps the current one.
+    at 10:01:15, 75% of window 1 is still in scope, so:
+<span class="fl-hi">      estimate = (100 x 0.75) + count_so_far_in_window_2</span>
+    Two counters per key, no sorted set of timestamps, error under 1% on
+    real traffic. A sliding window LOG is exact but stores every timestamp,
+    which is what makes it too expensive to be the default.</div>
+<div class="flow-cap">The fixed-window boundary burst is the most common rate-limiting bug in production
+and it never shows up in testing, because it only appears when traffic happens to cluster near a
+window edge &mdash; which real traffic does, since clients synchronise on wall-clock minutes.</div>
+
+<div class="exercise">
+  <div class="label">&#9998; Mini exercise 14</div>
+  <div class="ex-q">
+    <p>Your API enforces 1,000 requests/minute per customer across 20 gateway nodes, using local
+    token buckets of 50 requests each with reconciliation every 500 ms. A customer complains that
+    they are being throttled at roughly 300 requests/minute, well under their limit.</p>
+    <p><strong>Work out:</strong> what is happening, and what you change.</p>
+  </div>
+  <details><summary>Show the worked answer</summary><div class="ex-a">
+    <p><strong>The customer's traffic is not spread evenly across the 20 gateways.</strong> Local
+    bucket sizing assumes each node sees 1/20th of that customer's requests, and that assumption is
+    broken by essentially every real routing layer: connection reuse pins a client to a small
+    number of gateways, DNS and anycast route them by geography, and a customer calling from one
+    region reaches perhaps three or four gateways rather than twenty.</p>
+    <p>If they reach 6 gateways, they can spend 6&nbsp;&times;&nbsp;50&nbsp;=&nbsp;300 requests per
+    reconciliation period, and the other 14 buckets sit full and unused. The observed 300/minute
+    is the arithmetic working exactly as built. <strong>The rate limiter is not broken; the fair-share
+    assumption underneath it is.</strong></p>
+    <p><strong>What to change, in order of preference.</strong> First, make reconciliation
+    <em>redistributive</em> rather than merely reporting: a node that exhausts its bucket should be
+    able to borrow unused allowance from the global pool, so idle buckets are not stranded. This
+    alone fixes most of it. Second, shorten the reconciliation interval for keys observed to be
+    hot &mdash; you do not need 500 ms precision for the 99% of customers nowhere near their limit,
+    so spend the coordination budget only where it changes an outcome. Third, and best if your
+    routing layer allows it, <strong>make the constraint local for real</strong> by consistently
+    hashing each customer to a small subset of gateways, so the fair-share denominator matches
+    reality instead of being assumed.</p>
+    <p><strong>The transferable principle:</strong> <em>when you divide a global budget into local
+    shares, you have assumed a distribution &mdash; and an unstated distributional assumption is a
+    bug waiting for traffic to find it.</em> The same error appears in Chapter 5 as the
+    even-partition assumption that hot keys violate, and in Chapter 9 as the fixed cache budget
+    that a new key pattern silently reallocates.</p>
+  </div></details>
+</div>
+
+<h3>Load Shedding, Retry Storms, and Why Systems Fail to Recover</h3>
+
+<p>Rate limiting protects you from a specific caller. <strong>Load shedding</strong> protects you
+from everyone at once, and it is the mechanism that decides whether an overload is a bad ten
+minutes or a four-hour outage.</p>
+
+<p>The distinction that matters: a rate limiter answers &ldquo;has this client had its share?&rdquo;
+A load shedder answers &ldquo;can I serve anything at all right now?&rdquo; A system with perfect
+per-client rate limits can still collapse, because the sum of everyone's legitimate allowance can
+exceed what you can serve when a dependency slows down.</p>
+
+<p>What makes overload genuinely dangerous is that it is <strong>metastable</strong>: it can sustain
+itself after its original cause is gone. The loop is worth memorising, because it is the shape of
+most large outages.</p>
+
+<div class="flow"><span class="fl-key">THE METASTABLE FAILURE LOOP</span>
+
+     a dependency slows down (or a cache tier restarts)
+                        &#9660;
+     request latency rises above the client timeout
+                        &#9660;
+     <span class="fl-bad">clients time out and RETRY</span>
+                        &#9660;
+     offered load is now 2x or 3x the original
+                        &#9660;
+     latency rises further; more clients time out
+                        &#9660;
+     <span class="fl-bad">back to the top, now self-sustaining</span>
+
+  <span class="fl-key">The cruel part:</span> the server is doing MORE work than before, not less --
+  it is computing responses for requests whose clients gave up and left. That
+  work is pure waste, and it is crowding out the requests that could still be
+  served in time.
+
+  <span class="fl-note">Fixing the original dependency does NOT recover the system. The retry backlog</span>
+  <span class="fl-note">keeps offered load above capacity indefinitely. This is why an outage often</span>
+  <span class="fl-note">outlives its cause by hours, and why recovery usually requires SHEDDING load</span>
+  <span class="fl-note">or draining traffic entirely -- letting the queue empty -- rather than waiting.</span></div>
+<div class="flow-cap">The defining property of a metastable failure is that the system has two stable
+states &mdash; healthy, and collapsed &mdash; and enough load pushes it across a threshold from
+which it will not return on its own. Capacity planning tells you where the threshold is; load
+shedding is what stops you crossing it.</div>
+
+<div class="misconception">
+  <div class="label">&#9888; Common misconception</div>
+  <div class="mc-wrong">&ldquo;We use exponential backoff, so we are safe from retry storms.&rdquo;</div>
+  <div class="mc-right">
+    <p>Exponential backoff without <strong>jitter</strong> synchronises your clients rather than
+    spreading them. If 10,000 clients fail at the same instant &mdash; which is what a dependency
+    outage does &mdash; they all wait 1&nbsp;s, then all retry together; then all wait 2&nbsp;s, and
+    all retry together. You have converted a continuous overload into a series of sharp, perfectly
+    aligned spikes, and each spike is large enough to re-trigger the failure. Randomised (jittered)
+    backoff is not a refinement of the idea; it is the part that makes it work.</p>
+    <p>And even jittered backoff only controls <em>timing</em>, never <em>volume</em>. Under a
+    sustained failure, every client is still eventually retrying and total offered load still
+    exceeds capacity. The mechanism that bounds volume is a <strong>retry budget</strong>: a client
+    may retry only if retries have been under some small fraction &mdash; 10% is the common choice
+    &mdash; of its recent request volume. When the dependency is broadly failing, the budget is
+    exhausted almost immediately and retries stop altogether, which is exactly correct. Retries
+    exist to paper over <em>independent, transient</em> failures; when the failure is systemic there
+    is nothing to paper over, and retrying only adds load to something already drowning.</p>
+    <p>The complete answer is all three together: <strong>jitter</strong> spreads timing,
+    <strong>a retry budget</strong> caps volume, and <strong>a circuit breaker</strong> stops the
+    calls entirely once failure is established. Naming only backoff is the most common incomplete
+    answer to this question.</p>
+  </div>
+</div>
+
+<div class="teach-qa">
+  <h3>&#129504; Checking your understanding &mdash; Load balancing &amp; rate limiting</h3>
+  <div class="tq-sub">Answers supplied. These separate people who have configured a load balancer from people who understand what it is doing.</div>
+
+  <div class="tq">
+    <div class="tq-q">When is L4 load balancing genuinely the right choice over L7?</div>
+    <div class="tq-a">When you do not need to look inside the request, and increasingly when you cannot. L4 balances TCP connections without parsing anything, so it is dramatically cheaper, adds almost no latency, and can pass encrypted traffic straight through without terminating TLS. Choose it for raw throughput, for non-HTTP protocols, and when end-to-end encryption to the backend is a requirement. Choose L7 when routing depends on content &mdash; path-based routing, header-based canaries, per-endpoint rate limits &mdash; or when you want request-level retries, which L4 fundamentally cannot do because it has no idea where one request ends and the next begins on a reused connection. That last point is the one people miss: connection reuse means an L4 balancer's &ldquo;least connections&rdquo; is counting something only loosely related to load.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">Should a rate limiter fail open or fail closed when its backing store is unavailable?</div>
+    <div class="tq-a">Almost always <strong>fail open</strong>, and the reasoning is about relative blast radius. Failing closed means a Redis outage becomes a total outage of your API &mdash; you have made an availability dependency out of a component whose entire job is protective. Failing open means that during a Redis outage you are briefly unprotected against abuse, which is a much smaller and much less likely harm than refusing all traffic. The exception is when the limit is enforcing something whose violation is irreversible: a financial transfer cap, or a limit protecting a downstream system that will corrupt rather than merely slow. The staff-level answer adds a third option: fail open <em>into a conservative local limit</em>, so you degrade from precise global limiting to approximate per-node limiting instead of degrading to none.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">How do you shed load well, given you must reject someone?</div>
+    <div class="tq-a">Reject by <strong>priority and by cost</strong>, never uniformly. Uniform shedding rejects 10% of every user's requests, which breaks 100% of user journeys partway through &mdash; the worst possible outcome, because a half-completed checkout is worth less than nothing. Better: classify traffic (health checks and payments above browsing and analytics), shed the cheapest-to-reject and least valuable first, and shed at the <em>edge</em> where rejection is cheap rather than after the request has already consumed a database connection. Critically, reject <strong>fast</strong>: a 429 returned in 1 ms frees capacity, while a request that times out after 30 seconds consumed a connection slot for 30 seconds and helped no one. Rejecting early is a form of doing work.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">Why can adding a retry make a system less available overall?</div>
+    <div class="tq-a">Because retries multiply load exactly when load is the problem. A service at 80% utilisation has 25% headroom; a client retry policy of three attempts turns a partial failure into 3&times; offered load, which is far past capacity, and the additional load causes the failures that trigger more retries. Retries are also frequently <em>nested</em> &mdash; the client retries, the gateway retries, the service retries its own dependency &mdash; and nesting multiplies rather than adds, so three layers of three attempts is 27&times; amplification against the bottom service. The rule that follows: <strong>retry at exactly one layer</strong>, the one closest to the user that can still make a meaningful decision, and pass failures through everywhere else.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">What does a health check actually tell you, and how does it lie?</div>
+    <div class="tq-a">A shallow health check (&ldquo;is the process listening?&rdquo;) tells you almost nothing &mdash; a process can accept connections while every dependency behind it is dead. A deep check that verifies dependencies is more truthful but introduces a catastrophic failure mode: if the shared database becomes slow, <em>every</em> backend fails its deep check simultaneously, the load balancer removes all of them, and a degradation becomes a total outage. The standard defence is a <strong>minimum healthy threshold</strong> &mdash; if more than some fraction of the fleet is unhealthy, assume the checker is wrong rather than the fleet, and keep routing to everyone. This is Chapter 1's lesson applied to health: you cannot distinguish a broken backend from a broken observation of a backend, so refuse to take drastic action on evidence that says everything is broken at once.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">Token bucket or leaky bucket &mdash; how do you actually choose?</div>
+    <div class="tq-a">Ask whether bursts are legitimate. A <strong>token bucket</strong> accumulates tokens while idle, so a client that has been quiet may spend a burst all at once &mdash; ideal for user-facing APIs, where a page load that fires 20 requests at once is normal behaviour and should not be punished. A <strong>leaky bucket</strong> drains at a fixed rate and permits no burst at all, which is what you want when the thing being protected has a hard physical throughput ceiling and genuinely cannot absorb a spike &mdash; a downstream partner's API, a mainframe, a physical device. In short: token bucket smooths the <em>average</em> and tolerates bursts; leaky bucket smooths the <em>instantaneous rate</em> and eliminates them. Most public APIs should be token buckets, and most integrations with someone else's fragile system should be leaky ones.</div>
+  </div>
+</div>
+
+<div class="usecase">
+  <div class="label">&#127919; Which strategy real systems choose, and why</div>
+  <div class="uc-row"><div class="uc-sys">Stateless web tier</div><div class="uc-why">P2C at L7. Requests are independent and cheap to route, and the tail latency benefit is free. Global least-connections would be more accurate and would risk herding.</div></div>
+  <div class="uc-row"><div class="uc-sys">Long-lived WebSocket fleet</div><div class="uc-why">Least-connections, and it genuinely matters here: connections last hours, so a bad placement decision is not corrected by the next request the way it is for HTTP. <span class="srcref">Ch 11</span></div></div>
+  <div class="uc-row"><div class="uc-sys">Cache tier</div><div class="uc-why">Consistent hashing, not load balancing at all &mdash; the request must reach the node holding the key. Balance is sacrificed for locality, and hot keys are then handled separately. <span class="srcref">Ch 5</span></div></div>
+  <div class="uc-row"><div class="uc-sys">Public API gateway</div><div class="uc-why">Local token buckets with asynchronous reconciliation. Approximate global limits, no per-request coordination, and it fails open into a local limit.</div></div>
+  <div class="uc-row"><div class="uc-sys">Internal service mesh</div><div class="uc-why">Concurrency limits rather than rate limits. Bounding in-flight requests adapts automatically as backend speed changes, whereas a fixed requests-per-second limit is wrong the moment latency shifts.</div></div>
+  <div class="uc-row"><div class="uc-sys">Payments / irreversible actions</div><div class="uc-why">The one place to consider failing closed, plus idempotency keys so that a retry after an ambiguous timeout cannot double-charge. <span class="srcref">Ch 7</span></div></div>
+</div>
+
+<div class="takeaway">
+  <div class="label">&#127793; Takeaway &mdash; Load balancing &amp; rate limiting</div>
+  <p><strong>Both halves of this chapter are the same idea: a local, approximate decision beats a global, exact one.</strong></p>
+  <ul>
+    <li><strong>Balance work, not request counts.</strong> Round robin has no feedback channel, so it feeds a struggling backend at full rate until it dies.</li>
+    <li><strong>Power of two choices is the best value in the chapter.</strong> One extra probe takes tail load from log&nbsp;n/log&nbsp;log&nbsp;n to log&nbsp;log&nbsp;n, with no shared state and no herding.</li>
+    <li><strong>Do not put a synchronous counter on every request.</strong> Local buckets plus redistributive reconciliation; then ask what a 5% error actually costs, and move billing off the request path if the honest answer is &ldquo;too much&rdquo;.</li>
+    <li><strong>Fixed windows permit a 2&times; boundary burst.</strong> Sliding window counter: two counters, sub-1% error, no timestamp log.</li>
+    <li><strong>Overload is metastable.</strong> It sustains itself after the cause is gone, because the server is busy computing answers for clients that already left. Recovery needs shedding, not patience.</li>
+    <li><strong>Backoff needs jitter, a retry budget, and a circuit breaker.</strong> Backoff alone synchronises clients; only the budget bounds volume. And retry at exactly one layer, because nesting multiplies.</li>
+  </ul>
+  <p>Chapter 11 takes the same pressure and removes the time coupling entirely: if the caller does not need an answer now, a queue lets you accept the work and serve it at your own pace.</p>
+</div>
+</div>
 <div class="chapter" id="ch11">
   <div class="ch-num">Chapter 11</div>
   <div class="ch-title">Message Queues & Streaming</div>

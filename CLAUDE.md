@@ -61,6 +61,8 @@ distributed systems concepts from first principles.
   #toolkit-mentalmodel       "T5" — DDIA mental model + pattern cheat sheet + 20 mistakes
 #part3-questionbank
   #toolkit-questionbank      "T6" — what Google actually asks + the L4/L5/L6 rubric ladder
+#part3-video
+  #toolkit-video             "T7" — video/lecture references, channels ranked, gaps named
 #part4-glossary              Part 4 banner
   #glossary-index            searchable 199-term glossary index
 <script> GLOSSARY data </script>
@@ -194,6 +196,7 @@ Reuse these. Do not invent new block types without a reason.
 | `.takeaway` | Green chapter closer | `.label`, `<p>`, `<ul>` |
 | `.recall` | "Before this chapter, remember X" | `.rc-icon` + a `<div>` |
 | `.srcref` | Small inline chapter chip | `<span class="srcref">Ch 4, 12</span>` |
+| `.vidref` | Video/lecture references, red left border | `.label`, then `<ul><li>` with `<a target="_blank" rel="noopener">` + `.vr-meta` runtime span + one sentence on *why that video*. Optional closing `.vr-none` for "no good video exists, read this instead" |
 
 ### Chapter section shape that works
 
@@ -268,9 +271,10 @@ though they exist. Drive the page by clicking real elements, not by calling its 
 **Baseline to regress against** (current, after the Google-question-bank work):
 
 ```
-totalWords 68691 · designs 14 · toolkitCards 6 · designSteps 105 · flows 45
+totalWords 71055 · designs 14 · toolkitCards 7 · designSteps 105 · flows 45
+vidrefs 22 · externalLinks 63 (all target=_blank rel=noopener, all verified 200)
 exercises 14 · teachingQs 61 · misconceptions 21 · takeaways 14 · usecaseTables 8
-recalls 7 · glossaryTerms 199 · inlineLinks 1156 · tables 40 (all wrapped in .tw)
+recalls 7 · glossaryTerms 199 · inlineLinks 1178 · tables 42 (all wrapped in .tw)
 gtInFlow 0 · gtInCodeOrLink 0 · brokenAnchors [] · navHeight 52 · consoleErrors 0
 tablesScrollingOnDesktop 0 · tocColumns 2
 ```
@@ -307,6 +311,34 @@ Exclude `#gl-panel`, `#gl-backdrop` and `#gl-hint` from any overflow sweep — t
 panel is *deliberately* parked off-canvas and will always report as overflowing.
 
 ---
+
+### Verifying external links — the rule that made this trustworthy
+
+`index.html` now carries **63 external URLs** (22 `.vidref` blocks: 15 chapters + 7 designs,
+plus the T7 card). Video IDs are exactly the thing a model will confidently invent, so none
+of them were written from memory. The procedure, worth repeating for any future additions:
+
+1. **Pull the real IDs from the live playlist**, never from recall. YouTube now renders
+   playlists with `lockupViewModel` inside `ytInitialData`, so:
+   ```python
+   m = re.search(r'var ytInitialData\s*=\s*(\{.*?\});</script>', html, re.S)
+   # walk the JSON for 'lockupViewModel' -> contentId + metadata.lockupMetadataViewModel.title
+   ```
+   (The older `playlistVideoRenderer` path returns nothing now.) A playlist page only
+   contains ~20 lazily-loaded entries, which happened to be enough here.
+2. **Check every URL resolves**, extracted from the file itself rather than from the script
+   that wrote it: `curl -s -o /dev/null -w "%{http_code}" -L`.
+3. **Check each video ID matches its claimed title** via the oEmbed endpoint —
+   `https://www.youtube.com/oembed?url=…&format=json` returns the real title and author, and
+   fails for dead or private videos where a plain fetch may still return 200. Compare
+   normalised token sets; a naive substring match produces ~30 false mismatches because the
+   labels are reworded (`Kleppmann — 5.2 Quorums` vs `Distributed Systems 5.2: Quorums`).
+
+Last full check: **63/63 resolved, 50/50 video titles matched, 0 mismatches.**
+
+All external anchors carry `target="_blank" rel="noopener"`. The broken-anchor sweep only
+looks at `href^="#"`, so it will never catch a dead external link — re-run the curl + oEmbed
+pass if links are touched.
 
 ## 8. State and what's next
 

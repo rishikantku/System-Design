@@ -978,6 +978,33 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
 }
 .recall strong { color: var(--ink); }
 
+/* Video / lecture references */
+.vidref {
+  background: var(--bgcool);
+  border: 1px solid var(--line);
+  border-left: 4px solid #c62828;
+  border-radius: 0 10px 10px 0;
+  padding: 16px 20px; margin: 26px 0;
+}
+.vidref .label {
+  font-size: 11px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 1.4px; color: #c62828; margin-bottom: 10px;
+}
+.vidref ul { margin: 0; padding-left: 18px; }
+.vidref li { font-size: 14px; line-height: 1.65; margin-bottom: 9px; color: var(--soft); }
+.vidref li:last-child { margin-bottom: 0; }
+.vidref a {
+  color: var(--accent); font-weight: 700; text-decoration: none;
+  border-bottom: 1px solid rgba(92,107,192,.38);
+}
+.vidref a:hover { border-bottom-color: var(--accent); }
+.vidref .vr-meta { font-size: 12px; color: var(--muted); font-weight: 600; }
+.vidref .vr-none {
+  font-size: 13.5px; color: var(--muted); font-style: italic; line-height: 1.6;
+  margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--line);
+}
+.vidref ul + .vr-none { margin-top: 12px; }
+
 /* Question-bank cross-reference link */
 .qlink {
   color: var(--accent); font-weight: 700; text-decoration: none;
@@ -1187,6 +1214,7 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
         <a href="#toolkit-behavioral" class="toc-card toolkit-toc"><div class="toc-badge">T4</div><div class="toc-info"><div class="toc-title">Google L6 Leadership & Engineering Excellence</div><div class="toc-sub">Navigating outages, technical strategy, cross-team alignment</div></div></a>
         <a href="#toolkit-mentalmodel" class="toc-card toolkit-toc"><div class="toc-badge">T5</div><div class="toc-info"><div class="toc-title">The DDIA Mental Model &amp; Pattern Cheat Sheet</div><div class="toc-sub">How all 15 chapters connect, 18 problem&#8594;concept mappings, 20 classic mistakes</div></div></a>
         <a href="#toolkit-questionbank" class="toc-card toolkit-toc"><div class="toc-badge">T6</div><div class="toc-info"><div class="toc-title">What Google Actually Asks &mdash; Question Bank</div><div class="toc-sub">Two rounds not one, tiered question list, the L4/L5/L6 rubric ladder</div></div></a>
+        <a href="#toolkit-video" class="toc-card toolkit-toc"><div class="toc-badge">T7</div><div class="toc-info"><div class="toc-title">Further Study &mdash; Video &amp; Lecture References</div><div class="toc-sub">MIT 6.824, Kleppmann, CMU 15-445, channels ranked, and where video runs out</div></div></a>
       </div>
     </div>
   </div>
@@ -1367,7 +1395,16 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
     </div>
   </details>
 </div>
-<div class="qa-section"><h3>📝 Interview Q&A</h3><div class="qa"><div class="q">What's the difference between a node failure and a network partition? Why does it matter?</div><div class="a"><p><strong>Node failure:</strong> The machine itself is dead. Other nodes know this eventually (heartbeat times out). You can elect a new leader or route around it.</p><p><strong>Network partition:</strong> Machines are alive but can't talk to each other. This is far more dangerous because both sides might think they're healthy and start acting independently. The key danger is split-brain: two leaders both accepting writes, creating a consistency nightmare when the partition heals.</p><p><strong>Why it matters for design:</strong> Your failover logic must be partition-aware. A naive implementation that says 'if I don't hear from the leader in 5 seconds, I'll become the new leader' will cause split-brain during every network hiccup. Raft's election safety (only candidates with the most up-to-date log can win) prevents this.</div></div><div class="qa"><div class="q">Why is 'you can't tell slow from dead' so important?</div><div class="a"><p>It's the reason timeouts exist — and why they're so hard to tune. Too short: you think a slow node is dead, trigger unnecessary failover. Too long: you sit waiting for a truly dead node while users timeout.</p><p>More critically, it's why <strong>at-most-once</strong> semantics are almost impossible. If you send a request and don't get a reply, you must decide: did the server receive it? If yes, retrying does it twice. If no, not retrying means it never happened. Without idempotency, you can't safely retry — and you must always design your operations to be retryable.</p></div></div><div class="qa"><div class="q">A senior engineer says 'just use a timeout of 30 seconds to detect failures'. What's wrong with this?</div><div class="a"><p>Two problems: <strong>too slow</strong> and <strong>still incorrect</strong>.</p><p><strong>Too slow:</strong> 30 seconds of latency during failover is usually unacceptable. Modern systems use adaptive timeouts (Phi Accrual detector — exponential decay of heartbeat intervals) that detect failures in under 3 seconds without false positives.</p><p><strong>Still incorrect:</strong> A timeout tells you 'I haven't heard from this node in 30 seconds.' It does NOT tell you the node is dead. It might be paused for garbage collection (Java GC can pause for 10+ seconds), overloaded, or experiencing a one-way network failure (can receive but not send). A truly robust system needs health checks from multiple observers before declaring a node dead, plus fencing tokens to prevent the paused node from resuming and causing harm.</p></div></div></div></div>
+<div class="qa-section"><h3>📝 Interview Q&A</h3><div class="qa"><div class="q">What's the difference between a node failure and a network partition? Why does it matter?</div><div class="a"><p><strong>Node failure:</strong> The machine itself is dead. Other nodes know this eventually (heartbeat times out). You can elect a new leader or route around it.</p><p><strong>Network partition:</strong> Machines are alive but can't talk to each other. This is far more dangerous because both sides might think they're healthy and start acting independently. The key danger is split-brain: two leaders both accepting writes, creating a consistency nightmare when the partition heals.</p><p><strong>Why it matters for design:</strong> Your failover logic must be partition-aware. A naive implementation that says 'if I don't hear from the leader in 5 seconds, I'll become the new leader' will cause split-brain during every network hiccup. Raft's election safety (only candidates with the most up-to-date log can win) prevents this.</div></div><div class="qa"><div class="q">Why is 'you can't tell slow from dead' so important?</div><div class="a"><p>It's the reason timeouts exist — and why they're so hard to tune. Too short: you think a slow node is dead, trigger unnecessary failover. Too long: you sit waiting for a truly dead node while users timeout.</p><p>More critically, it's why <strong>at-most-once</strong> semantics are almost impossible. If you send a request and don't get a reply, you must decide: did the server receive it? If yes, retrying does it twice. If no, not retrying means it never happened. Without idempotency, you can't safely retry — and you must always design your operations to be retryable.</p></div></div><div class="qa"><div class="q">A senior engineer says 'just use a timeout of 30 seconds to detect failures'. What's wrong with this?</div><div class="a"><p>Two problems: <strong>too slow</strong> and <strong>still incorrect</strong>.</p><p><strong>Too slow:</strong> 30 seconds of latency during failover is usually unacceptable. Modern systems use adaptive timeouts (Phi Accrual detector — exponential decay of heartbeat intervals) that detect failures in under 3 seconds without false positives.</p><p><strong>Still incorrect:</strong> A timeout tells you 'I haven't heard from this node in 30 seconds.' It does NOT tell you the node is dead. It might be paused for garbage collection (Java GC can pause for 10+ seconds), overloaded, or experiencing a one-way network failure (can receive but not send). A truly robust system needs health checks from multiple observers before declaring a node dead, plus fencing tokens to prevent the paused node from resuming and causing harm.</p></div></div></div><div class="vidref">
+  <div class="label">&#9654; Watch alongside this chapter</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=y8f7ZG_UnGI" target="_blank" rel="noopener">Kleppmann &mdash; 2.3 System models</a> <span class="vr-meta">~14 min</span> &mdash; formalises exactly what you may and may not assume about a network and a clock. The vocabulary the rest of this guide uses.</li>
+    <li><a href="https://www.youtube.com/watch?v=MDuWnzVnfpI" target="_blank" rel="noopener">Kleppmann &mdash; 2.1 The two generals problem</a> <span class="vr-meta">~10 min</span> &mdash; the impossibility result behind &ldquo;a timeout tells you nothing&rdquo;.</li>
+    <li><a href="https://www.youtube.com/watch?v=43TDfUNsM3E" target="_blank" rel="noopener">Kleppmann &mdash; 2.4 Fault tolerance</a> <span class="vr-meta">~12 min</span> &mdash; the fault/failure distinction, from the author of the source book.</li>
+    <li><a href="https://www.youtube.com/watch?v=cQP8WApzIQQ" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 1: Introduction</a> <span class="vr-meta">~80 min</span> &mdash; sets up why every later topic exists. Watch if you want the graduate-course framing.</li>
+  </ul>
+</div>
+</div>
 
 
 <div class="chapter" id="ch2">
@@ -1648,7 +1685,15 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
     <li><strong>Order comes from messages, not clocks.</strong> Lamport timestamps capture causality; wall clocks do not.</li>
     <li><strong>Lamport timestamps still cannot enforce constraints</strong> &mdash; they lack finality, and finality requires consensus.</li>
   </ul>
-</div><div class="qa-section"><h3>📝 Interview Q&A</h3><div class="qa"><div class="q">Your team is designing a shopping cart. What consistency model do you need?</div><div class="a"><p><strong>Session guarantees (RYW + monotonic reads) for the user's own cart.</strong> When a user adds an item, they must immediately see it in their cart — RYW. They should never see their cart 'shrink' and then grow — monotonic reads.</p><p>Cross-cart consistency (what other users' carts look like) doesn't matter at all. Whether another user sees my cart changes in real-time is irrelevant to correctness.</p><p>The actual checkout (deducting inventory) needs stronger guarantees: you need linearizability on the inventory counter or a serializable transaction to prevent overselling. <strong>Good answer: 'Different parts of the cart system need different consistency levels.'</strong></div></div><div class="qa"><div class="q">A system architect says 'we'll use eventual consistency for everything to maximize availability.' What's your response?</div><div class="a"><p>Respectfully push back with specific counter-examples. Ask: 'What happens when two users try to book the same seat on a flight, and both reads show it's available because we're in eventual consistency?' The answer is both book it — a correctness violation.</p><p>The right framing: eventual consistency is appropriate when stale reads don't cause correctness violations or unacceptable user experience. It's fine for: social feeds, like counts, analytics, DNS. It's dangerous for: inventory, financial balances, unique constraints, distributed locks, leader election.</p><p>A mature system uses <strong>mixed consistency</strong>: eventual where it's safe, strong where it's not. DynamoDB, for example, offers eventual consistency (default) and strongly consistent reads (double the read cost) — so you choose per operation.</div></div><div class="qa"><div class="q">Explain read-your-writes and describe a real bug it would cause if violated.</div><div class="a"><p><strong>Read-your-writes:</strong> After a client performs a write, all subsequent reads by that same client reflect the write.</p><p><strong>Real bug scenario:</strong> A user changes their email address (write goes to master). They're immediately redirected to a confirmation page, which re-reads their profile from a stale replica. The page shows their old email address. The user panics, changes it again. Now you have a double-write bug — or worse, an infinite loop of email changes.</p><p><strong>Common fix:</strong> After a write, route subsequent reads from that session to the primary for 1-2 seconds, or pass a read-at-least token in the response that readers respect.</div></div></div></div>
+</div><div class="qa-section"><h3>📝 Interview Q&A</h3><div class="qa"><div class="q">Your team is designing a shopping cart. What consistency model do you need?</div><div class="a"><p><strong>Session guarantees (RYW + monotonic reads) for the user's own cart.</strong> When a user adds an item, they must immediately see it in their cart — RYW. They should never see their cart 'shrink' and then grow — monotonic reads.</p><p>Cross-cart consistency (what other users' carts look like) doesn't matter at all. Whether another user sees my cart changes in real-time is irrelevant to correctness.</p><p>The actual checkout (deducting inventory) needs stronger guarantees: you need linearizability on the inventory counter or a serializable transaction to prevent overselling. <strong>Good answer: 'Different parts of the cart system need different consistency levels.'</strong></div></div><div class="qa"><div class="q">A system architect says 'we'll use eventual consistency for everything to maximize availability.' What's your response?</div><div class="a"><p>Respectfully push back with specific counter-examples. Ask: 'What happens when two users try to book the same seat on a flight, and both reads show it's available because we're in eventual consistency?' The answer is both book it — a correctness violation.</p><p>The right framing: eventual consistency is appropriate when stale reads don't cause correctness violations or unacceptable user experience. It's fine for: social feeds, like counts, analytics, DNS. It's dangerous for: inventory, financial balances, unique constraints, distributed locks, leader election.</p><p>A mature system uses <strong>mixed consistency</strong>: eventual where it's safe, strong where it's not. DynamoDB, for example, offers eventual consistency (default) and strongly consistent reads (double the read cost) — so you choose per operation.</div></div><div class="qa"><div class="q">Explain read-your-writes and describe a real bug it would cause if violated.</div><div class="a"><p><strong>Read-your-writes:</strong> After a client performs a write, all subsequent reads by that same client reflect the write.</p><p><strong>Real bug scenario:</strong> A user changes their email address (write goes to master). They're immediately redirected to a confirmation page, which re-reads their profile from a stale replica. The page shows their old email address. The user panics, changes it again. Now you have a double-write bug — or worse, an infinite loop of email changes.</p><p><strong>Common fix:</strong> After a write, route subsequent reads from that session to the primary for 1-2 seconds, or pass a read-at-least token in the response that readers respect.</div></div></div><div class="vidref">
+  <div class="label">&#9654; Watch alongside this chapter</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=noUNH3jDLC0" target="_blank" rel="noopener">Kleppmann &mdash; 7.2 Linearizability</a> <span class="vr-meta">~22 min</span> &mdash; the single clearest explanation of the model, and why it is about real time rather than transactions.</li>
+    <li><a href="https://www.youtube.com/watch?v=9uCP3qHNbWw" target="_blank" rel="noopener">Kleppmann &mdash; 7.3 Eventual consistency</a> <span class="vr-meta">~20 min</span> &mdash; where the weaker models sit and what they actually promise.</li>
+    <li><a href="https://www.youtube.com/watch?v=OKHIdpOAxto" target="_blank" rel="noopener">Kleppmann &mdash; 3.3 Causality and happens-before</a> <span class="vr-meta">~14 min</span> &mdash; the partial order that causal consistency is built on.</li>
+  </ul>
+</div>
+</div>
 
 
 <div class="chapter" id="ch3">
@@ -1823,7 +1868,14 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
     </div>
   </details>
 </div>
-<div class="qa-section"><h3>📝 Interview Q&A</h3><div class="qa"><div class="q">Is it possible to build a system that is both highly available AND strongly consistent?</div><div class="a"><p>Yes — in the absence of partitions. PACELC's key insight is that the unavailability-vs-consistency trade-off only becomes <em>unavoidable</em> during a partition. In normal operation, Spanner achieves both high availability and strong consistency.</p><p>The catch: 'highly available' must be carefully defined. Spanner is available 99.999% of the time. But during the rare partition, it gives up availability on the minority side. If your SLO is five nines and partitions are extremely rare, you can effectively get both. You just can't have both simultaneously with <em>zero</em> compromise.</p></div></div><div class="qa"><div class="q">Your system uses Cassandra (AP). During a network partition, two nodes accepted conflicting writes to the same key. The partition heals. What happens?</div><div class="a"><p>Cassandra uses Last-Write-Wins (LWW) by default: the write with the higher timestamp wins. The other write is silently discarded. This can lose data.</p><p>More sophisticated options: (1) Vector clocks to detect conflicts, then surface them to the application for manual resolution. (2) CRDTs (Conflict-free Replicated Data Types) that auto-merge without data loss — e.g., a counter that always takes the max, a set that's the union. (3) Read-repair: on quorum reads, Cassandra detects divergence and writes the latest value back to stale nodes.</p><p><strong>Staff-level answer adds:</strong> 'For our use case of [X], data loss is acceptable / not acceptable. If not acceptable, we'd either use stronger consistency for this operation (W=ALL, R=ALL) or redesign the operation to be CRDT-compatible.'</div></div><div class="qa"><div class="q">Explain how Spanner achieves external consistency globally without a global lock.</div><div class="a"><p>Spanner uses <strong>TrueTime</strong>: GPS receivers and atomic clocks in every data center give a bounded clock uncertainty interval [earliest, latest] — typically ±1-7ms.</p><p>When Spanner commits a transaction, it assigns a timestamp T = TT.now().latest. Then it waits (<strong>commit wait</strong>) until TT.now().earliest > T — ensuring that T is definitely in the past for all nodes. This guarantees that any transaction committed after this one gets a timestamp strictly greater than T.</p><p>Result: transactions are ordered by real time. No global lock needed. Read-only transactions are completely lock-free — they read at a snapshot timestamp and are served by any replica that's up-to-date enough. This is why Spanner read performance is excellent despite strong consistency.</div></div></div></div>
+<div class="qa-section"><h3>📝 Interview Q&A</h3><div class="qa"><div class="q">Is it possible to build a system that is both highly available AND strongly consistent?</div><div class="a"><p>Yes — in the absence of partitions. PACELC's key insight is that the unavailability-vs-consistency trade-off only becomes <em>unavoidable</em> during a partition. In normal operation, Spanner achieves both high availability and strong consistency.</p><p>The catch: 'highly available' must be carefully defined. Spanner is available 99.999% of the time. But during the rare partition, it gives up availability on the minority side. If your SLO is five nines and partitions are extremely rare, you can effectively get both. You just can't have both simultaneously with <em>zero</em> compromise.</p></div></div><div class="qa"><div class="q">Your system uses Cassandra (AP). During a network partition, two nodes accepted conflicting writes to the same key. The partition heals. What happens?</div><div class="a"><p>Cassandra uses Last-Write-Wins (LWW) by default: the write with the higher timestamp wins. The other write is silently discarded. This can lose data.</p><p>More sophisticated options: (1) Vector clocks to detect conflicts, then surface them to the application for manual resolution. (2) CRDTs (Conflict-free Replicated Data Types) that auto-merge without data loss — e.g., a counter that always takes the max, a set that's the union. (3) Read-repair: on quorum reads, Cassandra detects divergence and writes the latest value back to stale nodes.</p><p><strong>Staff-level answer adds:</strong> 'For our use case of [X], data loss is acceptable / not acceptable. If not acceptable, we'd either use stronger consistency for this operation (W=ALL, R=ALL) or redesign the operation to be CRDT-compatible.'</div></div><div class="qa"><div class="q">Explain how Spanner achieves external consistency globally without a global lock.</div><div class="a"><p>Spanner uses <strong>TrueTime</strong>: GPS receivers and atomic clocks in every data center give a bounded clock uncertainty interval [earliest, latest] — typically ±1-7ms.</p><p>When Spanner commits a transaction, it assigns a timestamp T = TT.now().latest. Then it waits (<strong>commit wait</strong>) until TT.now().earliest > T — ensuring that T is definitely in the past for all nodes. This guarantees that any transaction committed after this one gets a timestamp strictly greater than T.</p><p>Result: transactions are ordered by real time. No global lock needed. Read-only transactions are completely lock-free — they read at a snapshot timestamp and are served by any replica that's up-to-date enough. This is why Spanner read performance is excellent despite strong consistency.</div></div></div><div class="vidref">
+  <div class="label">&#9654; Watch alongside this chapter</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=noUNH3jDLC0" target="_blank" rel="noopener">Kleppmann &mdash; 7.2 Linearizability</a> <span class="vr-meta">~22 min</span> &mdash; CAP is a statement about this specific model; the theorem is much narrower than folklore suggests.</li>
+    <li><a href="https://www.youtube.com/watch?v=uNxl3BFcKSA" target="_blank" rel="noopener">Kleppmann &mdash; 5.2 Quorums</a> <span class="vr-meta">~13 min</span> &mdash; how the availability half of the trade is actually bought.</li>
+  </ul>
+</div>
+</div>
 
 
 <div class="chapter" id="ch4">
@@ -2295,6 +2347,16 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
   </ul>
   <p>Next, Chapter 5 asks the complementary question: replication puts the <em>same</em> data on many machines; partitioning puts <em>different</em> data on different machines. Every real system does both, and their interaction is where the genuinely hard problems live.</p>
 </div>
+<div class="vidref">
+  <div class="label">&#9654; Watch alongside this chapter</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=mBUCF1WGI_I" target="_blank" rel="noopener">Kleppmann &mdash; 5.1 Replication</a> <span class="vr-meta">~18 min</span> &mdash; direct companion to this chapter.</li>
+    <li><a href="https://www.youtube.com/watch?v=uNxl3BFcKSA" target="_blank" rel="noopener">Kleppmann &mdash; 5.2 Quorums</a> <span class="vr-meta">~13 min</span> &mdash; the R + W &gt; N arithmetic and where it stops holding.</li>
+    <li><a href="https://www.youtube.com/watch?v=mlWOQuO55PE" target="_blank" rel="noopener">Kleppmann &mdash; 5.3 State machine replication</a> <span class="vr-meta">~18 min</span> &mdash; the bridge from replication to consensus.</li>
+    <li><a href="https://www.youtube.com/watch?v=M_teob23ZzY" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 4: Primary-Backup Replication</a> <span class="vr-meta">~80 min</span> &mdash; a real system's replication design, failure cases included.</li>
+    <li><a href="https://www.youtube.com/watch?v=IXHzbCuADt0" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 9: More Replication, CRAQ</a> <span class="vr-meta">~80 min</span> &mdash; chain replication, a design worth having in your vocabulary.</li>
+  </ul>
+</div>
 </div>
 
 
@@ -2592,7 +2654,14 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
     <li><strong>Automatic rebalancing plus automatic failure detection</strong> is a cascading-failure generator. Keep a human in the loop.</li>
   </ul>
   <p>Routing needs everyone to agree on where the data lives. That is consensus, and it is the subject of Chapter 6.</p>
-</div><div class="qa-section"><h3>📝 Interview Q&A</h3><div class="qa"><div class="q">You're designing a users table for a global social network with 1B users. How do you partition it?</div><div class="a"><p><strong>Hash partition by user_id.</strong> Here's the reasoning:</p><p>(1) Access pattern: the vast majority of reads/writes are by user_id (user logs in, fetch their profile). This is a point lookup — hash partitioning is ideal. (2) Range queries on users (e.g., 'all users who signed up in January') are rare and can be handled by a secondary index or analytics job. (3) Predictable distribution: user_ids are assigned sequentially, but hashed user_ids distribute uniformly. No hot partitions.</p><p>What you'd avoid: range partitioning by user_id (new users all on one shard) or by name (extreme skew — more Js than Xs). Staff-level answer also mentions: 'The partition key decision is the most important schema decision in Cassandra/DynamoDB. Get it wrong and you can't fix it without a full migration.'</div></div><div class="qa"><div class="q">Your Cassandra cluster has one hot partition handling 80% of write traffic. How do you fix it?</div><div class="a"><p><strong>First, diagnose:</strong> Which key is hot? Is it one specific record (celebrity user), or one partition range (today's timestamp)?</p><p><strong>For a celebrity key (one record getting massive writes):</strong> Key sharding — append a random suffix (0-9) to the key. Writes fan out across 10 keys. Reads must query all 10 and aggregate. The application must know about this pattern.</p><p><strong>For a time-based hot partition:</strong> Redesign the partition key to include a high-cardinality component. Instead of <code>PARTITION BY date</code>, use <code>PARTITION BY (date, user_id % 100)</code>. Distributes load across 100 partitions per day. Queries need to fan out to all 100 and merge — acceptable if you need this access pattern.</p><p><strong>Staff-level answer adds:</strong> 'I'd also add monitoring to detect this earlier. In production, Cassandra hot partitions often go undetected until a node OOMs. We should alert when any partition handles more than 3× average throughput.'</div></div></div></div>
+</div><div class="qa-section"><h3>📝 Interview Q&A</h3><div class="qa"><div class="q">You're designing a users table for a global social network with 1B users. How do you partition it?</div><div class="a"><p><strong>Hash partition by user_id.</strong> Here's the reasoning:</p><p>(1) Access pattern: the vast majority of reads/writes are by user_id (user logs in, fetch their profile). This is a point lookup — hash partitioning is ideal. (2) Range queries on users (e.g., 'all users who signed up in January') are rare and can be handled by a secondary index or analytics job. (3) Predictable distribution: user_ids are assigned sequentially, but hashed user_ids distribute uniformly. No hot partitions.</p><p>What you'd avoid: range partitioning by user_id (new users all on one shard) or by name (extreme skew — more Js than Xs). Staff-level answer also mentions: 'The partition key decision is the most important schema decision in Cassandra/DynamoDB. Get it wrong and you can't fix it without a full migration.'</div></div><div class="qa"><div class="q">Your Cassandra cluster has one hot partition handling 80% of write traffic. How do you fix it?</div><div class="a"><p><strong>First, diagnose:</strong> Which key is hot? Is it one specific record (celebrity user), or one partition range (today's timestamp)?</p><p><strong>For a celebrity key (one record getting massive writes):</strong> Key sharding — append a random suffix (0-9) to the key. Writes fan out across 10 keys. Reads must query all 10 and aggregate. The application must know about this pattern.</p><p><strong>For a time-based hot partition:</strong> Redesign the partition key to include a high-cardinality component. Instead of <code>PARTITION BY date</code>, use <code>PARTITION BY (date, user_id % 100)</code>. Distributes load across 100 partitions per day. Queries need to fan out to all 100 and merge — acceptable if you need this access pattern.</p><p><strong>Staff-level answer adds:</strong> 'I'd also add monitoring to detect this earlier. In production, Cassandra hot partitions often go undetected until a node OOMs. We should alert when any partition handles more than 3× average throughput.'</div></div></div><div class="vidref">
+  <div class="label">&#9654; Watch alongside this chapter</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=EpIgvowZr00" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 3: GFS</a> <span class="vr-meta">~80 min</span> &mdash; the canonical partitioned storage design, and a Google paper an interviewer may assume you know.</li>
+    <li><a href="https://www.youtube.com/watch?v=o7bjRUcDMx0" target="_blank" rel="noopener">CMU 15-445 &mdash; #22 Distributed Database Architectures</a> <span class="vr-meta">~75 min</span> &mdash; partitioning schemes as a database implementer sees them.</li>
+  </ul>
+</div>
+</div>
 
 
 <div class="chapter" id="ch6">
@@ -2923,7 +2992,16 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
     <li><strong>Uniqueness &#8800; ordering.</strong> Disjoint ID ranges give uniqueness at any scale with zero coordination.</li>
     <li><strong>Never implement it yourself.</strong> Use etcd, ZooKeeper, or a database that embeds Raft.</li>
   </ul>
-</div><div class="qa-section"><h3>📝 Interview Q&A</h3><div class="qa"><div class="q">In a 5-node Raft cluster, how many node failures can the system tolerate while still making progress?</div><div class="a"><p><strong>2 node failures.</strong> Raft requires a majority (⌊N/2⌋ + 1 = 3 nodes) for any decision. With 5 nodes and 2 failures, 3 remain — exactly the required majority. A third failure would leave only 2 nodes, less than the required 3, so no new log entries could be committed and no new leader could be elected.</p><p>Important nuance: the system can tolerate 2 <em>simultaneous</em> failures. During recovery from 1 failure (adding back a node), the system is vulnerable to a second failure — it's operating at minimum quorum.</div></div><div class="qa"><div class="q">A Raft leader crashes immediately after committing an entry (the majority ACKed, but followers haven't been told to apply it yet). What happens?</div><div class="a"><p>The committed entry is safe. Here's why: a majority of nodes have the entry in their logs. When a new election happens, any node without this entry will not be able to collect votes from a majority — because the nodes that do have it will reject votes from candidates whose log is behind. Therefore, only a node that already has the committed entry can win the election. The new leader will then send the entry to all followers in its first AppendEntries and tell them to commit it. No data loss.</p><p>This is Raft's key safety property: <strong>the Log Matching Property</strong>. Two logs agree on entries up to the committed index. The Election Restriction ensures this invariant is preserved across leader changes.</div></div><div class="qa"><div class="q">Your team is debating whether to use Raft or a database-level lock for distributed coordination. How do you advise?</div><div class="a"><p>Use a dedicated consensus service (etcd or ZooKeeper, which use Raft/Paxos internally) rather than rolling your own.</p><p><strong>Why not a database lock:</strong> Database locks depend on network connectivity to the database. If your service thinks it holds the lock but can't reach the database (partition), it might still proceed. You need fencing tokens (monotonically increasing numbers from the lock service) to prevent this. Database locks also don't survive database failovers cleanly.</p><p><strong>Why not roll your own Raft:</strong> Consensus is correctness-critical. A subtle bug in your implementation can lead to data loss or two leaders. etcd is battle-tested across millions of Kubernetes clusters. Unless you have very specific needs (e.g., embedded, no external dependency), use the existing tool.</p></div></div></div></div>
+</div><div class="qa-section"><h3>📝 Interview Q&A</h3><div class="qa"><div class="q">In a 5-node Raft cluster, how many node failures can the system tolerate while still making progress?</div><div class="a"><p><strong>2 node failures.</strong> Raft requires a majority (⌊N/2⌋ + 1 = 3 nodes) for any decision. With 5 nodes and 2 failures, 3 remain — exactly the required majority. A third failure would leave only 2 nodes, less than the required 3, so no new log entries could be committed and no new leader could be elected.</p><p>Important nuance: the system can tolerate 2 <em>simultaneous</em> failures. During recovery from 1 failure (adding back a node), the system is vulnerable to a second failure — it's operating at minimum quorum.</div></div><div class="qa"><div class="q">A Raft leader crashes immediately after committing an entry (the majority ACKed, but followers haven't been told to apply it yet). What happens?</div><div class="a"><p>The committed entry is safe. Here's why: a majority of nodes have the entry in their logs. When a new election happens, any node without this entry will not be able to collect votes from a majority — because the nodes that do have it will reject votes from candidates whose log is behind. Therefore, only a node that already has the committed entry can win the election. The new leader will then send the entry to all followers in its first AppendEntries and tell them to commit it. No data loss.</p><p>This is Raft's key safety property: <strong>the Log Matching Property</strong>. Two logs agree on entries up to the committed index. The Election Restriction ensures this invariant is preserved across leader changes.</div></div><div class="qa"><div class="q">Your team is debating whether to use Raft or a database-level lock for distributed coordination. How do you advise?</div><div class="a"><p>Use a dedicated consensus service (etcd or ZooKeeper, which use Raft/Paxos internally) rather than rolling your own.</p><p><strong>Why not a database lock:</strong> Database locks depend on network connectivity to the database. If your service thinks it holds the lock but can't reach the database (partition), it might still proceed. You need fencing tokens (monotonically increasing numbers from the lock service) to prevent this. Database locks also don't survive database failovers cleanly.</p><p><strong>Why not roll your own Raft:</strong> Consensus is correctness-critical. A subtle bug in your implementation can lead to data loss or two leaders. etcd is battle-tested across millions of Kubernetes clusters. Unless you have very specific needs (e.g., embedded, no external dependency), use the existing tool.</p></div></div></div><div class="vidref">
+  <div class="label">&#9654; Watch alongside this chapter</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=rN6ma561tak" target="_blank" rel="noopener">Kleppmann &mdash; 6.1 Consensus</a> <span class="vr-meta">~20 min</span> &mdash; why consensus, total order broadcast and leader election are one problem.</li>
+    <li><a href="https://www.youtube.com/watch?v=uXEYuDwm7e4" target="_blank" rel="noopener">Kleppmann &mdash; 6.2 Raft</a> <span class="vr-meta">~25 min</span> &mdash; the tightest short explanation of Raft available.</li>
+    <li><a href="https://www.youtube.com/watch?v=64Zp3tzNbpE" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 6: Fault Tolerance: Raft (1)</a> <span class="vr-meta">~80 min</span> and <a href="https://www.youtube.com/watch?v=4r8Mz3MMivY" target="_blank" rel="noopener">Lecture 7: Raft (2)</a> &mdash; the deep version, two lectures, worth the time at L6.</li>
+    <li><a href="https://www.youtube.com/watch?v=pbmyrNjzdDk" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 8: ZooKeeper</a> <span class="vr-meta">~80 min</span> &mdash; what consensus actually gets used for in production.</li>
+  </ul>
+</div>
+</div>
 
 
 <div class="chapter" id="ch7">
@@ -3486,6 +3564,15 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
   <p><strong>The single most useful instinct:</strong> before reaching for a distributed transaction, try to make the transaction local. Redraw the service boundary, co-locate the data, or move the invariant onto one row. Two things that always change together probably should not be two services.</p>
   <p>Chapter 8 explains <em>why</em> the distributed case is so much harder than it looks &mdash; not because of clever adversaries, but because clocks lie and processes pause.</p>
 </div>
+<div class="vidref">
+  <div class="label">&#9654; Watch alongside this chapter</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=-_rdWB9hN1c" target="_blank" rel="noopener">Kleppmann &mdash; 7.1 Two-phase commit</a> <span class="vr-meta">~18 min</span> &mdash; including precisely why the coordinator is a blocking single point of failure.</li>
+    <li><a href="https://www.youtube.com/watch?v=aDp99WDIM_4" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 12: Distributed Transactions</a> <span class="vr-meta">~80 min</span> &mdash; 2PC with concurrency control, at graduate depth.</li>
+    <li><a href="https://www.youtube.com/watch?v=bXpkEt5P_Js" target="_blank" rel="noopener">CMU 15-445 &mdash; #17 Two-Phase Locking</a> <span class="vr-meta">~75 min</span> and <a href="https://www.youtube.com/watch?v=niLwbfE3V9Q" target="_blank" rel="noopener">#19 Multi-Version Concurrency Control</a> &mdash; the isolation foundation this chapter opens with.</li>
+    <li><a href="https://www.youtube.com/watch?v=3wNmpE6DsSs" target="_blank" rel="noopener">CMU 15-445 &mdash; #23 Distributed Transactional Databases</a> <span class="vr-meta">~75 min</span> &mdash; how real distributed databases implement it.</li>
+  </ul>
+</div>
 </div>
 
 
@@ -3814,7 +3901,16 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
   </ul>
   <p>Which raises the question the next chapters answer: <em>how does a group of nodes agree on anything at all, when none of them can be trusted individually?</em> That is consensus.</p>
 </div>
-<div class="qa-section"><h3>📝 Interview Q&A</h3><div class="qa"><div class="q">Your team is debating whether to use timestamps or version numbers for conflict detection. How do you advise?</div><div class="a"><p><strong>Version numbers (monotonic integers) for conflict detection; timestamps for human-readable ordering.</strong></p><p>Timestamps fail for conflict detection because of clock skew. If Server A updates with ts=1000 and Server B updates with ts=999 (B's clock is slightly behind), LWW would choose A's write even if B's write came later in real time. You've silently lost data.</p><p>Version numbers (also called sequence numbers or ETags in HTTP) are safe: compare expected_version with current_version. If they match, proceed. If not, conflict detected. No clock dependence.</p><p>In practice: use optimistic locking with version numbers for conflict detection. Use timestamps only for things like 'when was this created' (human display), not for deciding which write wins.</div></div><div class="qa"><div class="q">Explain why vector clocks are better than Lamport clocks for detecting write conflicts in a distributed database.</div><div class="a"><p>Lamport clocks provide a total order — every event gets a number and A < B means A happened before B. But if A has Lamport clock 5 and B has clock 8, you cannot tell if A caused B or if they're concurrent. 8 > 5 just means B happened after A OR at the same time with a different process sequence.</p><p>Vector clocks provide partial order with concurrency detection. If VC_A = [2, 0, 0] and VC_B = [0, 2, 0], neither dominates the other — they're concurrent writes. Both happened without knowledge of the other. This is exactly when you have a conflict to resolve.</p><p>For a database, concurrent writes to the same key need to be resolved (LWW, app merge, or surfaced to user). Lamport clocks would silently discard one. Vector clocks let you detect and handle the conflict correctly.</div></div></div></div>
+<div class="qa-section"><h3>📝 Interview Q&A</h3><div class="qa"><div class="q">Your team is debating whether to use timestamps or version numbers for conflict detection. How do you advise?</div><div class="a"><p><strong>Version numbers (monotonic integers) for conflict detection; timestamps for human-readable ordering.</strong></p><p>Timestamps fail for conflict detection because of clock skew. If Server A updates with ts=1000 and Server B updates with ts=999 (B's clock is slightly behind), LWW would choose A's write even if B's write came later in real time. You've silently lost data.</p><p>Version numbers (also called sequence numbers or ETags in HTTP) are safe: compare expected_version with current_version. If they match, proceed. If not, conflict detected. No clock dependence.</p><p>In practice: use optimistic locking with version numbers for conflict detection. Use timestamps only for things like 'when was this created' (human display), not for deciding which write wins.</div></div><div class="qa"><div class="q">Explain why vector clocks are better than Lamport clocks for detecting write conflicts in a distributed database.</div><div class="a"><p>Lamport clocks provide a total order — every event gets a number and A < B means A happened before B. But if A has Lamport clock 5 and B has clock 8, you cannot tell if A caused B or if they're concurrent. 8 > 5 just means B happened after A OR at the same time with a different process sequence.</p><p>Vector clocks provide partial order with concurrency detection. If VC_A = [2, 0, 0] and VC_B = [0, 2, 0], neither dominates the other — they're concurrent writes. Both happened without knowledge of the other. This is exactly when you have a conflict to resolve.</p><p>For a database, concurrent writes to the same key need to be resolved (LWW, app merge, or surfaced to user). Lamport clocks would silently discard one. Vector clocks let you detect and handle the conflict correctly.</div></div></div><div class="vidref">
+  <div class="label">&#9654; Watch alongside this chapter</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=FQ_2N3AQu0M" target="_blank" rel="noopener">Kleppmann &mdash; 3.1 Physical time</a> <span class="vr-meta">~13 min</span> and <a href="https://www.youtube.com/watch?v=mAyW-4LeXZo" target="_blank" rel="noopener">3.2 Clock synchronisation</a> &mdash; why wall-clock time is not a number you may trust.</li>
+    <li><a href="https://www.youtube.com/watch?v=x-D8iFU1d-o" target="_blank" rel="noopener">Kleppmann &mdash; 4.1 Logical time</a> <span class="vr-meta">~15 min</span> &mdash; Lamport clocks and vector clocks, built up carefully.</li>
+    <li><a href="https://www.youtube.com/watch?v=oeycOVX70aE" target="_blank" rel="noopener">Kleppmann &mdash; 8.2 Google's Spanner</a> <span class="vr-meta">~20 min</span> &mdash; TrueTime and commit-wait explained by the author of the book.</li>
+    <li><a href="https://www.youtube.com/watch?v=4eW5SWBi7vs" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 13: Spanner</a> <span class="vr-meta">~80 min</span> &mdash; the same system read as a paper, with the awkward questions asked.</li>
+  </ul>
+</div>
+</div>
 
 
 <div class="chapter" id="ch9">
@@ -4198,6 +4294,14 @@ unthrottled channel to your database that your cache is powerless to intercept.<
   </ul>
   <p>Chapter 10 picks up exactly where the last point leaves off: once you accept that your origin can be overwhelmed, the question becomes how to distribute what arrives and how to refuse what you cannot serve.</p>
 </div>
+<div class="vidref">
+  <div class="label">&#9654; Watch alongside this chapter</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=Myp8z0ybdzM" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 16: Cache Consistency: Memcached at Facebook</a> <span class="vr-meta">~80 min</span> &mdash; the best single resource for this chapter. A production cache at enormous scale, including stampedes, invalidation races and the cold-cache problem.</li>
+    <li><a href="https://www.youtube.com/watch?v=-pKNCjUhPjQ" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 11: Cache Consistency: Frangipani</a> <span class="vr-meta">~80 min</span> &mdash; cache coherence when correctness genuinely matters.</li>
+    <li><a href="https://www.youtube.com/watch?v=iuqZvajTOyA" target="_blank" rel="noopener">System Design Interview &mdash; Distributed Cache</a> <span class="vr-meta">~40 min</span> &mdash; interview-shaped version of the same material; pairs with D12.</li>
+  </ul>
+</div>
 </div>
 <div class="chapter" id="ch10">
   <div class="ch-num">Chapter 10</div>
@@ -4578,6 +4682,14 @@ shedding is what stops you crossing it.</div>
   </ul>
   <p>Chapter 11 takes the same pressure and removes the time coupling entirely: if the caller does not need an answer now, a queue lets you accept the work and serve it at your own pace.</p>
 </div>
+<div class="vidref">
+  <div class="label">&#9654; Watch and read alongside this chapter</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=FU4WlwfS3G0" target="_blank" rel="noopener">System Design Interview &mdash; Rate Limiting (local and distributed)</a> <span class="vr-meta">~35 min</span> &mdash; the closest video match to the second half of this chapter, including the distributed-counter problem.</li>
+    <li><a href="https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/" target="_blank" rel="noopener">Amazon Builders&rsquo; Library &mdash; Timeouts, retries, and backoff with jitter</a> &mdash; Marc Brooker. The canonical treatment of why jitter is not optional.</li>
+  </ul>
+  <div class="vr-none">On metastable failure I could not find a recorded talk. Read instead: <a href="https://sigops.org/s/conferences/hotos/2021/papers/hotos21-s11-bronson.pdf" target="_blank" rel="noopener">Metastable Failures in Distributed Systems</a> (HotOS 2021, 5 pages &mdash; short and worth reading in full), <a href="https://brooker.co.za/blog/2021/05/24/metastable.html" target="_blank" rel="noopener">Marc Brooker&rsquo;s post on it</a>, and the <a href="https://www.usenix.org/publications/loginonline/metastable-failures-wild" target="_blank" rel="noopener">USENIX &#59;login&#59; follow-up</a>.</div>
+</div>
 </div>
 <div class="chapter" id="ch11">
   <div class="ch-num">Chapter 11</div>
@@ -4645,7 +4757,15 @@ shedding is what stops you crossing it.</div>
     <p class="pd-prompt">When a user uploads a video to YouTube, it must be transcoded into 10 quality levels (360p to 4K), thumbnails generated, audio separated, metadata extracted, and made available for streaming — all asynchronously. Design this pipeline.</p>
     <div class="pd-hints"><strong>Hint areas to cover:</strong><ul><li>What queue/topic structure do you use? One topic per job type, or one per video?</li><li>How do you handle a 4-hour video transcode that times out?</li><li>How do you track the progress of a multi-step pipeline per video?</li><li>What happens if transcoding fails for 1080p but succeeds for 360p? Partial release?</li><li>How do you prioritize premium users' uploads over free users?</li><li>How do you handle retry without re-downloading the raw video from storage every time?</li></ul></div>
   </div>
-</div></div>
+</div><div class="vidref">
+  <div class="label">&#9654; Watch alongside this chapter</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=iJLL-KPqBpM" target="_blank" rel="noopener">System Design Interview &mdash; Distributed Message Queue</a> <span class="vr-meta">~55 min</span> &mdash; the best free walkthrough of queue design; pairs directly with D7.</li>
+    <li><a href="https://www.youtube.com/watch?v=A8oamrHf_cQ" target="_blank" rel="noopener">Kleppmann &mdash; 4.2 Broadcast ordering</a> <span class="vr-meta">~16 min</span> &mdash; FIFO, causal and total order, which is what delivery guarantees actually mean.</li>
+    <li><a href="https://www.youtube.com/watch?v=77qpCahU3fo" target="_blank" rel="noopener">Kleppmann &mdash; 4.3 Broadcast algorithms</a> <span class="vr-meta">~15 min</span> &mdash; how those orderings are implemented.</li>
+  </ul>
+</div>
+</div>
 <div class="chapter" id="ch12">
   <div class="ch-num">Chapter 12</div>
   <div class="ch-title">Database Internals</div>
@@ -4987,7 +5107,17 @@ shedding is what stops you crossing it.</div>
     <p class="pd-prompt">You're building a system to store and query infrastructure metrics (CPU, memory, network) for 100,000 servers, each reporting 100 metrics every 10 seconds. Design the storage layer.</p>
     <div class="pd-hints"><strong>Hint areas to cover:</strong><ul><li>Calculate the write QPS: 100K servers × 100 metrics × 1/10 = how much?</li><li>Why is a traditional RDBMS wrong here? (Hint: think about access patterns and write amplification)</li><li>How would an LSM-tree storage engine (like Bigtable/Cassandra) handle this better?</li><li>What's your data model? Partition key? Clustering key?</li><li>How do you handle 'downsample' queries (avg CPU for last hour, per-minute resolution)?</li><li>How do you expire old data efficiently (keep last 90 days)?</li></ul></div>
   </div>
-</div></div>
+</div><div class="vidref">
+  <div class="label">&#9654; Watch alongside this chapter</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=IHtVWGhG0Xg" target="_blank" rel="noopener">CMU 15-445 &mdash; #04 Log-Structured Merge Trees</a> <span class="vr-meta">~75 min</span> &mdash; LSM internals in far more depth than any interview needs, which is the point.</li>
+    <li><a href="https://www.youtube.com/watch?v=scUtG_6M_lU" target="_blank" rel="noopener">CMU 15-445 &mdash; #08 Tree Indexes: B+Trees</a> <span class="vr-meta">~75 min</span> &mdash; the other half of the storage-engine trade.</li>
+    <li><a href="https://www.youtube.com/watch?v=nhlpwmOBEiE" target="_blank" rel="noopener">CMU 15-445 &mdash; #05 Row vs. Column Storage + Compression</a> <span class="vr-meta">~75 min</span> &mdash; the OLTP/OLAP split this chapter closes on.</li>
+    <li><a href="https://www.youtube.com/watch?v=foMMYyycRgk" target="_blank" rel="noopener">CMU 15-445 &mdash; #09 Vector Indexes, Inverted Indexes, Filters, Tries</a> <span class="vr-meta">~75 min</span> &mdash; one lecture covering four structures this guide uses; also the best lead-in to D14.</li>
+    <li><a href="https://www.youtube.com/watch?v=yVpzHdAP0TY" target="_blank" rel="noopener">CMU 15-445 &mdash; #21 Database Recovery with ARIES</a> <span class="vr-meta">~75 min</span> &mdash; write-ahead logging done properly.</li>
+  </ul>
+</div>
+</div>
 <div class="chapter" id="ch13">
   <div class="ch-num">Chapter 13</div>
   <div class="ch-title">Microservices & Resilience Patterns</div>
@@ -5049,7 +5179,15 @@ shedding is what stops you crossing it.</div>
     <p class="pd-prompt">Your payment service calls 4 downstream services: Fraud Detection, Card Processor, Ledger Service, and Notification Service. Any of these can fail. Design the resilience patterns to ensure payment failures are handled gracefully.</p>
     <div class="pd-hints"><strong>Hint areas to cover:</strong><ul><li>Which services are on the critical path (payment fails if they fail) vs optional?</li><li>For each critical service: what's your timeout and retry strategy?</li><li>Where do you put circuit breakers? What are the thresholds?</li><li>Fraud detection takes 200ms on average but spikes to 5s during model reloads. Bulkhead?</li><li>If the Ledger Service is down, should you still charge the card? Outbox pattern?</li><li>Notification failure (email) should never fail a payment — how do you ensure this?</li></ul></div>
   </div>
-</div></div>
+</div><div class="vidref">
+  <div class="label">&#9654; Watch and read alongside this chapter</div>
+  <ul>
+    <li><a href="https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/" target="_blank" rel="noopener">Amazon Builders&rsquo; Library &mdash; Timeouts, retries, and backoff with jitter</a> &mdash; retry behaviour is the core of resilience and this is the reference treatment.</li>
+    <li><a href="https://brooker.co.za/blog/publications.html" target="_blank" rel="noopener">Marc Brooker &mdash; publications and talks</a> &mdash; including <em>Try again: the tools and techniques behind resilient systems</em> (AWS re:Invent 2024, ARC403), which covers circuit breaking and stable-system theory.</li>
+  </ul>
+  <div class="vr-none">Note the overlap with Ch 10: retry budgets, jitter and metastable failure are developed there rather than here, because they belong next to load shedding.</div>
+</div>
+</div>
 <div class="chapter" id="ch14">
   <div class="ch-num">Chapter 14</div>
   <div class="ch-title">Observability & SRE</div>
@@ -5199,7 +5337,14 @@ shedding is what stops you crossing it.</div>
     <p class="pd-prompt">You have 50 microservices. Design the observability system that lets on-call engineers diagnose any incident in under 15 minutes.</p>
     <div class="pd-hints"><strong>Hint areas to cover:</strong><ul><li>What metrics do you collect per service? What alerting thresholds?</li><li>How do you correlate a user-reported bug ('my checkout is slow') to a specific service?</li><li>How do you implement distributed tracing with minimal overhead?</li><li>What does your on-call runbook look like for a latency spike?</li><li>How do you detect anomalies automatically without manually setting thresholds?</li><li>How do you store 90 days of metrics without it costing a fortune?</li></ul></div>
   </div>
-</div></div>
+</div><div class="vidref">
+  <div class="label">&#9654; Watch alongside this chapter</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=Myp8z0ybdzM" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 16: Memcached at Facebook</a> <span class="vr-meta">~80 min</span> &mdash; not an observability lecture, but an unusually honest account of measuring and operating a system at scale.</li>
+  </ul>
+  <div class="vr-none">Video coverage of observability at this depth is genuinely thin. The strongest free material is written rather than recorded &mdash; the Google SRE books, and the Prometheus and OpenTelemetry documentation. If you find a good recorded talk on high-cardinality metrics, it will be worth more than another system-design video.</div>
+</div>
+</div>
 <div class="chapter" id="ch15">
   <div class="ch-num">Chapter 15</div>
   <div class="ch-title">Security & API Design</div>
@@ -5400,6 +5545,14 @@ shedding is what stops you crossing it.</div>
     <div class="pd-hints"><strong>Hint areas to cover:</strong><ul><li>How do API keys work? How are they stored securely?</li><li>How do you rate limit by API key AND by endpoint (different limits per endpoint)?</li><li>How do you implement idempotency for POST /charges?</li><li>How do you version the API while maintaining backwards compatibility?</li><li>How do you handle API key rotation without service disruption?</li><li>What should your API error responses look like? (Hint: Stripe's error format is excellent)</li></ul></div>
   </div>
 </div></div>
+<div class="vidref">
+  <div class="label">&#9654; Watch alongside this chapter</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=S2osKiqQG9s" target="_blank" rel="noopener">Kleppmann &mdash; 1.3 RPC (Remote Procedure Call)</a> <span class="vr-meta">~16 min</span> &mdash; the encoding and interface-evolution material this chapter folds in.</li>
+    <li><a href="https://www.youtube.com/watch?v=gA4YXUJX7t8" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 2: RPC and Threads</a> <span class="vr-meta">~80 min</span> &mdash; the same ground with the failure semantics made explicit.</li>
+  </ul>
+  <div class="vr-none">For the security half, the OWASP API Security Top 10 is the better reference and is written, not recorded.</div>
+</div>
 </div>
 
 <div class="content" id="part2-designs">
@@ -5731,7 +5884,14 @@ shedding is what stops you crossing it.</div>
 </div><div class="design-step fault">
   <div class="ds-header">[shield] 8. Fault Tolerance</div>
   <div class="ds-body"><div class="ft-row"><div class="ft-fail">Node failure (permanent)</div><div class="ft-fix">Detect via gossip heartbeat timeout (phi = 8 threshold). Remove from ring. Adjacent nodes inherit its key range. Replica count temporarily drops to 2; auto-repair brings it back to 3 via anti-entropy within minutes.</div></div><div class="ft-row"><div class="ft-fail">Network partition (split-ring)</div><div class="ft-fix">Both halves continue serving with their available replicas. Writes with W=2 succeed on majority side, fail on minority (if only 1 replica there). On heal: anti-entropy detects divergence, repairs. LWW resolves conflicts.</div></div><div class="ft-row"><div class="ft-fail">Hot key (one key getting 1M QPS)</div><div class="ft-fix">Detect via coordinator: if key appears in >10% of requests -> replicate to local cache. Or: key sharding -- append suffix (0-9), fan-out writes to 10 keys, fan-in reads with merge.</div></div></div>
-</div></div>
+</div><div class="vidref">
+  <div class="label">&#9654; Watch alongside this design</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=EpIgvowZr00" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 3: GFS</a> <span class="vr-meta">~80 min</span> &mdash; the storage paper every Google interviewer assumes exists.</li>
+    <li><a href="https://www.youtube.com/watch?v=IXHzbCuADt0" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 9: More Replication, CRAQ</a> <span class="vr-meta">~80 min</span> &mdash; chain replication as an alternative to the quorum design used here.</li>
+  </ul>
+</div>
+</div>
 </div>
 <div class="design-card">
   <div class="dc-header">
@@ -6125,7 +6285,13 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 </div><div class="design-step fault">
   <div class="ds-header">[shield] 8. Fault Tolerance</div>
   <div class="ds-body"><div class="ft-row"><div class="ft-fail">Leader Broker Crashes</div><div class="ft-fix">KRaft controller detects heartbeat failure in <3s. Elects new leader from the ISR pool. No committed data is lost because ISR nodes are byte-for-byte in sync up to HW.</div></div><div class="ft-row"><div class="ft-fail">Slow / Stalled Follower</div><div class="ft-fix">Controller evicts the lagging node from ISR so it does not block produce requests when acks=all. Once caught up, it rejoins the ISR.</div></div><div class="ft-row"><div class="ft-fail">Consumer Crashes during processing</div><div class="ft-fix">Consumer group coordinator detects missed heartbeat (session.timeout.ms). Triggers Consumer Group Rebalance, reassigning crashed consumer's partitions to remaining workers from last committed offset.</div></div><div class="ft-row"><div class="ft-fail">Split Brain in Controller Quorum</div><div class="ft-fix">KRaft uses Raft majority quorum (e.g. 3 of 5 nodes). A network partition cannot elect an illegitimate leader in the minority partition.</div></div></div>
-</div></div>
+</div><div class="vidref">
+  <div class="label">&#9654; Watch alongside this design</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=iJLL-KPqBpM" target="_blank" rel="noopener">System Design Interview &mdash; Distributed Message Queue</a> <span class="vr-meta">~55 min</span> &mdash; the closest match to this design anywhere on YouTube. Watch it after reading, and note where his choices differ from these.</li>
+  </ul>
+</div>
+</div>
 </div>
 
 <div class="design-card">
@@ -6272,7 +6438,13 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 </div><div class="design-step fault">
   <div class="ds-header">[shield] 8. Fault Tolerance</div>
   <div class="ds-body"><div class="ft-row"><div class="ft-fail">Upload Aborted Midway (Network drop)</div><div class="ft-fix">Chunk uploads are idempotent. Client queries <code>/upload/status</code> with upload_id, receives list of already-persisted chunks, and resumes only the remaining chunks without re-uploading.</div></div><div class="ft-row"><div class="ft-fail">S3 / Cloud Storage Outage</div><div class="ft-fix">Blob storage is multi-region replicated (e.g. S3 Cross-Region Replication). Read requests failover to secondary region CDN endpoint.</div></div><div class="ft-row"><div class="ft-fail">Metadata DB Primary Failure</div><div class="ft-fix">Spanner / CockroachDB uses Multi-Paxos / Raft per range. Automatic leader election completes in <2s with zero data loss.</div></div><div class="ft-row"><div class="ft-fail">Zombie / Corrupt Chunks</div><div class="ft-fix">Every downloaded chunk is verified against its expected SHA-256 hash by the client. If corrupted, client requests chunk from alternate replica.</div></div></div>
-</div></div>
+</div><div class="vidref">
+  <div class="label">&#9654; Watch alongside this design</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=EpIgvowZr00" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 3: GFS</a> <span class="vr-meta">~80 min</span> &mdash; chunked distributed file storage, which is the substrate this design sits on.</li>
+  </ul>
+</div>
+</div>
 </div>
 
 <div class="design-card">
@@ -6685,7 +6857,14 @@ temporarily out of capacity without loss.</div></div>
 <div class="ft-row"><div class="ft-fail">Cardinality bomb from one team</div><div class="ft-fix">Per-tenant series budget enforced at the collector: series beyond the budget are rejected with a named error and an alert to the owning team. Blast radius is one tenant instead of the cluster. This is the single most important safeguard in the design.</div></div>
 <div class="ft-row"><div class="ft-fail">Object storage degraded</div><div class="ft-fix">Recent data is still served from the in-memory head and local blocks, so dashboards and alerting for the last few hours keep working &mdash; which is the window that matters during an incident. Historical queries fail fast with a clear error rather than hanging.</div></div>
 <div class="ft-row"><div class="ft-fail">The observability system causes an incident</div><div class="ft-fix">Agents are hard-capped on CPU and memory via cgroups and drop telemetry rather than compete with the application they observe. Ingest endpoints are on separate capacity from query, so a dashboard stampede during an outage cannot block ingestion. This inversion &mdash; monitoring taking down production &mdash; is common enough that you should raise it unprompted.</div></div></div>
-</div></div>
+</div><div class="vidref">
+  <div class="label">&#9654; Watch and read alongside this design</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=nhlpwmOBEiE" target="_blank" rel="noopener">CMU 15-445 &mdash; #05 Row vs. Column Storage + Compression</a> <span class="vr-meta">~75 min</span> &mdash; the columnar and compression foundations a TSDB is built from.</li>
+  </ul>
+  <div class="vr-none">This design has no good video match, which is itself informative &mdash; the infrastructure round is the under-served half of the free video landscape. The primary sources are the Gorilla paper (Facebook, VLDB 2015) and the Prometheus TSDB documentation.</div>
+</div>
+</div>
 </div>
 
 <div class="design-card">
@@ -6803,7 +6982,14 @@ coordinator. Consensus is confined to membership, which changes a few times a we
 <div class="ft-row"><div class="ft-fail">Whole cache tier restarts</div><div class="ft-fix">The genuine disaster: hit rate goes to 0% and the origin sees 20-100x its normal load, which is a metastable failure it will not recover from on its own. Mitigate with staggered restarts (never more than 10% of the fleet at once), a concurrency limit on origin fill so the cache cannot forward more than the origin can serve, and load shedding beyond it. <span class="srcref">Ch 10</span></div></div>
 <div class="ft-row"><div class="ft-fail">Hot key saturates one node's NIC</div><div class="ft-fix">Count-min sketch detects the key, the control plane promotes it to replicated + client-L1 mode automatically. Detection must be automatic: by the time a human has read the graph, the node has been dropping packets for ten minutes.</div></div>
 <div class="ft-row"><div class="ft-fail">Ring disagreement between clients</div><div class="ft-fix">During a config rollout, two clients may briefly hold different rings and write the same key to different nodes -- producing two divergent copies with no reconciliation. TTLs bound the damage, and the config service versions the ring so a client can detect and refuse a stale topology. This is why membership is the one thing that gets consensus.</div></div></div>
-</div></div>
+</div><div class="vidref">
+  <div class="label">&#9654; Watch alongside this design</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=iuqZvajTOyA" target="_blank" rel="noopener">System Design Interview &mdash; Distributed Cache</a> <span class="vr-meta">~40 min</span> &mdash; the direct companion to this design, covering consistent hashing and eviction at interview depth.</li>
+    <li><a href="https://www.youtube.com/watch?v=Myp8z0ybdzM" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 16: Memcached at Facebook</a> <span class="vr-meta">~80 min</span> &mdash; the production reality: what actually broke, and what they did about it. Read the paper too if you have time.</li>
+  </ul>
+</div>
+</div>
 </div>
 
 
@@ -6920,7 +7106,14 @@ cheaper than rebuilding 150 GB every minute.</div></div>
 <div class="ft-row"><div class="ft-fail">Serving shard dies</div><div class="ft-fix">Data is immutable and fully replicated, so any surviving replica answers identically -- no rebuild, no repartition, no state to recover. This is the payoff for making the serving tier stateless over a read-only snapshot: node failure is a routing event, not a data event.</div></div>
 <div class="ft-row"><div class="ft-fail">Traffic spike (breaking news)</div><div class="ft-fix">The spike concentrates on a few prefixes, which is the best possible shape for a cache -- CDN and client caching absorb the bulk of it. Beyond that, shed load by shortening result lists and raising client debounce via a server-pushed config, degrading quality before availability.</div></div>
 <div class="ft-row"><div class="ft-fail">Offensive suggestion surfaces</div><div class="ft-fix">Blocklist evaluated at build AND serve time, because the streaming overlay skips the batch review path. Serve-time filtering also gives a same-minute kill switch for a specific term without waiting for a rebuild -- which is the response time this class of incident actually requires.</div></div></div>
-</div></div>
+</div><div class="vidref">
+  <div class="label">&#9654; Watch alongside this design</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=kx-XDoPjoHw" target="_blank" rel="noopener">System Design Interview &mdash; Top K Problem (Heavy Hitters)</a> <span class="vr-meta">~45 min</span> &mdash; the ranking and count-min sketch machinery behind both the trending lane here and D11's hot-key detection.</li>
+    <li><a href="https://www.youtube.com/watch?v=foMMYyycRgk" target="_blank" rel="noopener">CMU 15-445 &mdash; #09 Vector Indexes, Inverted Indexes, Filters, Tries</a> <span class="vr-meta">~75 min</span> &mdash; tries as a database implementer builds them.</li>
+  </ul>
+</div>
+</div>
 </div>
 
 <div class="design-card">
@@ -7049,6 +7242,16 @@ cost 10&times; as much and answer worse.</div></div>
 <div class="ft-row"><div class="ft-fail">Document permissions change</div><div class="ft-fix">This is a correctness AND security issue: revocation must propagate faster than re-indexing. Resolve ACLs at query time against the live permission service for the candidate set, using the denormalised acl_groups only as a pre-filter. Slightly slower, and it means a revoked user stops seeing content within seconds rather than at the next index build.</div></div>
 <div class="ft-row"><div class="ft-fail">Prompt injection from document content</div><div class="ft-fix">Retrieved chunks are untrusted input, not instructions -- a document containing "ignore previous instructions" must not be obeyed. Keep retrieved content in a clearly delimited region of the prompt, instruct the model to treat it as data, and validate that emitted citations actually point at retrieved chunks. Treat this as an injection class alongside SQL injection, not as an AI curiosity. <span class="srcref">Ch 15</span></div></div></div>
 </div></div>
+<div class="vidref">
+  <div class="label">&#9654; Watch alongside this design</div>
+  <ul>
+    <li><a href="https://www.youtube.com/watch?v=7xTGNNLPyMI" target="_blank" rel="noopener">Andrej Karpathy &mdash; Deep Dive into LLMs like ChatGPT</a> <span class="vr-meta">3h 31m</span> &mdash; the full training stack. The best single grounding if an AI round comes up; watch at 1.5&times; if time is short.</li>
+    <li><a href="https://www.youtube.com/watch?v=zjkBMFhNj_g" target="_blank" rel="noopener">Andrej Karpathy &mdash; Intro to Large Language Models</a> <span class="vr-meta">~60 min</span> &mdash; the shorter version if 3.5 hours is not available to you.</li>
+    <li><a href="https://www.youtube.com/watch?v=eMlx5fFNoYc" target="_blank" rel="noopener">3Blue1Brown &mdash; Attention in transformers, step-by-step</a> <span class="vr-meta">~26 min</span> &mdash; the fastest route to real intuition for the mechanism rather than the vocabulary.</li>
+    <li><a href="https://www.youtube.com/watch?v=LPZh9BOjkQs" target="_blank" rel="noopener">3Blue1Brown &mdash; Large Language Models explained briefly</a> <span class="vr-meta">~8 min</span> &mdash; worth watching first if the whole area is new.</li>
+    <li><a href="https://www.youtube.com/watch?v=foMMYyycRgk" target="_blank" rel="noopener">CMU 15-445 &mdash; #09 Vector Indexes, Inverted Indexes, Filters, Tries</a> <span class="vr-meta">~75 min</span> &mdash; vector indexes and inverted indexes in one lecture, which is exactly the hybrid retrieval this design uses.</li>
+  </ul>
+</div>
 </div>
 </div>
 
@@ -7537,6 +7740,118 @@ cost 10&times; as much and answer worse.</div></div>
         <li><strong>Volunteer the failure modes.</strong> If the interviewer has to ask &ldquo;what happens when that node dies&rdquo;, you have already handed away the point.</li>
         <li><strong>Budget time for the end.</strong> The highest-signal discussion is late-round trade-offs and failure analysis. Candidates who over-invest in the first architecture diagram never reach it.</li>
       </ul>
+    </div>
+  </div>
+</div>
+
+<div class="content" id="part3-video">
+
+  <div class="toolkit-card" id="toolkit-video">
+    <h3>7. Further Study &mdash; Video &amp; Lecture References</h3>
+
+    <p>Every chapter and most designs in this guide now end with a <strong>&#9654; Watch alongside</strong>
+    block pointing at specific lectures. This card is the consolidated index: what each source is,
+    who it is for, and where it stops being useful. Every link was checked before it was added.</p>
+
+    <div class="insight">
+      <div class="label">&#128161; How to actually use these</div>
+      <p><strong>Do not watch a course.</strong> Twenty-six hours of lectures is a worse use of your
+      time than four targeted ones. The per-chapter blocks exist so you can watch the single lecture
+      that covers the thing you are shaky on, then come back. Use video to repair a specific gap,
+      not to feel productive.</p>
+    </div>
+
+    <h4>The two that matter most at L6</h4>
+
+    <div class="tw"><table class="to">
+      <thead><tr><th style="width:26%">Source</th><th style="width:16%">Shape</th><th style="width:58%">Why this one</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong><a href="https://www.youtube.com/playlist?list=PLeKd45zvjcDFUEv_ohr_HdUFe97RItdiB" target="_blank" rel="noopener">Martin Kleppmann &mdash; Distributed Systems</a></strong><br><span class="vr-meta">Cambridge, 23 videos, ~7 h</span></td>
+          <td class="chosen">Best match to Part 1</td>
+          <td>Same author as the book this guide is built from, so it maps onto these chapters almost one-to-one and uses the same vocabulary. Short, dense lectures &mdash; most are 12&ndash;25 minutes, so a single topic is a single sitting. <a href="https://www.cl.cam.ac.uk/teaching/2122/ConcDisSys/dist-sys-notes.pdf" target="_blank" rel="noopener">Lecture notes PDF</a> &middot; <a href="https://www.distributedsystemscourse.com/" target="_blank" rel="noopener">course site</a>. CC BY-SA licensed.</td>
+        </tr>
+        <tr>
+          <td><strong><a href="https://www.youtube.com/playlist?list=PLrw6a1wE39_tb2fErI4-WkMbsvGQk9_UB" target="_blank" rel="noopener">MIT 6.824 / 6.5840</a></strong><br><span class="vr-meta">Robert Morris, 20 lectures, ~80 min each</span></td>
+          <td class="chosen">Best depth</td>
+          <td>Paper-driven and taught at graduate level &mdash; GFS, Raft, Spanner, ZooKeeper, Memcached at Facebook. This is the register an L6 infrastructure round expects. The <a href="https://pdos.csail.mit.edu/6.824/" target="_blank" rel="noopener">course site</a> carries the paper list and the labs, which are the real value if you have the time.</td>
+        </tr>
+        <tr>
+          <td><strong><a href="https://www.youtube.com/playlist?list=PLSE8ODhjZXjYDBpQnSymaectKjxCy6BYq" target="_blank" rel="noopener">CMU 15-445 Intro to Database Systems</a></strong><br><span class="vr-meta">Andy Pavlo, 26 lectures</span></td>
+          <td class="chosen">For Ch 12</td>
+          <td>Storage engines, indexes, concurrency control, recovery, and increasingly distributed and vector indexes. Far deeper than an interview requires, which is exactly why it makes Ch 12 feel easy afterwards.</td>
+        </tr>
+      </tbody>
+    </table></div>
+
+    <h4>Interview-shaped channels, ranked for this level</h4>
+
+    <div class="tw"><table class="to">
+      <thead><tr><th style="width:26%">Channel</th><th style="width:16%">Verdict</th><th style="width:58%">Notes</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong><a href="https://www.youtube.com/@jordanhasnolife5163" target="_blank" rel="noopener">Jordan has no life</a></strong></td>
+          <td class="chosen">Recommended</td>
+          <td>Consistently described as the deepest free system-design resource and explicitly aimed at senior and staff candidates. Works through DDIA chapter by chapter, which lines up with how this guide is built.</td>
+        </tr>
+        <tr>
+          <td><strong><a href="https://www.youtube.com/@SystemDesignInterview" target="_blank" rel="noopener">System Design Interview</a></strong><br><span class="vr-meta">Mikhail Smarshchok, ex-AWS</span></td>
+          <td class="chosen">Recommended</td>
+          <td>Few videos, unusually high rigour. Four of them map directly onto this guide: <a href="https://www.youtube.com/watch?v=iuqZvajTOyA" target="_blank" rel="noopener">Distributed Cache</a> (D12), <a href="https://www.youtube.com/watch?v=FU4WlwfS3G0" target="_blank" rel="noopener">Rate Limiting</a> (Ch 10), <a href="https://www.youtube.com/watch?v=iJLL-KPqBpM" target="_blank" rel="noopener">Distributed Message Queue</a> (D7), <a href="https://www.youtube.com/watch?v=kx-XDoPjoHw" target="_blank" rel="noopener">Top K / Heavy Hitters</a> (D13). His <a href="https://www.youtube.com/watch?v=bUHFg8CZFws" target="_blank" rel="noopener">step-by-step guide</a> pairs with T1. He also has a <a href="https://www.youtube.com/watch?v=bBTPZ9NdSk8" target="_blank" rel="noopener">Notification Service</a> video &mdash; useful, because that is one of the five questions T6 still lists as a gap here.</td>
+        </tr>
+        <tr>
+          <td><strong>Hussein Nasser</strong></td>
+          <td>Situational</td>
+          <td>Genuinely strong on protocols, proxies and database internals specifically. Less useful as system-design practice.</td>
+        </tr>
+        <tr>
+          <td><strong>ByteByteGo</strong> <span class="vr-meta">(Alex Xu)</span></td>
+          <td class="rej">Below this level</td>
+          <td>Polished and visual, good for fast breadth, but pitched below L6. You will not learn anything here that this guide has not already covered more deeply.</td>
+        </tr>
+        <tr>
+          <td><strong>Gaurav Sen</strong></td>
+          <td class="rej">Below this level</td>
+          <td>Popular, and roughly L4/L5 in depth. Skip it.</td>
+        </tr>
+      </tbody>
+    </table></div>
+
+    <h4>For the AI/ML round (D14)</h4>
+
+    <ul>
+      <li><a href="https://www.youtube.com/watch?v=7xTGNNLPyMI" target="_blank" rel="noopener">Andrej Karpathy &mdash; Deep Dive into LLMs like ChatGPT</a> <span class="vr-meta">3 h 31 m</span> &mdash; the full training stack, general audience but not dumbed down. The shorter <a href="https://www.youtube.com/watch?v=zjkBMFhNj_g" target="_blank" rel="noopener">Intro to Large Language Models</a> is about an hour.</li>
+      <li><a href="https://www.youtube.com/watch?v=eMlx5fFNoYc" target="_blank" rel="noopener">3Blue1Brown &mdash; Attention in transformers, step-by-step</a> <span class="vr-meta">~26 min</span> &mdash; visual, and the fastest way to genuinely understand the mechanism. Start with <a href="https://www.youtube.com/watch?v=LPZh9BOjkQs" target="_blank" rel="noopener">LLMs explained briefly</a> if the area is new.</li>
+      <li><a href="https://www.youtube.com/watch?v=foMMYyycRgk" target="_blank" rel="noopener">CMU 15-445 &mdash; #09 Vector Indexes, Inverted Indexes, Filters, Tries</a> &mdash; the retrieval half of RAG, from a database perspective rather than an ML one.</li>
+    </ul>
+
+    <h4>Where video runs out</h4>
+
+    <p>Worth knowing, because it tells you where to stop searching. For three topics this guide
+    covers, there is no video at this depth and the written source is the better use of your time:</p>
+
+    <ul>
+      <li><strong>Metastable failure</strong> (Ch 10) &mdash; no recorded talk found. Read the
+      <a href="https://sigops.org/s/conferences/hotos/2021/papers/hotos21-s11-bronson.pdf" target="_blank" rel="noopener">HotOS 2021 paper</a>;
+      it is five pages. Then <a href="https://brooker.co.za/blog/2021/05/24/metastable.html" target="_blank" rel="noopener">Marc Brooker&rsquo;s post</a>
+      and the <a href="https://www.usenix.org/publications/loginonline/metastable-failures-wild" target="_blank" rel="noopener">USENIX &#59;login&#59; follow-up</a>.</li>
+      <li><strong>Retries, timeouts and backoff</strong> (Ch 10, Ch 13) &mdash;
+      <a href="https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/" target="_blank" rel="noopener">Amazon Builders&rsquo; Library</a>,
+      and <a href="https://brooker.co.za/blog/publications.html" target="_blank" rel="noopener">Marc Brooker&rsquo;s talks and papers</a>.</li>
+      <li><strong>Observability at high cardinality</strong> (Ch 14, D11) &mdash; nothing good found.
+      The Google SRE books and the Prometheus TSDB documentation are the substitutes.</li>
+    </ul>
+
+    <div class="warning">
+      <div class="label">&#9888; On link rot and on what video is for</div>
+      <p>Every link here returned HTTP 200 when it was added, and the lecture IDs were pulled from
+      the live playlists rather than from memory. That still decays &mdash; channels reorganise and
+      courses re-record. If one is dead, search the lecture title; these are all stable, well-known
+      series.</p>
+      <p>The more important caveat: <strong>watching is the least effective way to prepare.</strong>
+      It feels like progress because it is comfortable. The exercises in this guide, and drawing a
+      design on a blank page before reading the answer, are worth several times as much per hour.
+      Use these to fix a specific gap you have identified, then close the tab.</p>
     </div>
   </div>
 </div>

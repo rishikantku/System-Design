@@ -978,6 +978,14 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
 }
 .recall strong { color: var(--ink); }
 
+/* Question-bank cross-reference link */
+.qlink {
+  color: var(--accent); font-weight: 700; text-decoration: none;
+  border-bottom: 1px solid rgba(92,107,192,.38);
+}
+.qlink:hover { border-bottom-color: var(--accent); }
+.qb-note { font-size: 13px; color: var(--muted); font-style: italic; margin-top: 6px; }
+
 /* Small source marker */
 .srcref {
   display: inline-block; font-size: 10.5px; font-weight: 700;
@@ -1174,6 +1182,7 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
         <a href="#toolkit-tradeoffs" class="toc-card toolkit-toc"><div class="toc-badge">T3</div><div class="toc-info"><div class="toc-title">The Grand Architecture Trade-off Matrix</div><div class="toc-sub">SQL vs NoSQL, Push vs Pull, REST vs gRPC, 2PC vs Saga</div></div></a>
         <a href="#toolkit-behavioral" class="toc-card toolkit-toc"><div class="toc-badge">T4</div><div class="toc-info"><div class="toc-title">Google L6 Leadership & Engineering Excellence</div><div class="toc-sub">Navigating outages, technical strategy, cross-team alignment</div></div></a>
         <a href="#toolkit-mentalmodel" class="toc-card toolkit-toc"><div class="toc-badge">T5</div><div class="toc-info"><div class="toc-title">The DDIA Mental Model &amp; Pattern Cheat Sheet</div><div class="toc-sub">How all 15 chapters connect, 18 problem&#8594;concept mappings, 20 classic mistakes</div></div></a>
+        <a href="#toolkit-questionbank" class="toc-card toolkit-toc"><div class="toc-badge">T6</div><div class="toc-info"><div class="toc-title">What Google Actually Asks &mdash; Question Bank</div><div class="toc-sub">Two rounds not one, tiered question list, the L4/L5/L6 rubric ladder</div></div></a>
       </div>
     </div>
   </div>
@@ -6271,6 +6280,183 @@ This SQL atomically locks selected rows. A second scheduler running the same que
         <li><strong>Consensus, total order broadcast, leader election and linearizable CAS are one problem.</strong> Buy the minimum.</li>
         <li><strong>Making a constraint local beats coordinating.</strong> Co-locate the data, or move the invariant onto one row.</li>
         <li><strong>Every guarantee has a price, and the price is usually latency &mdash; all the time, not just during failures.</strong></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="content" id="part3-questionbank">
+
+  <div class="toolkit-card" id="toolkit-questionbank">
+    <h3>6. What Google Actually Asks &mdash; The Question Bank</h3>
+
+    <p>Every other section of this guide teaches mechanisms. This one is about <em>targeting</em>:
+    which mechanisms you are most likely to be asked to assemble under time pressure, and where in
+    this document the answer already lives. It is built from cross-referencing eight public
+    question banks and candidate reports &mdash; read the provenance note at the end before you
+    treat any of it as gospel.</p>
+
+    <div class="insight">
+      <div class="label">&#128161; The single fact that should reshape your preparation</div>
+      <p><strong>At L6 you are preparing for two design rounds, not one.</strong> An L5 loop
+      contains a single system design interview. An L6 loop contains two &mdash; sometimes three
+      &mdash; and they are deliberately different in kind: one <strong>product / applied</strong>
+      design, and one <strong>infrastructure / architecture</strong> design.</p>
+      <p>Nine of the ten designs in Part 2 of this guide are the product round. Almost all popular
+      preparation material is the product round. The infra round is the one candidates
+      under-prepare, because it does not look like the questions in the videos.</p>
+    </div>
+
+    <h4>What the infrastructure round actually looks like</h4>
+
+    <p>These are real reported prompts, and they are the reason &ldquo;I have practised Design
+    Twitter&rdquo; is not sufficient preparation at this level:</p>
+
+    <ul>
+      <li>&ldquo;How would you upgrade 5,000 servers?&rdquo;</li>
+      <li>&ldquo;Design a system to log messages in order.&rdquo;</li>
+      <li>&ldquo;Design a metrics and logging service.&rdquo;</li>
+      <li>&ldquo;Design a distributed LRU cache.&rdquo;</li>
+      <li>&ldquo;Design a system to deny service to requests from banned IPs, from a list published by a third party.&rdquo;</li>
+      <li>&ldquo;Design a function that schedules jobs on a rack of machines, where each job needs a certain amount of CPU and RAM and each machine has different amounts of both.&rdquo;</li>
+      <li>&ldquo;Design a system to upgrade hundreds of thousands of machines on the Moon.&rdquo;</li>
+    </ul>
+
+    <p>Notice what these have in common. There is no user-facing product, no feed, no timeline.
+    They are <strong>fleet management, observability and admission control</strong> &mdash; the
+    problems a company that runs its own planet-scale infrastructure actually has. The last one is
+    not a joke question: it is a latency-constraint question wearing a costume. A 1.3-second
+    one-way light delay makes every synchronous protocol you know unusable, and the interviewer
+    wants to watch you notice that.</p>
+
+    <h4>Tier 1 &mdash; the highest-probability questions</h4>
+
+    <p>Ranked by how many independent sources report them. The last column is the honest state of
+    <em>this</em> guide.</p>
+
+    <div class="tw"><table class="to">
+      <thead><tr><th style="width:38%">Question</th><th style="width:12%">Sources</th><th style="width:50%">Where it is in this guide</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Web crawler / search indexer</strong></td><td>4</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-crawler">D10</a></td></tr>
+        <tr><td><strong>Distributed job scheduler</strong> (variable CPU/RAM per machine)</td><td>4</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-jobs">D6</a></td></tr>
+        <tr><td><strong>Rate limiter</strong> at millions of req/sec</td><td>3</td><td class="rej">Theory only &mdash; <a class="qlink" href="#ch10">Ch 10</a>. No worked design.</td></tr>
+        <tr><td><strong>Real-time chat / messaging</strong></td><td>3</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-whatsapp">D4</a></td></tr>
+        <tr><td><strong>Distributed queue / pub-sub</strong></td><td>3</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-kafka">D7</a></td></tr>
+        <tr><td><strong>Metrics &amp; logging pipeline</strong> (sub-minute, serve downstream)</td><td>3</td><td class="rej">Partial &mdash; <a class="qlink" href="#ch14">Ch 14</a> covers the theory, no design.</td></tr>
+        <tr><td><strong>Video streaming / YouTube</strong></td><td>2</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-youtube">D5</a></td></tr>
+        <tr><td><strong>Google Maps</strong></td><td>2</td><td class="rej">Gap. Geospatial indexing appears in <a class="qlink" href="#design-uber">D9</a> only.</td></tr>
+        <tr><td><strong>Distributed cache / LRU</strong></td><td>2</td><td class="rej">Theory only &mdash; <a class="qlink" href="#ch9">Ch 9</a>. No worked design.</td></tr>
+        <tr><td><strong>Collaborative editing</strong> (offline edits, merge conflicts)</td><td>2</td><td class="rej">CRDT theory in <a class="qlink" href="#ch4">Ch 4</a>; no end-to-end design.</td></tr>
+        <tr><td><strong>Denylist / banned-IP blocking</strong></td><td>2</td><td class="rej">Gap.</td></tr>
+        <tr><td><strong>Notification fan-out</strong> (push / email / SMS)</td><td>2</td><td class="rej">Gap.</td></tr>
+        <tr><td><strong>URL shortener</strong></td><td>2</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-url">D1</a></td></tr>
+        <tr><td><strong>Ticket booking</strong> (inventory under contention)</td><td>2</td><td class="rej">Gap. The invariant-on-one-row idea is in <a class="qlink" href="#ch7">Ch 7</a>.</td></tr>
+        <tr><td><strong>Typeahead / autocomplete</strong> &mdash; named a top-5 Google question</td><td>1</td><td class="rej">Gap.</td></tr>
+      </tbody>
+    </table></div>
+    <div class="qb-note">&ldquo;Sources&rdquo; means how many of the eight banks consulted listed it &mdash;
+    not measured interview frequency. Treat multi-source rows as solid and single-source rows as weak signal.</div>
+
+    <h4>Tier 2 &mdash; reported, plausible, worth a mental rehearsal</h4>
+
+    <p>Distributed counter at Google scale &middot; global config / feature-flag service &middot;
+    API gateway at 10M+ rps with throttling and auth &middot; trending hashtags &middot; global ID
+    generation &middot; ad aggregation &middot; real-time leaderboard at Pok&eacute;mon Go scale
+    &middot; near-duplicate video detection &middot; Street View image ingestion &middot;
+    Drive-style usage quota limiter &middot; calendar event conflict handling &middot; online
+    coding judge &middot; the Glassdoor classic: &ldquo;a page showing the status of 10M+ users
+    &mdash; name, photo, badge, points.&rdquo;</p>
+
+    <p>Most of these are recombinations of things you already have. A distributed counter is
+    <a class="qlink" href="#ch5">partitioning</a> plus the decision to give up read-your-writes.
+    A leaderboard is a counter plus a top-<em>k</em> problem. Trending hashtags is a leaderboard
+    over a sliding window. If you can derive them at the table you do not need to memorise them.</p>
+
+    <h4>Tier 3 &mdash; the 2026 shift</h4>
+
+    <p>Multiple sources report Google now weaving AI/ML system design into the loop, and the
+    question banks confirm it with live prompts: <em>design an LLM-based Q&amp;A system</em>,
+    <em>design a retrieval-augmented generation system over a customer&rsquo;s private data</em>,
+    <em>design an ML experiment tracking platform</em>, <em>design serving infrastructure for an
+    LLM under low-latency, high-throughput requirements</em>, <em>design a task scheduler for
+    opaque long-running GPU jobs</em>, <em>design a billing-token rate limiter for AI agents</em>.</p>
+
+    <p>This is the fastest-moving part of the loop and the part where the classic canon helps you
+    least. The reassuring half of that: an inference-serving system is a queueing and batching
+    problem, and a RAG pipeline is an indexing and retrieval problem. Both are made of parts this
+    guide already teaches. The unfamiliar half is the vocabulary and the failure modes, which is
+    what <strong>D14</strong> below is for.</p>
+
+    <div class="misconception">
+      <div class="label">&#9888; Common misconception</div>
+      <div class="mc-wrong">&ldquo;The popular list of system design questions is the Google list.&rdquo;</div>
+      <div class="mc-right">
+        <p>It substantially is not. The public canon &mdash; Twitter, Uber, Netflix, Instagram
+        &mdash; is <em>consumer product</em> design, because that is what makes legible video
+        content. Google&rsquo;s reported pool leans much harder toward infrastructure and
+        operations, because that is the problem domain of a company that runs its own fleet,
+        its own storage layer and its own network.</p>
+        <p>There is also a selection bias worth naming: preparation vendors publish the questions
+        they already have content for. A question that appears on five prep sites is evidence about
+        <em>the prep market</em>, and only indirectly about Google. Weight candidate reports above
+        vendor lists wherever the two disagree.</p>
+      </div>
+    </div>
+
+    <h4>The rubric &mdash; the same prompt, three different bars</h4>
+
+    <p>The most consistent finding across every source is that the L4/L5/L6 distinction is not
+    about which mechanisms you know. It is about <em>who speaks first</em>.</p>
+
+    <div class="flow"><span class="fl-key">THE SAME PROMPT, THREE DIFFERENT BARS</span>
+
+<span class="fl-dim">L4</span>   the interviewer states the requirements  <span class="fl-dim">-&gt;</span>  the candidate builds to them
+     <span class="fl-dim">"here is a design that satisfies what you told me"</span>
+
+<span class="fl-dim">L5</span>   the candidate surfaces the <span class="fl-hi">missing</span> requirements before being asked
+     <span class="fl-dim">"you have not mentioned retention -- I will assume 30 days,</span>
+     <span class="fl-dim"> which is what decides the storage tier"</span>
+
+<span class="fl-key">L6</span>   the candidate names the <span class="fl-key">DOMINANT CONSTRAINT</span> before the interviewer steers
+     <span class="fl-hi">"everything here is downstream of one number: the 40:1 read/write skew.</span>
+<span class="fl-hi">      I am designing around that, and I will justify every other choice against it."</span>
+
+     <span class="fl-note">^ at L6 the highest-signal moments of the round are started by the CANDIDATE.</span>
+     <span class="fl-note">  An interviewer who has to pull the trade-offs out of you has already</span>
+     <span class="fl-note">  written "solid L5" on the feedback form.</span></div>
+    <div class="flow-cap">The ladder is about initiative, not vocabulary. This is why a clean, correct,
+    well-scaled architecture is one of the most common paths to a down-level: it is a complete answer to
+    a question nobody asked you to answer alone.</div>
+
+    <p>That last point deserves stating plainly, because it is counter-intuitive and it is the
+    single most-cited down-level cause: <strong>a technically excellent design can read as
+    L5.</strong> A clean architecture with sensible trade-offs is a strong L4 result. What
+    converts it into an L6 result is that you decided what the problem was, said which constraint
+    dominates, named what you were deliberately <em>not</em> building, and volunteered the failure
+    modes before anyone asked.</p>
+
+    <div class="warning">
+      <div class="label">&#9888; Where this list comes from, and how much to trust it</div>
+      <p>None of this is confirmed by Google. It is aggregated from public preparation vendors and
+      crowd-reported candidate experiences, both of which have known biases: vendors list what they
+      sell content for, and candidates disproportionately report the questions they found
+      memorable or difficult. Two sources I wanted were unreachable, so the first-hand candidate
+      layer here is thinner than the vendor layer.</p>
+      <p>Use it to allocate study time, not to predict your loop. The value of the tiering is that
+      it tells you where the <em>infrastructure</em> round lives &mdash; and that finding is robust
+      across every source, even where individual questions are not.</p>
+    </div>
+
+    <div class="takeaway">
+      <div class="label">&#127793; Takeaway &mdash; how to use this bank</div>
+      <p><strong>Do not grind the list.</strong> Fifteen memorised designs lose to four derivable ones.</p>
+      <ul>
+        <li><strong>Prepare two rounds, split by kind.</strong> One product, one infrastructure. If your practice is all product designs, half your loop is unrehearsed.</li>
+        <li><strong>The infra round is fleet, observability and admission control.</strong> Upgrading a fleet, ordering a log, capping a caller, caching at scale &mdash; not feeds.</li>
+        <li><strong>Derive rather than memorise.</strong> Counter &rarr; leaderboard &rarr; trending topics is one problem with three coats of paint. So is crawler &rarr; indexer &rarr; typeahead.</li>
+        <li><strong>Say the dominant constraint out loud in the first five minutes.</strong> It is the cheapest available L6 signal and most candidates never spend it.</li>
+        <li><strong>Volunteer the failure modes.</strong> If the interviewer has to ask &ldquo;what happens when that node dies&rdquo;, you have already handed away the point.</li>
+        <li><strong>Budget time for the end.</strong> The highest-signal discussion is late-round trade-offs and failure analysis. Candidates who over-invest in the first architecture diagram never reach it.</li>
       </ul>
     </div>
   </div>

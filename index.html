@@ -1171,6 +1171,10 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
         <a href="#design-drive" class="toc-card design-toc"><div class="toc-badge">D8</div><div class="toc-info"><div class="toc-title">Google Drive / File Sync</div><div class="toc-sub">Rabin fingerprint chunking, deduplication, delta sync</div></div></a>
         <a href="#design-uber" class="toc-card design-toc"><div class="toc-badge">D9</div><div class="toc-info"><div class="toc-title">Uber / Lyft Dispatch</div><div class="toc-sub">Uber H3 hexagonal indexing, OSRM ETA, mini-auctions</div></div></a>
         <a href="#design-crawler" class="toc-card design-toc"><div class="toc-badge">D10</div><div class="toc-info"><div class="toc-title">Web Crawler & Search Indexer</div><div class="toc-sub">Mercator frontier, SimHash dedup, Inverted Index</div></div></a>
+        <a href="#design-metrics" class="toc-card design-toc"><div class="toc-badge">D11</div><div class="toc-info"><div class="toc-title">Metrics &amp; Logging Pipeline</div><div class="toc-sub">Gorilla compression, cardinality bombs, label-only log indexing</div></div></a>
+        <a href="#design-cache" class="toc-card design-toc"><div class="toc-badge">D12</div><div class="toc-info"><div class="toc-title">Distributed Cache (Memcached)</div><div class="toc-sub">Consistent hashing, hot keys, slab allocation, approximate LRU</div></div></a>
+        <a href="#design-typeahead" class="toc-card design-toc"><div class="toc-badge">D13</div><div class="toc-info"><div class="toc-title">Typeahead / Autocomplete</div><div class="toc-sub">Precomputed prefix&#8594;top-k, two-lane freshness, safety filtering</div></div></a>
+        <a href="#design-rag" class="toc-card design-toc"><div class="toc-badge">D14</div><div class="toc-info"><div class="toc-title">RAG Q&amp;A over Private Data</div><div class="toc-sub">Hybrid retrieval, ACL-filtered ANN, rerank, failure attribution</div></div></a>
       </div>
     </div>
 
@@ -6562,6 +6566,490 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 </div></div>
 </div>
 
+
+<div class="design-card">
+  <div class="dc-header">
+    <h3 class="dc-title"><span id="design-metrics">Design a Metrics &amp; Logging Pipeline</span> (Observability at Fleet Scale)</h3>
+    <div class="dc-meta">Difficulty: <strong>Hard (Staff Expectation)</strong> &nbsp;.&nbsp; Target: <strong>45 min</strong></div>
+  </div>
+  <div class="dc-body"><div class="design-step req">
+  <div class="ds-header">[list] 1. Requirements</div>
+  <div class="ds-body"><p><strong>Functional:</strong></p>
+<ul>
+  <li>Ingest from 100,000 hosts emitting two different kinds of telemetry: <strong>metrics</strong> (numeric time series) and <strong>logs</strong> (semi-structured events)</li>
+  <li>Data queryable within <strong>60 seconds</strong> of being emitted</li>
+  <li>Serve three consumers: dashboards (range queries), alerting (continuous evaluation), ad-hoc log search (forensics)</li>
+  <li>Tiered retention: metrics 13 months downsampled, raw logs 30 days</li>
+</ul>
+<p><strong>Non-Functional:</strong></p>
+<ul>
+  <li>Ingest availability must exceed query availability &mdash; you can tolerate not being able to <em>look</em>, never losing the data you will need to look at</li>
+  <li>Must degrade under load rather than collapse, and must never become the cause of an incident</li>
+  <li>Cost-bounded: at this volume, storage cost <em>is</em> the design constraint</li>
+</ul>
+<div class="insight"><div class="label">&#128161; The framing move that separates L6 from L5 here</div><p>Say this in the first three minutes: <strong>metrics and logs are two different systems and building them as one is the classic mistake.</strong> Metrics are numeric, aggregatable, and bounded by cardinality &mdash; you can pre-compute almost everything. Logs are unbounded, not aggregatable, and read rarely but urgently. They have opposite cost curves, so they get different storage engines behind a shared ingest path.</p></div></div>
+</div><div class="design-step est">
+  <div class="ds-header">[chart] 2. Capacity Estimation</div>
+  <div class="ds-body"><p><strong>Assumptions:</strong> 100K hosts; 1,000 active metric series per host at 10s resolution; 100 log lines/sec per host at 300 bytes.</p>
+<div class="ng"><div class="ng-cell"><div class="ng-val">100M</div><div class="ng-desc">active metric series</div></div><div class="ng-cell"><div class="ng-val">10M/s</div><div class="ng-desc">metric datapoints</div></div><div class="ng-cell"><div class="ng-val">10M/s</div><div class="ng-desc">log lines</div></div><div class="ng-cell"><div class="ng-val">3 GB/s</div><div class="ng-desc">raw log bytes</div></div><div class="ng-cell"><div class="ng-val">~14 MB/s</div><div class="ng-desc">compressed metrics</div></div><div class="ng-cell"><div class="ng-val">260 TB</div><div class="ng-desc">raw logs/day</div></div></div>
+<p><strong>The number that decides the architecture:</strong> a metric datapoint compresses to roughly <strong>1.4 bytes</strong> using delta-of-delta timestamps plus XOR-encoded floats (the Gorilla scheme), against 16 bytes uncompressed. So 10M datapoints/sec is only ~14 MB/s &mdash; about <strong>1.2 TB/day</strong>. Logs at 10:1 gzip are ~26 TB/day.</p>
+<p><strong>Logs are ~20&times; the cost of metrics for a fraction of the query volume.</strong> That ratio is the entire justification for treating them differently, and it is the number to lead with when someone asks why you did not just use one system.</p></div>
+</div><div class="design-step api">
+  <div class="ds-header">[plug] 3. API Design</div>
+  <div class="ds-body"><div class="api-code"><span class="kw">POST</span>   /v1/ingest/metrics        <span class="cm">// protobuf, batched, gzip</span>
+  Body:     { series: [{ name, labels{}, points:[{t, v}] }] }
+  Response: 204, or <span class="num">429</span> + Retry-After when shedding
+  Note:     fire-and-forget from the agent; NO synchronous ack path
+
+<span class="kw">POST</span>   /v1/ingest/logs
+  Body:     { stream_labels{}, entries:[{t, line}] }
+  Response: 204 | <span class="num">429</span>
+
+<span class="kw">GET</span>    /v1/query_range?q=&amp;start=&amp;end=&amp;step=
+  Response: { series:[{ labels{}, values:[[t,v]] }] }
+  Errors:   <span class="num">422</span> series_limit_exceeded  <span class="cm">// reject, never OOM</span>
+
+<span class="kw">GET</span>    /v1/logs/search?selector=&amp;filter=&amp;start=&amp;end=&amp;limit=
+  Response: streaming NDJSON, bounded by scan-bytes budget</div></div>
+</div><div class="design-step schema">
+  <div class="ds-header">[db] 4. Schema Design</div>
+  <div class="ds-body"><div class="schema-code"><span class="cm">-- METRICS: the label set IS the identity. Hash it once, store the mapping.</span>
+<span class="kw">TABLE</span> series_index {
+  series_id    <span class="ty">UINT64</span>       <span class="pk">PRIMARY KEY</span>,  <span class="cm">-- hash(name + sorted labels)</span>
+  metric_name  <span class="ty">VARCHAR</span>,
+  labels       <span class="ty">MAP</span>&lt;str,str&gt;,
+  first_seen   <span class="ty">TIMESTAMP</span>,
+  last_seen    <span class="ty">TIMESTAMP</span>   <span class="cm">-- drives churn detection + expiry</span>
+}
+<span class="cm">-- inverted index: label_name=label_value -> roaring bitmap of series_id</span>
+
+<span class="kw">BLOCK</span> tsdb_block {              <span class="cm">-- immutable, 2h of data, columnar</span>
+  series_id, t0, delta_of_delta_ts[], xor_encoded_vals[]
+}
+<span class="cm">-- ~1.4 bytes/point. Blocks compact 2h -> 1d -> 1w with rollups attached.</span>
+
+<span class="cm">-- LOGS: index the LABELS only, never the message body.</span>
+<span class="kw">TABLE</span> log_chunk_index {
+  stream_id    <span class="ty">UINT64</span>,     <span class="cm">-- hash(stream_labels)</span>
+  t_start      <span class="ty">TIMESTAMP</span>,
+  t_end        <span class="ty">TIMESTAMP</span>,
+  object_key   <span class="ty">TEXT</span>       <span class="cm">-- gzip chunk in object storage</span>
+}
+<span class="cm">-- Query = narrow by labels to a few chunks, then brute-force grep them.</span></div></div>
+</div><div class="design-step arch">
+  <div class="ds-header">[build] 5. High-Level Architecture</div>
+  <div class="ds-body"><div class="flow">  <span class="fl-key">100,000 hosts</span> -- each runs a local AGENT (batches 10s, disk-buffers on failure)
+        |
+        v
+  <span class="fl-key">REGIONAL COLLECTORS</span>  stateless, terminate TLS, authenticate, validate,
+                       REJECT high-cardinality label sets at the door
+        |
+        v
+  <span class="fl-key">DURABLE LOG (Kafka)</span>  partitioned by series_id / stream_id
+        |            <span class="fl-note">this is the shock absorber -- it decouples a</span>
+        |            <span class="fl-note">producer spike from consumer capacity</span>
+        +---------------------------+
+        v                           v
+  <span class="fl-hi">METRICS CONSUMER</span>            <span class="fl-hi">LOG CONSUMER</span>
+  in-memory head block         batch into 5-min gzip chunks
+  WAL for crash recovery       write chunk -> object store
+  flush 2h block -> object     write (stream_id, t_range, key) -> index
+        |                           |
+        v                           v
+  <span class="fl-hi">TSDB QUERY</span>                  <span class="fl-hi">LOG QUERY</span>
+  head (hot, RAM) + blocks     label selector narrows to N chunks,
+  downsampled rollups          parallel scan with a bytes budget</div>
+<div class="flow-cap">The durable log in the middle is the whole design. Everything upstream of it is
+optimised for never dropping data; everything downstream can be restarted, rebuilt, or
+temporarily out of capacity without loss.</div></div>
+</div><div class="design-step deep">
+  <div class="ds-header">[search] 6. Component Deep Dives</div>
+  <div class="ds-body"><p><strong>Cardinality is the failure mode &mdash; name it before you are asked.</strong> A metric series is identified by its full label set, so every distinct combination is a separate series with its own in-memory index entry and compression state. Adding one label with unbounded values &mdash; <code>user_id</code>, <code>request_id</code>, a raw URL with query parameters &mdash; turns one series into millions. The database does not slow down gracefully; the ingester's memory-resident index grows without bound and the process is OOM-killed. <strong>This is the single most common way a metrics system dies</strong>, and it is always caused by a well-meaning application change, never by traffic growth.</p>
+<p>Defences, in order of effectiveness: reject at the collector with a per-tenant series budget so the blast radius is one team; alert on <em>series churn</em> (new series per minute) rather than absolute count, because churn is the leading indicator; and offer the escape hatch &mdash; if you need per-user granularity, that is a <em>log</em> or an exemplar, not a metric.</p>
+<p><strong>Why Gorilla compression matters so much.</strong> Timestamps in a scrape arrive at almost exactly fixed intervals, so the delta between consecutive deltas is nearly always zero and encodes in one bit. Values usually change slowly, so XOR-ing consecutive float64s leaves mostly leading zeros. Together this gives ~1.4 bytes/point &mdash; a <strong>12&times;</strong> reduction that is what makes the entire recent window fit in RAM. A metrics system whose hot window is in memory answers dashboard queries in milliseconds; one that goes to disk cannot.</p>
+<p><strong>The log indexing decision.</strong> A full inverted index over log <em>content</em> (Elasticsearch-style) makes arbitrary text search fast and costs roughly as much as the raw data again in index size, plus heavy write-time CPU. Indexing <em>labels only</em> and brute-force scanning the matching chunks (Loki-style) makes ingest cheap and drops storage cost by an order of magnitude, at the price of slower unselective searches. Choose label-only indexing here: log search is rare, is nearly always already scoped by service and time, and the cost difference at 26 TB/day dominates the latency difference.</p>
+<p><strong>Rollups.</strong> Nobody queries 10-second resolution from six months ago; the dashboard would have more points than pixels. Compact blocks into 5-minute and 1-hour rollups carrying min/max/sum/count, and let the query layer pick resolution from the time range. This is what makes 13-month retention affordable, and it is a lossy decision you should state out loud.</p></div>
+</div><div class="design-step tradeoff">
+  <div class="ds-header">[balance] 7. Trade-off Analysis</div>
+  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody>
+<tr><td><strong>Metrics vs logs</strong></td><td class='chosen'>Two storage engines, one ingest path</td><td class='rej'>One unified store</td><td>Opposite cost curves. Logs are ~20x the bytes for a fraction of the queries. A unified store prices metrics like logs and makes 13-month retention unaffordable.</td></tr>
+<tr><td><strong>Ingest transport</strong></td><td class='chosen'>Push, via a durable log</td><td class='rej'>Pull / scrape</td><td>Pull is simpler and gives free liveness detection, but cannot cross NAT or reach short-lived jobs. The durable log is non-negotiable regardless: it absorbs spikes that would otherwise reach the storage tier.</td></tr>
+<tr><td><strong>Log index</strong></td><td class='chosen'>Labels only + brute scan</td><td class='rej'>Full inverted index</td><td>~10x cheaper ingest and storage. Searches are almost always already narrowed by service and time window, so the unselective-query penalty is rarely paid.</td></tr>
+<tr><td><strong>Under overload</strong></td><td class='chosen'>Shed at the collector, 429</td><td class='rej'>Buffer indefinitely</td><td>Unbounded buffering converts an observability degradation into an observability outage, precisely when you need it. Shed low-priority tenants first and keep alerting metrics flowing.</td></tr>
+<tr><td><strong>Query safety</strong></td><td class='chosen'>Reject over series/byte budget</td><td class='rej'>Best-effort execution</td><td>One unbounded query must not be able to OOM the node serving everyone's alerts. A fast 422 is a better answer than a slow death.</td></tr>
+</tbody></table></div></div>
+</div><div class="design-step fault">
+  <div class="ds-header">[shield] 8. Fault Tolerance</div>
+  <div class="ds-body"><div class="ft-row"><div class="ft-fail">Kafka unavailable</div><div class="ft-fix">Agents buffer to local disk with a bounded ring (e.g. 1 GB / 15 min) and resume on recovery. Beyond the bound they drop <em>oldest</em> first, because in an incident the newest telemetry is the telemetry you need. Collectors return 429 so agents back off with jitter.</div></div>
+<div class="ft-row"><div class="ft-fail">Metrics ingester crashes</div><div class="ft-fix">The in-memory head block is backed by a write-ahead log on local disk; on restart it replays the WAL to reconstruct the head. Kafka consumer offsets are committed only after the WAL write, so recovery is at-least-once. Duplicate datapoints are idempotent &mdash; same series, same timestamp, same value overwrites harmlessly.</div></div>
+<div class="ft-row"><div class="ft-fail">Cardinality bomb from one team</div><div class="ft-fix">Per-tenant series budget enforced at the collector: series beyond the budget are rejected with a named error and an alert to the owning team. Blast radius is one tenant instead of the cluster. This is the single most important safeguard in the design.</div></div>
+<div class="ft-row"><div class="ft-fail">Object storage degraded</div><div class="ft-fix">Recent data is still served from the in-memory head and local blocks, so dashboards and alerting for the last few hours keep working &mdash; which is the window that matters during an incident. Historical queries fail fast with a clear error rather than hanging.</div></div>
+<div class="ft-row"><div class="ft-fail">The observability system causes an incident</div><div class="ft-fix">Agents are hard-capped on CPU and memory via cgroups and drop telemetry rather than compete with the application they observe. Ingest endpoints are on separate capacity from query, so a dashboard stampede during an outage cannot block ingestion. This inversion &mdash; monitoring taking down production &mdash; is common enough that you should raise it unprompted.</div></div></div>
+</div></div>
+</div>
+
+<div class="design-card">
+  <div class="dc-header">
+    <h3 class="dc-title"><span id="design-cache">Design a Distributed Cache</span> (like Memcached / Redis Cluster)</h3>
+    <div class="dc-meta">Difficulty: <strong>Hard (Staff Expectation)</strong> &nbsp;.&nbsp; Target: <strong>40 min</strong></div>
+  </div>
+  <div class="dc-body"><div class="design-step req">
+  <div class="ds-header">[list] 1. Requirements</div>
+  <div class="ds-body"><p><strong>Functional:</strong></p>
+<ul>
+  <li><code>GET</code>, <code>SET</code> with TTL, <code>DELETE</code>, atomic <code>INCR</code></li>
+  <li>10 TB working set across the cluster; values from 100 B to 1 MB</li>
+  <li>Elastic: add and remove nodes without a full cache flush</li>
+</ul>
+<p><strong>Non-Functional:</strong></p>
+<ul>
+  <li><strong>10M QPS</strong> aggregate, p99 under <strong>1 ms</strong> at the cache (excluding network to caller)</li>
+  <li>Cache loss is survivable &mdash; this is not a database &mdash; but a <em>mass</em> simultaneous loss must not take the origin down</li>
+  <li>No strong consistency requirement; the cache may serve a stale value</li>
+</ul>
+<div class="insight"><div class="label">&#128161; Scope the problem before designing it</div><p>The clarifying question that earns the most here: <strong>&ldquo;is this a cache or a low-latency store?&rdquo;</strong> If the answer is cache, you may lose data freely and the design is about locality and eviction. If the answer is store, you need replication and durability and you are designing something two orders of magnitude more expensive. Most candidates assume the first and never say so; saying it out loud is the staff signal.</p></div></div>
+</div><div class="design-step est">
+  <div class="ds-header">[chart] 2. Capacity Estimation</div>
+  <div class="ds-body"><p><strong>Assumptions:</strong> 10 TB working set, average value 1 KB, 10M QPS at 95:5 read:write.</p>
+<div class="ng"><div class="ng-cell"><div class="ng-val">~10B</div><div class="ng-desc">keys resident</div></div><div class="ng-cell"><div class="ng-val">~64 GB</div><div class="ng-desc">usable RAM/node</div></div><div class="ng-cell"><div class="ng-val">~200</div><div class="ng-desc">nodes (with headroom)</div></div><div class="ng-cell"><div class="ng-val">50K</div><div class="ng-desc">QPS per node avg</div></div><div class="ng-cell"><div class="ng-val">~10 GB/s</div><div class="ng-desc">aggregate value bytes</div></div><div class="ng-cell"><div class="ng-val">~1.4 TB</div><div class="ng-desc">overhead at 120B/key</div></div></div>
+<p><strong>The overhead nobody estimates:</strong> every entry carries key bytes, a hash-table slot, LRU pointers, TTL and flags &mdash; roughly <strong>50&ndash;120 bytes</strong> before your value. With 1 KB values that is ~10% waste; with 100-byte values it is <strong>more than half your RAM</strong>. If the workload is small values, the correct answer is to change the workload &mdash; pack many logical entries into one cache entry &mdash; not to buy more nodes.</p>
+<p><strong>Sanity check the network, not just the memory:</strong> 10M QPS &times; 1 KB &asymp; 10 GB/s aggregate, or ~50 MB/s per node. Comfortable. But a single hot key at 1M QPS &times; 1 KB is <strong>1 GB/s to one node</strong> &mdash; an 8 Gbps NIC saturated by one key. Hot keys are a bandwidth problem before they are a CPU problem.</p></div>
+</div><div class="design-step api">
+  <div class="ds-header">[plug] 3. API Design</div>
+  <div class="ds-body"><div class="api-code"><span class="cm">// Binary protocol over pooled, pipelined TCP. No HTTP -- header</span>
+<span class="cm">// parsing alone would dominate a sub-millisecond budget.</span>
+
+<span class="kw">GET</span>    key                      -&gt; value, cas_token | MISS
+<span class="kw">MGET</span>   key[]                    -&gt; values[]   <span class="cm">// one RTT for N keys, same node</span>
+<span class="kw">SET</span>    key value ttl flags      -&gt; STORED
+<span class="kw">CAS</span>    key value cas_token      -&gt; STORED | EXISTS
+         <span class="cm">// compare-and-swap: the ONLY concurrency primitive here,</span>
+         <span class="cm">// and what makes read-modify-write safe without a lock</span>
+<span class="kw">DELETE</span> key                      -&gt; DELETED | NOT_FOUND
+<span class="kw">INCR</span>   key delta                -&gt; new_value  <span class="cm">// server-side, atomic</span>
+
+<span class="cm">// Client-side: routing table + consistent hash ring, refreshed</span>
+<span class="cm">// from a config service. The client picks the node -- no proxy hop.</span></div></div>
+</div><div class="design-step schema">
+  <div class="ds-header">[db] 4. Schema Design</div>
+  <div class="ds-body"><div class="schema-code"><span class="cm">-- Per node: slab allocator, NOT malloc. Fixed-size classes in a</span>
+<span class="cm">-- growth factor (1.25x): 96B, 120B, 152B, 192B ... 1MB</span>
+<span class="kw">STRUCT</span> item {
+  next, prev     <span class="ty">PTR</span>          <span class="cm">-- LRU list linkage</span>
+  h_next         <span class="ty">PTR</span>          <span class="cm">-- hash chain</span>
+  expiry         <span class="ty">UINT32</span>       <span class="cm">-- lazy: checked on read, not swept</span>
+  nbytes, flags  <span class="ty">UINT32</span>
+  cas_id         <span class="ty">UINT64</span>       <span class="cm">-- bumped on every mutation</span>
+  key[], value[] <span class="ty">BYTES</span>
+}
+<span class="cm">-- Rounding to a slab class wastes up to 20% per item. That is the</span>
+<span class="cm">-- price of never fragmenting -- a cache that fragments dies slowly</span>
+<span class="cm">-- over weeks, which is far worse than a fixed 20% tax.</span>
+
+<span class="cm">-- Ring: 200 physical nodes x ~200 virtual nodes = 40,000 points.</span>
+<span class="cm">-- Virtual nodes are what make removal move 1/N of keys, not half.</span></div></div>
+</div><div class="design-step arch">
+  <div class="ds-header">[build] 5. High-Level Architecture</div>
+  <div class="ds-body"><div class="flow">  <span class="fl-key">APPLICATION</span> + smart client library
+        |
+        |  1. hash(key) -&gt; position on the ring
+        |  2. walk clockwise to the owning virtual node
+        |  3. connect DIRECTLY -- no proxy, no extra hop
+        v
+  <span class="fl-key">CONSISTENT HASH RING</span>   200 nodes x 200 vnodes = 40,000 points
+        |
+        +-------------+-------------+-------------+
+        v             v             v             v
+    <span class="fl-hi">node 1</span>        <span class="fl-hi">node 2</span>        <span class="fl-hi">node 3</span>   ...  <span class="fl-hi">node 200</span>
+    slab alloc    slab alloc    slab alloc
+    hash table    hash table    hash table
+    LRU chains    LRU chains    LRU chains
+
+  <span class="fl-key">CONFIG SERVICE</span> (small, strongly consistent -- etcd/Zookeeper)
+    holds the authoritative ring; clients poll and cache it.
+    <span class="fl-note">Only membership needs consensus. Ch 6's expensive machinery is bought</span>
+    <span class="fl-note">for a few KB of topology, never for the 10M QPS data path.</span>
+
+  <span class="fl-bad">HOT KEY PATH:</span> keys above a QPS threshold are promoted to a
+    client-local L1 (a few ms TTL) and replicated to R nodes,
+    with the client picking one at random.</div>
+<div class="flow-cap">The single most important structural decision is that the data path touches no
+coordinator. Consensus is confined to membership, which changes a few times a week; the
+10M QPS path is a hash computation and one round trip.</div></div>
+</div><div class="design-step deep">
+  <div class="ds-header">[search] 6. Component Deep Dives</div>
+  <div class="ds-body"><p><strong>Why consistent hashing, in one number.</strong> With plain <code>hash(key) mod N</code>, changing N from 200 to 201 remaps roughly <strong>99.5%</strong> of keys &mdash; a total cache flush and an instant origin stampede. Consistent hashing remaps only the keys owned by the departing node, about <strong>1/N &asymp; 0.5%</strong>. Virtual nodes are what make that share <em>even</em>: with one point per node, hash positions cluster and a removal dumps its whole range onto a single neighbour, which then falls over. Roughly 200 virtual nodes per physical node brings load variance under about 5%.</p>
+<p><strong>The hot key problem, which is where this interview actually goes.</strong> Consistent hashing distributes <em>keys</em> evenly; it cannot distribute <em>traffic</em> evenly, because traffic is Zipfian. One celebrity key can take 1M QPS to a single node while the other 199 idle. Three defences, and they compose:</p>
+<ul>
+  <li><strong>Client-side L1 with a very short TTL</strong> (5&ndash;50 ms). A hot key is by definition read constantly, so even a 10 ms TTL collapses 1M QPS into ~100 QPS per client. This is the highest-leverage fix and it costs almost nothing, because the staleness it introduces is bounded by a number you choose.</li>
+  <li><strong>Replicate hot keys to R nodes</strong> under salted names (<code>key#1 &hellip; key#R</code>), with clients picking one at random. Divides load by R at the cost of R&times; the memory for those keys and R invalidations per write.</li>
+  <li><strong>Detect, do not guess.</strong> Track approximate per-key request rates with a count-min sketch on each node &mdash; sublinear memory, tolerable error &mdash; and promote keys past a threshold automatically. Static hot-key lists are always stale by the time they matter.</li>
+</ul>
+<p><strong>Eviction at scale.</strong> Strict LRU needs a lock on the list head for every read, which is a global mutex on your hottest path and will not sustain 50K QPS per node. Real implementations approximate: bump an item's position only if it has not been bumped in the last ~60 seconds, or use a CLOCK/second-chance bit. You give up exact recency ordering &mdash; which was only ever a heuristic &mdash; and you get a lock-free read path. <strong>Approximating the approximation is free.</strong></p>
+<p><strong>Expiry is lazy, not swept.</strong> Actively scanning 10 billion keys for expired entries would burn CPU proportional to cache size rather than to traffic. Instead, check the TTL on read and let LRU reclaim the rest. The consequence to state: <em>expired-but-unread entries still occupy memory</em>, so your usable capacity is always somewhat below your nominal capacity.</p></div>
+</div><div class="design-step tradeoff">
+  <div class="ds-header">[balance] 7. Trade-off Analysis</div>
+  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody>
+<tr><td><strong>Routing</strong></td><td class='chosen'>Smart client, direct connect</td><td class='rej'>Proxy tier</td><td>A proxy adds a network hop -- often 0.3-0.5 ms against a sub-1 ms budget -- plus a tier to scale and fail. A proxy wins only when you cannot control the clients or need many languages; then pay the hop deliberately.</td></tr>
+<tr><td><strong>Partitioning</strong></td><td class='chosen'>Consistent hashing + vnodes</td><td class='rej'>hash mod N</td><td>mod N remaps ~99.5% of keys when one node joins. That is a full flush and a guaranteed origin stampede at exactly the wrong moment.</td></tr>
+<tr><td><strong>Replication</strong></td><td class='chosen'>None, except hot keys</td><td class='rej'>Replicate everything</td><td>Doubles cost to protect data that is by definition reconstructible. Spend that memory on a larger working set instead -- a bigger cache raises the hit rate, which is worth more than surviving one node loss.</td></tr>
+<tr><td><strong>Eviction</strong></td><td class='chosen'>Approximate LRU</td><td class='rej'>Strict LRU</td><td>Strict LRU requires a lock on the list head per read. The recency ordering it buys was already a heuristic; the lock contention is real.</td></tr>
+<tr><td><strong>Consistency</strong></td><td class='chosen'>Delete on write, TTL backstop</td><td class='rej'>Write-through update</td><td>Updating races: two writers can land their cache updates in the opposite order to their database writes and leave the cache permanently stale. Delete has no such race. <span class="srcref">Ch 9</span></td></tr>
+</tbody></table></div></div>
+</div><div class="design-step fault">
+  <div class="ds-header">[shield] 8. Fault Tolerance</div>
+  <div class="ds-body"><div class="ft-row"><div class="ft-fail">Single node dies</div><div class="ft-fix">Its ~0.5% of keys become misses and are refilled from the origin on demand. Clients mark the node down after a short failure-detection window and skip it on the ring. Critically, the origin must have headroom for a 0.5% miss-rate increase -- which it does, because that is a rounding error against the normal miss rate.</div></div>
+<div class="ft-row"><div class="ft-fail">Node flapping</div><div class="ft-fix">Far worse than a clean death: each transition reshuffles key ownership, so keys ping-pong between nodes and the effective hit rate collapses while both copies go stale. Damp it -- require N consecutive failures to eject and a longer, hysteretic interval to re-admit. Slow, stable membership beats accurate, twitchy membership. <span class="srcref">Ch 1</span></div></div>
+<div class="ft-row"><div class="ft-fail">Whole cache tier restarts</div><div class="ft-fix">The genuine disaster: hit rate goes to 0% and the origin sees 20-100x its normal load, which is a metastable failure it will not recover from on its own. Mitigate with staggered restarts (never more than 10% of the fleet at once), a concurrency limit on origin fill so the cache cannot forward more than the origin can serve, and load shedding beyond it. <span class="srcref">Ch 10</span></div></div>
+<div class="ft-row"><div class="ft-fail">Hot key saturates one node's NIC</div><div class="ft-fix">Count-min sketch detects the key, the control plane promotes it to replicated + client-L1 mode automatically. Detection must be automatic: by the time a human has read the graph, the node has been dropping packets for ten minutes.</div></div>
+<div class="ft-row"><div class="ft-fail">Ring disagreement between clients</div><div class="ft-fix">During a config rollout, two clients may briefly hold different rings and write the same key to different nodes -- producing two divergent copies with no reconciliation. TTLs bound the damage, and the config service versions the ring so a client can detect and refuse a stale topology. This is why membership is the one thing that gets consensus.</div></div></div>
+</div></div>
+</div>
+
+
+<div class="design-card">
+  <div class="dc-header">
+    <h3 class="dc-title"><span id="design-typeahead">Design Typeahead / Autocomplete</span> (Search Suggestions at Google Scale)</h3>
+    <div class="dc-meta">Difficulty: <strong>Hard (Staff Expectation)</strong> &nbsp;.&nbsp; Target: <strong>40 min</strong></div>
+  </div>
+  <div class="dc-body"><div class="design-step req">
+  <div class="ds-header">[list] 1. Requirements</div>
+  <div class="ds-body"><p><strong>Functional:</strong></p>
+<ul>
+  <li>Given a prefix, return the top 10 completions ranked by likelihood</li>
+  <li>Fire on every keystroke; a 20-character query means up to 20 requests</li>
+  <li>Trending terms must appear within minutes, not days</li>
+  <li>Tolerate typos in the prefix; suppress offensive and unsafe suggestions</li>
+</ul>
+<p><strong>Non-Functional:</strong></p>
+<ul>
+  <li><strong>p99 under 100 ms end to end</strong> &mdash; above roughly 100 ms the suggestion arrives after the user has typed the next character, and the feature stops feeling live</li>
+  <li>Read-dominated to an extreme degree: essentially 100% reads on the serving path</li>
+  <li>Stale suggestions are acceptable; slow suggestions are not</li>
+</ul>
+<div class="insight"><div class="label">&#128161; The reframe that carries the interview</div><p><strong>This is not a search problem, it is a precomputation problem.</strong> You are not searching a corpus at request time &mdash; you are looking up an answer that was computed hours ago. Once you say that, every subsequent decision follows: the serving path does one lookup and no ranking, and all the interesting engineering moves offline into the pipeline that builds the lookup table.</p></div></div>
+</div><div class="design-step est">
+  <div class="ds-header">[chart] 2. Capacity Estimation</div>
+  <div class="ds-body"><p><strong>Assumptions:</strong> 5B searches/day; ~15 keystroke requests per search after client-side debouncing; 100M distinct queries worth suggesting.</p>
+<div class="ng"><div class="ng-cell"><div class="ng-val">~75B</div><div class="ng-desc">suggestion reqs/day</div></div><div class="ng-cell"><div class="ng-val">~870K</div><div class="ng-desc">QPS average</div></div><div class="ng-cell"><div class="ng-val">~2.6M</div><div class="ng-desc">QPS peak (3x)</div></div><div class="ng-cell"><div class="ng-val">~500M</div><div class="ng-desc">distinct prefixes</div></div><div class="ng-cell"><div class="ng-val">~150 GB</div><div class="ng-desc">prefix&#8594;top10 table</div></div><div class="ng-cell"><div class="ng-val">&lt;100 ms</div><div class="ng-desc">p99 budget</div></div></div>
+<p><strong>The estimate that decides the architecture:</strong> 500M prefixes &times; 10 suggestions &times; ~30 bytes &asymp; <strong>150 GB</strong>. That fits in the RAM of a modest cluster &mdash; perhaps 8 machines with replication. <strong>The entire answer set fits in memory</strong>, which is why the serving path can be a hash lookup and why p99 under 100 ms is comfortably achievable.</p>
+<p>Note the client-side saving: debouncing at ~50 ms and cancelling in-flight requests cuts request volume by roughly 60% for free, before any server-side work. Mention it &mdash; the cheapest capacity is the request you never send.</p></div>
+</div><div class="design-step api">
+  <div class="ds-header">[plug] 3. API Design</div>
+  <div class="ds-body"><div class="api-code"><span class="kw">GET</span>  /v1/suggest?q={prefix}&amp;lang=&amp;country=&amp;n=10
+  Response: <span class="num">200</span> { suggestions:[{ text, score, type }], ttl_ms }
+  Headers:  Cache-Control: private, max-age=60
+  Errors:   returns <span class="num">200</span> with [] -- NEVER an error.
+            <span class="cm">// A failed suggestion must look like "no suggestions",</span>
+            <span class="cm">// never like a broken page. Fail invisibly.</span>
+
+<span class="cm">// Transport: keep-alive HTTP/2 or a persistent WebSocket. TCP+TLS</span>
+<span class="cm">// setup per keystroke would blow the entire latency budget.</span>
+
+<span class="kw">POST</span> /v1/feedback        <span class="cm">// which suggestion was accepted</span>
+  Body: { prefix, shown[], selected_index, session }
+  <span class="cm">// This is the training signal that ranks tomorrow's table.</span></div></div>
+</div><div class="design-step schema">
+  <div class="ds-header">[db] 4. Schema Design</div>
+  <div class="ds-body"><div class="schema-code"><span class="cm">-- SERVING: a flat, immutable, precomputed map. No tree walk at read time.</span>
+<span class="kw">TABLE</span> prefix_top_k {
+  prefix       <span class="ty">VARCHAR(1..20)</span>  <span class="pk">PRIMARY KEY</span>,  <span class="cm">-- + lang, country</span>
+  suggestions  <span class="ty">BLOB</span>            <span class="cm">-- packed [text, score] x 10</span>
+}
+<span class="cm">-- Built offline. Served from RAM. Sharded by hash(prefix).</span>
+
+<span class="cm">-- OFFLINE: the trie exists only in the build pipeline, never at read time.</span>
+<span class="kw">NODE</span> trie_node {
+  children     <span class="ty">MAP</span>&lt;char, node&gt;,
+  top_k        <span class="ty">ARRAY</span>[10]       <span class="cm">-- cached at EVERY node</span>
+}
+<span class="cm">-- Caching top_k at each node is the whole trick: it converts</span>
+<span class="cm">-- "walk the subtree and rank" into "read one array".</span>
+
+<span class="kw">TABLE</span> query_counts {           <span class="cm">-- the ranking input</span>
+  query, lang, country, count_7d, count_1h, ctr, is_safe
+}</div></div>
+</div><div class="design-step arch">
+  <div class="ds-header">[build] 5. High-Level Architecture</div>
+  <div class="ds-body"><div class="flow">  <span class="fl-key">OFFLINE PIPELINE</span> (hourly)                <span class="fl-key">SERVING PATH</span> (per keystroke)
+
+  query logs (last 7d)                       browser
+       |                                       | debounce 50ms,
+       v                                       | cancel in-flight
+  aggregate + filter                           v
+  (safety, spam, PII)                     <span class="fl-hi">CDN / edge cache</span>
+       |                                       | ~40% hit on
+       v                                       | common prefixes
+  build TRIE, cache top-k                      v
+  at every node                           <span class="fl-hi">SUGGEST SERVICE</span>
+       |                                       | hash(prefix) -&gt; shard
+       v                                       v
+  flatten -&gt; prefix_top_k                 <span class="fl-hi">IN-MEMORY SHARDS</span>
+       |                                  one hash lookup, no ranking
+       v                                       |
+  <span class="fl-key">ATOMIC SWAP</span> into serving  -------------------+
+  <span class="fl-note">(version the whole table; flip a pointer. Never mutate in place --</span>
+  <span class="fl-note">a half-updated table serves incoherent suggestions.)</span>
+
+  <span class="fl-bad">REAL-TIME LANE</span> (minutes): trending terms from a streaming
+  count-min sketch, merged at read time as a small overlay on top
+  of the hourly table.</div>
+<div class="flow-cap">Two lanes, deliberately. The hourly batch lane gives quality and safety review; the
+streaming lane gives freshness for breaking terms. Merging a small overlay at read time is far
+cheaper than rebuilding 150 GB every minute.</div></div>
+</div><div class="design-step deep">
+  <div class="ds-header">[search] 6. Component Deep Dives</div>
+  <div class="ds-body"><p><strong>Why not walk a trie at request time?</strong> A trie find-the-prefix is O(len), which is fine &mdash; but then you must traverse the entire subtree beneath it to collect and rank candidates. For the prefix <code>&ldquo;a&rdquo;</code> that subtree is essentially the whole corpus. <strong>Caching the top 10 at every node</strong> converts that traversal into a single array read, and it is the difference between a system that works and one that times out on the first character. The cost is memory and rebuild time, both of which you have.</p>
+<p><strong>Sharding: by prefix, not by node.</strong> Hash the prefix string and shard on that, so any single request is answered by exactly one shard with no scatter-gather. Sharding the trie structurally &mdash; by first letter, say &mdash; is the trap: it produces wildly unequal shards (far more queries start with <code>s</code> than with <code>z</code>) and forces multi-shard traversal. <strong>Replicate the entire table to every serving node instead if it fits</strong>, which at 150 GB it nearly does; full replication makes every node able to answer everything and eliminates the routing problem outright. <span class="srcref">Ch 5</span></p>
+<p><strong>The short-prefix problem.</strong> Single-character prefixes are requested orders of magnitude more often than long ones. These are perfect cache candidates precisely because they are both hottest and most stable &mdash; the top suggestions for <code>&ldquo;a&rdquo;</code> barely move hour to hour. Push the first two characters' worth of results to the CDN and the client, and a large fraction of traffic never reaches your service at all.</p>
+<p><strong>Typo tolerance without paying for it on every request.</strong> Full edit-distance search over the trie at request time is too slow. Instead, precompute: for known high-frequency misspellings, store the corrected prefix's results directly under the misspelling as an ordinary key. This turns fuzzy matching into an exact lookup and costs only offline build time. Reserve genuine edit-distance search for the tail, behind a stricter latency budget, and only when the exact lookup returned nothing.</p>
+<p><strong>Ranking is where the product lives.</strong> Raw frequency is a weak signal because it is dominated by yesterday's news and never surfaces anything rising. Blend: 7-day frequency for stability, 1-hour frequency for trend, historical click-through rate for quality, plus personalisation and locale. Then apply the safety filter <em>last and hard</em> &mdash; suggestion lists are published editorial content, and an offensive completion is a public incident, not a relevance bug. <strong>The safety filter must run at build time and again at serve time</strong>, because the streaming overlay bypasses the batch review.</p></div>
+</div><div class="design-step tradeoff">
+  <div class="ds-header">[balance] 7. Trade-off Analysis</div>
+  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody>
+<tr><td><strong>Read path</strong></td><td class='chosen'>Precomputed prefix&#8594;top10 map</td><td class='rej'>Live trie traversal</td><td>Traversing the subtree under a one-character prefix means ranking the whole corpus. Precomputation moves all the work offline, where it has hours instead of milliseconds.</td></tr>
+<tr><td><strong>Sharding</strong></td><td class='chosen'>Hash of prefix (or full replication)</td><td class='rej'>By first letter</td><td>Structural sharding produces grossly unequal shards and multi-shard reads. At 150 GB, replicating everything to every node is both affordable and simpler.</td></tr>
+<tr><td><strong>Freshness</strong></td><td class='chosen'>Hourly batch + streaming overlay</td><td class='rej'>Continuous rebuild</td><td>Rebuilding 150 GB per minute is enormous waste for a handful of changed entries. A small merged overlay gets the freshness at a fraction of the cost.</td></tr>
+<tr><td><strong>Typos</strong></td><td class='chosen'>Precomputed misspelling keys</td><td class='rej'>Edit distance at query time</td><td>Fuzzy search over a large trie cannot fit a 100 ms budget. Precomputing the common cases converts it to an exact lookup; the long tail is not worth the latency.</td></tr>
+<tr><td><strong>On failure</strong></td><td class='chosen'>Return empty, 200 OK</td><td class='rej'>5xx error</td><td>Autocomplete is an enhancement. Degrading to "no suggestions" is invisible; an error is a visible broken feature. Never let an optional component fail loudly.</td></tr>
+</tbody></table></div></div>
+</div><div class="design-step fault">
+  <div class="ds-header">[shield] 8. Fault Tolerance</div>
+  <div class="ds-body"><div class="ft-row"><div class="ft-fail">Build pipeline fails</div><div class="ft-fix">Keep serving the previous table version indefinitely. Suggestions age gracefully -- a day-old table is barely distinguishable to users -- so there is never a reason to swap in a partial build. Alert on table age, not on job failure, because a job that "succeeded" with 3% of the data is the more dangerous outcome.</div></div>
+<div class="ft-row"><div class="ft-fail">Bad table published</div><div class="ft-fix">Versioned tables and a pointer swap make rollback a single atomic flip. Gate the swap on automated checks: table size within 10% of the previous build, top suggestions for a fixed set of canary prefixes unchanged beyond a threshold, and zero safety-filter violations in a sampled scan.</div></div>
+<div class="ft-row"><div class="ft-fail">Serving shard dies</div><div class="ft-fix">Data is immutable and fully replicated, so any surviving replica answers identically -- no rebuild, no repartition, no state to recover. This is the payoff for making the serving tier stateless over a read-only snapshot: node failure is a routing event, not a data event.</div></div>
+<div class="ft-row"><div class="ft-fail">Traffic spike (breaking news)</div><div class="ft-fix">The spike concentrates on a few prefixes, which is the best possible shape for a cache -- CDN and client caching absorb the bulk of it. Beyond that, shed load by shortening result lists and raising client debounce via a server-pushed config, degrading quality before availability.</div></div>
+<div class="ft-row"><div class="ft-fail">Offensive suggestion surfaces</div><div class="ft-fix">Blocklist evaluated at build AND serve time, because the streaming overlay skips the batch review path. Serve-time filtering also gives a same-minute kill switch for a specific term without waiting for a rebuild -- which is the response time this class of incident actually requires.</div></div></div>
+</div></div>
+</div>
+
+<div class="design-card">
+  <div class="dc-header">
+    <h3 class="dc-title"><span id="design-rag">Design a RAG Q&amp;A System</span> (Retrieval-Augmented Generation over Private Data)</h3>
+    <div class="dc-meta">Difficulty: <strong>Hard (Staff Expectation)</strong> &nbsp;.&nbsp; Target: <strong>45 min</strong></div>
+  </div>
+  <div class="dc-body"><div class="design-step req">
+  <div class="ds-header">[list] 1. Requirements</div>
+  <div class="ds-body"><p><strong>Functional:</strong></p>
+<ul>
+  <li>Answer natural-language questions over a customer's private document corpus (10M documents, ~50 GB of text)</li>
+  <li>Every answer carries <strong>citations</strong> to the source passages it used</li>
+  <li>Respect per-user access control &mdash; a user must never see content from a document they cannot open</li>
+  <li>New and updated documents become answerable within 15 minutes</li>
+</ul>
+<p><strong>Non-Functional:</strong></p>
+<ul>
+  <li>p95 <strong>under 3 seconds</strong> to first token; streaming thereafter</li>
+  <li>Cost per query is a first-class constraint, not an afterthought</li>
+  <li>Answers must be attributable; &ldquo;I don't know&rdquo; is a correct and required output</li>
+</ul>
+<div class="insight"><div class="label">&#128161; Two things to say early that most candidates miss</div><p>First: <strong>this is two systems</strong> &mdash; an offline indexing pipeline and an online serving path &mdash; and almost all the quality lives in the offline half while all the latency lives in the online half. Second: <strong>access control must be enforced at retrieval time, not by filtering the answer.</strong> Once a restricted passage enters the prompt, the model may paraphrase it and no downstream filter can reliably catch that. Post-filtering a generated answer is not a security control.</p></div></div>
+</div><div class="design-step est">
+  <div class="ds-header">[chart] 2. Capacity Estimation</div>
+  <div class="ds-body"><p><strong>Assumptions:</strong> 10M documents averaging 5 KB of text; chunked at ~500 tokens with overlap; 1,536-dimension embeddings; 100K queries/day.</p>
+<div class="ng"><div class="ng-cell"><div class="ng-val">~100M</div><div class="ng-desc">chunks</div></div><div class="ng-cell"><div class="ng-val">6 KB</div><div class="ng-desc">per vector (fp32)</div></div><div class="ng-cell"><div class="ng-val">~600 GB</div><div class="ng-desc">vectors, unquantised</div></div><div class="ng-cell"><div class="ng-val">~150 GB</div><div class="ng-desc">int8 quantised</div></div><div class="ng-cell"><div class="ng-val">~1.2</div><div class="ng-desc">QPS average</div></div><div class="ng-cell"><div class="ng-val">~4K</div><div class="ng-desc">prompt tokens/query</div></div></div>
+<p><strong>The number that reframes the problem:</strong> 1.2 QPS is <em>nothing</em>. This system is not throughput-constrained &mdash; it is <strong>cost- and quality-constrained</strong>. Say that explicitly, because it inverts the usual instinct: the interesting engineering here is not sharding for scale, it is the index that fits in memory and the tokens you do not send.</p>
+<p><strong>Vector index sizing is the real capacity question.</strong> 600 GB of fp32 vectors does not fit one machine; 150 GB of int8 does, comfortably. Scalar quantisation to int8 costs a few percent of recall and <strong>4&times;</strong> the memory &mdash; the single highest-leverage trade in the design. Note also that an HNSW graph adds roughly 30&ndash;50% overhead on top of the vectors for its edge lists.</p>
+<p><strong>Cost:</strong> at ~4K prompt tokens per query, token spend dominates everything else. Trimming retrieved context from 10 chunks to 5 nearly halves the bill and frequently <em>improves</em> answer quality.</p></div>
+</div><div class="design-step api">
+  <div class="ds-header">[plug] 3. API Design</div>
+  <div class="ds-body"><div class="api-code"><span class="kw">POST</span> /v1/ask
+  Body:     { question, conversation_id?, filters{}, stream:true }
+  Auth:     user token -&gt; resolved to an ACL group set
+  Response: server-sent events
+            { type:"retrieval", chunks:[{doc_id, score, snippet}] }
+            { type:"token", text:"..." }            <span class="cm">// streamed</span>
+            { type:"citation", span:[s,e], doc_id, chunk_id }
+            { type:"done", usage:{prompt_tokens, completion_tokens} }
+  Errors:   <span class="num">422</span> no_relevant_context   <span class="cm">// retrieval found nothing</span>
+            <span class="num">429</span> token_budget_exceeded
+
+<span class="cm">// Emitting the retrieval event FIRST is a real design decision: the</span>
+<span class="cm">// user sees sources in ~300ms while generation runs, which makes a</span>
+<span class="cm">// 3-second answer feel responsive and makes the system auditable.</span>
+
+<span class="kw">POST</span> /v1/documents        <span class="cm">// triggers async re-index</span>
+<span class="kw">POST</span> /v1/feedback         <span class="cm">// thumbs + which citation was wrong</span></div></div>
+</div><div class="design-step schema">
+  <div class="ds-header">[db] 4. Schema Design</div>
+  <div class="ds-body"><div class="schema-code"><span class="kw">TABLE</span> chunks {
+  chunk_id     <span class="ty">UUID</span>        <span class="pk">PRIMARY KEY</span>,
+  doc_id       <span class="ty">UUID</span>,
+  ordinal      <span class="ty">INT</span>,         <span class="cm">-- position within the document</span>
+  text         <span class="ty">TEXT</span>,        <span class="cm">-- the chunk itself</span>
+  heading_path <span class="ty">TEXT</span>,        <span class="cm">-- "Handbook &gt; Leave &gt; Parental"</span>
+  acl_groups   <span class="ty">ARRAY</span>&lt;UUID&gt;, <span class="cm">-- DENORMALISED from the document</span>
+  embedding    <span class="ty">VECTOR</span>(1536),
+  content_hash <span class="ty">BYTES</span>,       <span class="cm">-- skip re-embedding unchanged chunks</span>
+  updated_at   <span class="ty">TIMESTAMP</span>
+}
+<span class="cm">-- acl_groups is denormalised ON PURPOSE. The ANN index must filter</span>
+<span class="cm">-- during the graph walk; a post-hoc join cannot -- you would retrieve</span>
+<span class="cm">-- 10 results, discard 9 for permissions, and return almost nothing.</span>
+
+<span class="cm">-- Two indexes over the same chunks, queried together:</span>
+<span class="cm">--   HNSW over embedding      (semantic / meaning)</span>
+<span class="cm">--   BM25 inverted over text  (lexical / exact terms, IDs, error codes)</span></div></div>
+</div><div class="design-step arch">
+  <div class="ds-header">[build] 5. High-Level Architecture</div>
+  <div class="ds-body"><div class="flow">  <span class="fl-key">OFFLINE: INDEXING</span>                    <span class="fl-key">ONLINE: SERVING</span>
+
+  document source                          user question + auth
+       |                                        |
+       v                                        v
+  parse + extract                          rewrite query
+  (PDF, HTML, tables)                      (resolve "it", "that one",
+       |                                    expand acronyms)
+       v                                        |
+  <span class="fl-hi">CHUNK</span> ~500 tokens,                          +-----------+-----------+
+  15% overlap, never                          v                       v
+  across a heading                      <span class="fl-hi">VECTOR SEARCH</span>            <span class="fl-hi">BM25 SEARCH</span>
+       |                                HNSW, ACL-filtered       lexical, exact
+       v                                during graph walk        terms and IDs
+  <span class="fl-hi">EMBED</span> (batched, skip                        |                       |
+  unchanged content_hash)                     +-----------+-----------+
+       |                                                  v
+       v                                        <span class="fl-key">FUSE</span> (reciprocal rank)
+  write vectors + BM25                            top ~50 candidates
+  + acl_groups                                            |
+       |                                                  v
+       v                                        <span class="fl-key">RERANK</span> cross-encoder
+  <span class="fl-key">ATOMIC INDEX SWAP</span>                            50 -&gt; top 5
+                                                          |
+                                                          v
+                                                <span class="fl-key">ASSEMBLE PROMPT</span> -&gt; LLM
+                                                stream tokens + citations
+
+  <span class="fl-note">Two retrievers, then rerank. Vector search finds meaning; BM25 finds the exact</span>
+  <span class="fl-note">error code or product name that embeddings routinely miss. Neither alone is enough.</span></div>
+<div class="flow-cap">The retrieve-wide-then-rerank-narrow shape is the core pattern: cheap recall over 50
+candidates, then an expensive, accurate model over only those 50. Sending all 50 to the LLM would
+cost 10&times; as much and answer worse.</div></div>
+</div><div class="design-step deep">
+  <div class="ds-header">[search] 6. Component Deep Dives</div>
+  <div class="ds-body"><p><strong>Chunking is the highest-leverage decision and the one most often rushed.</strong> Chunk too small and you sever the context that makes a passage meaningful; too large and the embedding averages several topics into a vector that matches none of them well. Split on document structure &mdash; headings, sections, paragraph boundaries &mdash; never on a fixed character count that cuts mid-sentence. Overlap adjacent chunks by 10&ndash;15% so a fact spanning a boundary survives in at least one. And <strong>prepend the heading path to each chunk's text</strong> before embedding: a chunk reading &ldquo;employees receive 12 weeks&rdquo; is nearly useless in isolation, and decisive when it begins &ldquo;Handbook &gt; Leave &gt; Parental&rdquo;.</p>
+<p><strong>Why hybrid retrieval, concretely.</strong> Embeddings capture semantic similarity and are systematically bad at rare exact tokens &mdash; an error code like <code>ERR_4021</code>, a part number, an unusual surname. BM25 handles those and is helpless at paraphrase. Run both, then fuse with reciprocal rank fusion, which combines by <em>rank position</em> rather than by score and so needs no score normalisation between two incomparable scoring systems. This is a small amount of work for a large and reliable quality gain.</p>
+<p><strong>Access control must filter inside the ANN search.</strong> HNSW navigates a proximity graph; if you filter results after the walk, you may traverse to 10 neighbours and discard 9 for permissions, returning one weak result while better permitted chunks sat one hop away unexplored. The index must evaluate the ACL predicate <em>during</em> traversal so the walk keeps expanding until it has 10 <em>permitted</em> results. This is why <code>acl_groups</code> is denormalised onto the chunk &mdash; and it is the detail that separates a demo from a system you can sell to an enterprise.</p>
+<p><strong>Attributing failure &mdash; the question a good interviewer will ask.</strong> When an answer is wrong, was it retrieval or generation? These have opposite fixes, so you must be able to tell them apart. Instrument both: log the retrieved chunks with every answer, and evaluate them separately &mdash; <em>retrieval</em> by whether the passage containing the answer was in the top&nbsp;k on a labelled set, <em>generation</em> by whether the answer is supported by the passages actually supplied. A retrieval failure means fixing chunking, embeddings or the reranker; a generation failure means fixing the prompt or the model. Teams that measure only end-to-end accuracy cannot act on the number they have.</p>
+<p><strong>Cost and latency levers, in order of value:</strong> cache embeddings by <code>content_hash</code> so re-indexing an edited document re-embeds only changed chunks; cache whole answers for repeated questions, which in an enterprise corpus is a surprisingly large fraction; trim to 5 reranked chunks rather than 10; and stream tokens so time-to-<em>first</em>-token is what the user experiences rather than total generation time.</p></div>
+</div><div class="design-step tradeoff">
+  <div class="ds-header">[balance] 7. Trade-off Analysis</div>
+  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody>
+<tr><td><strong>Retrieval</strong></td><td class='chosen'>Hybrid vector + BM25, fused</td><td class='rej'>Vector only</td><td>Embeddings systematically miss rare exact tokens -- error codes, part numbers, names -- which are exactly what users paste into a search box. Cheap to add, large and reliable quality gain.</td></tr>
+<tr><td><strong>Vector storage</strong></td><td class='chosen'>int8 scalar quantisation</td><td class='rej'>fp32</td><td>4x memory reduction for a few percent of recall. Turns a 600 GB multi-machine index into a 150 GB single-machine one, which removes an entire distribution problem.</td></tr>
+<tr><td><strong>Access control</strong></td><td class='chosen'>Filter during ANN traversal</td><td class='rej'>Post-filter results</td><td>Post-filtering returns too few results and, worse, is not a security boundary: once a restricted passage is in the prompt the model can paraphrase it past any output filter.</td></tr>
+<tr><td><strong>Reranking</strong></td><td class='chosen'>Cross-encoder over top 50</td><td class='rej'>Send all 50 to the LLM</td><td>10x the token cost for worse answers -- long contexts dilute attention and degrade quality. Retrieve wide, rerank, then send narrow.</td></tr>
+<tr><td><strong>Freshness</strong></td><td class='chosen'>Incremental by content_hash</td><td class='rej'>Nightly full re-index</td><td>Re-embedding 100M unchanged chunks nightly is enormous waste and cannot meet a 15-minute freshness target.</td></tr>
+</tbody></table></div></div>
+</div><div class="design-step fault">
+  <div class="ds-header">[shield] 8. Fault Tolerance</div>
+  <div class="ds-body"><div class="ft-row"><div class="ft-fail">Retrieval returns nothing relevant</div><div class="ft-fix">Threshold on the reranker score and return an explicit "I could not find this in your documents" rather than generating from the model's parametric memory. An unsupported answer that looks confident is worse than no answer, because the user cannot tell the difference -- and this is the single most damaging failure mode of the whole class of system.</div></div>
+<div class="ft-row"><div class="ft-fail">LLM provider slow or unavailable</div><div class="ft-fix">Timeout and fall back to returning the retrieved passages with highlights -- degraded to search, but still useful, and still cited. Circuit-break on sustained failure rather than queueing requests that will time out anyway. <span class="srcref">Ch 10</span></div></div>
+<div class="ft-row"><div class="ft-fail">Vector index corrupt or mid-rebuild</div><div class="ft-fix">Build into a new index version and swap atomically; never mutate the serving index in place. Keep the previous version on disk for instant rollback. Until the swap, BM25 alone still answers -- degraded recall on paraphrase, but the system stays up.</div></div>
+<div class="ft-row"><div class="ft-fail">Document permissions change</div><div class="ft-fix">This is a correctness AND security issue: revocation must propagate faster than re-indexing. Resolve ACLs at query time against the live permission service for the candidate set, using the denormalised acl_groups only as a pre-filter. Slightly slower, and it means a revoked user stops seeing content within seconds rather than at the next index build.</div></div>
+<div class="ft-row"><div class="ft-fail">Prompt injection from document content</div><div class="ft-fix">Retrieved chunks are untrusted input, not instructions -- a document containing "ignore previous instructions" must not be obeyed. Keep retrieved content in a clearly delimited region of the prompt, instruct the model to treat it as data, and validate that emitted citations actually point at retrieved chunks. Treat this as an injection class alongside SQL injection, not as an AI curiosity. <span class="srcref">Ch 15</span></div></div></div>
+</div></div>
+</div>
 </div>
 
 <div class="content" id="part3-toolkit">
@@ -6891,9 +7379,11 @@ This SQL atomically locks selected rows. A second scheduler running the same que
       contains a single system design interview. An L6 loop contains two &mdash; sometimes three
       &mdash; and they are deliberately different in kind: one <strong>product / applied</strong>
       design, and one <strong>infrastructure / architecture</strong> design.</p>
-      <p>Nine of the ten designs in Part 2 of this guide are the product round. Almost all popular
-      preparation material is the product round. The infra round is the one candidates
-      under-prepare, because it does not look like the questions in the videos.</p>
+      <p>Almost all popular preparation material is the product round, and this guide originally
+      was too &mdash; nine of its first ten designs. <strong>D11&ndash;D14 and the enrichment of
+      Ch&nbsp;9 and Ch&nbsp;10 exist specifically to close that half of the loop.</strong> The infra
+      round is the one candidates under-prepare, because it does not look like the questions in the
+      videos.</p>
     </div>
 
     <h4>What the infrastructure round actually looks like</h4>
@@ -6928,19 +7418,19 @@ This SQL atomically locks selected rows. A second scheduler running the same que
       <tbody>
         <tr><td><strong>Web crawler / search indexer</strong></td><td>4</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-crawler">D10</a></td></tr>
         <tr><td><strong>Distributed job scheduler</strong> (variable CPU/RAM per machine)</td><td>4</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-jobs">D6</a></td></tr>
-        <tr><td><strong>Rate limiter</strong> at millions of req/sec</td><td>3</td><td class="rej">Theory only &mdash; <a class="qlink" href="#ch10">Ch 10</a>. No worked design.</td></tr>
+        <tr><td><strong>Rate limiter</strong> at millions of req/sec</td><td>3</td><td class="chosen">Ch 10 now enriched to full depth &mdash; <a class="qlink" href="#ch10">Ch 10</a></td></tr>
         <tr><td><strong>Real-time chat / messaging</strong></td><td>3</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-whatsapp">D4</a></td></tr>
         <tr><td><strong>Distributed queue / pub-sub</strong></td><td>3</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-kafka">D7</a></td></tr>
-        <tr><td><strong>Metrics &amp; logging pipeline</strong> (sub-minute, serve downstream)</td><td>3</td><td class="rej">Partial &mdash; <a class="qlink" href="#ch14">Ch 14</a> covers the theory, no design.</td></tr>
+        <tr><td><strong>Metrics &amp; logging pipeline</strong> (sub-minute, serve downstream)</td><td>3</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-metrics">D11</a></td></tr>
         <tr><td><strong>Video streaming / YouTube</strong></td><td>2</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-youtube">D5</a></td></tr>
         <tr><td><strong>Google Maps</strong></td><td>2</td><td class="rej">Gap. Geospatial indexing appears in <a class="qlink" href="#design-uber">D9</a> only.</td></tr>
-        <tr><td><strong>Distributed cache / LRU</strong></td><td>2</td><td class="rej">Theory only &mdash; <a class="qlink" href="#ch9">Ch 9</a>. No worked design.</td></tr>
+        <tr><td><strong>Distributed cache / LRU</strong></td><td>2</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-cache">D12</a>, theory in <a class="qlink" href="#ch9">Ch 9</a></td></tr>
         <tr><td><strong>Collaborative editing</strong> (offline edits, merge conflicts)</td><td>2</td><td class="rej">CRDT theory in <a class="qlink" href="#ch4">Ch 4</a>; no end-to-end design.</td></tr>
         <tr><td><strong>Denylist / banned-IP blocking</strong></td><td>2</td><td class="rej">Gap.</td></tr>
         <tr><td><strong>Notification fan-out</strong> (push / email / SMS)</td><td>2</td><td class="rej">Gap.</td></tr>
         <tr><td><strong>URL shortener</strong></td><td>2</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-url">D1</a></td></tr>
         <tr><td><strong>Ticket booking</strong> (inventory under contention)</td><td>2</td><td class="rej">Gap. The invariant-on-one-row idea is in <a class="qlink" href="#ch7">Ch 7</a>.</td></tr>
-        <tr><td><strong>Typeahead / autocomplete</strong> &mdash; named a top-5 Google question</td><td>1</td><td class="rej">Gap.</td></tr>
+        <tr><td><strong>Typeahead / autocomplete</strong> &mdash; named a top-5 Google question</td><td>1</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-typeahead">D13</a></td></tr>
       </tbody>
     </table></div>
     <div class="qb-note">&ldquo;Sources&rdquo; means how many of the eight banks consulted listed it &mdash;
@@ -6974,7 +7464,7 @@ This SQL atomically locks selected rows. A second scheduler running the same que
     least. The reassuring half of that: an inference-serving system is a queueing and batching
     problem, and a RAG pipeline is an indexing and retrieval problem. Both are made of parts this
     guide already teaches. The unfamiliar half is the vocabulary and the failure modes, which is
-    what <strong>D14</strong> below is for.</p>
+    what <a class="qlink" href="#design-rag">D14</a> is for.</p>
 
     <div class="misconception">
       <div class="label">&#9888; Common misconception</div>

@@ -1,0 +1,10 @@
+# This site is unlisted and should not appear in search results.
+# Crawling is intentionally ALLOWED so that crawlers can read the
+# <meta name="robots" content="noindex"> tag on the page itself.
+# Blocking with Disallow would hide that tag and can leave a
+# URL-only entry in search results instead.
+
+User-agent: *
+Allow: /
+
+# No sitemap is published on purpose.

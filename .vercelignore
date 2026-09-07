@@ -1,0 +1,9 @@
+# The source book — copyrighted. MUST NOT be served publicly.
+*.pdf
+
+# Working notes, not for the public site
+CLAUDE.md
+DDIA_REFERENCE.md
+
+# Pre-enrichment original
+*.backup.html

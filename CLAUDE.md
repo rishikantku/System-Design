@@ -1,0 +1,315 @@
+# CLAUDE.md — Distributed Systems Deep Guide
+
+Context for continuing work on **`index.html`**, a single-file
+study guide for Google L6 / Staff Engineer system design prep.
+
+This file is portable: keep it in the same folder as the HTML. All paths below are
+relative to that folder unless stated otherwise.
+
+**Companion files in this folder:**
+- `index.html` — the artifact (renamed from Distributed_Systems_Deep_Guide.html for Vercel)
+- `Distributed_Systems_Deep_Guide.backup.html` — pre-enrichment original
+- `DDIA_REFERENCE.md` — source-book structural index + synthesis notes
+- `Designing Data Intensive Applications by Martin Kleppmann.pdf` — the source book
+
+---
+
+## 1. Who this is for, and how to behave
+
+The reader is preparing for a **Google L6 / Staff Software Engineer** system design
+interview.
+
+**Act as a tutor, not an interviewer.** This is an explicit, repeated instruction:
+
+- Explain clearly, build intuition, connect concepts across chapters.
+- Do **not** simulate a Google interviewer, run mock interviews, or score answers.
+- "Q&A" means *teaching* questions **with the answers supplied** — never questions posed
+  back at the reader to test them.
+- Content should aim at: *after reading this, I can reason about it in a real design
+  discussion* — not *I have memorised a definition*.
+
+The reader is an experienced backend engineer. Skip programming basics. Explain
+distributed systems concepts from first principles.
+
+---
+
+## 2. What the artifact is
+
+| | |
+|---|---|
+| **File** | `index.html` — single self-contained file, ~936 KB |
+| **Backup** | `Distributed_Systems_Deep_Guide.backup.html` — the original before any enrichment |
+| **Content** | ~53,800 words |
+| **Deps** | None. One Google Fonts `@import`. No JS libraries. Opens offline from `file://` |
+| **Structure** | 1 `<style>` block, 2 `<script>` blocks (glossary data, then glossary engine) |
+
+### Document layout (in DOM order)
+
+```
+.top-nav                     sticky nav — brand + 4 links + badge
+.cover                       title page
+#master-toc                  full table of contents
+#part1-theory                Part 1 banner
+  #ch1 … #ch15               15 chapters (div.chapter + div.content pairs)
+#part2-designs               Part 2 banner
+  #design-url, #design-twitter, #design-kv, #design-whatsapp, #design-youtube,
+  #design-jobs, #design-kafka, #design-drive, #design-uber, #design-crawler
+#part3-toolkit               Part 3 banner
+  #toolkit-framework, #toolkit-numbers, #toolkit-tradeoffs, #toolkit-behavioral
+#part3-mentalmodel
+  #toolkit-mentalmodel       "T5" — DDIA mental model + pattern cheat sheet + 20 mistakes
+#part4-glossary              Part 4 banner
+  #glossary-index            searchable 181-term glossary index
+<script> GLOSSARY data </script>
+<script> glossary engine </script>
+.footer
+```
+
+### The 15 chapters
+
+| id | Title | Enriched? |
+|---|---|---|
+| `ch1` | Why Are Distributed Systems Hard? | ✅ |
+| `ch2` | Consistency Models | ✅ |
+| `ch3` | CAP & PACELC | ✅ |
+| `ch4` | Replication | ✅ |
+| `ch5` | Partitioning (Sharding) | ✅ |
+| `ch6` | Consensus | ✅ |
+| `ch7` | Distributed Transactions | ✅ |
+| `ch8` | Distributed Time & Clocks | ✅ |
+| `ch9` | Caching | ❌ still original depth |
+| `ch10` | Load Balancing & Rate Limiting | ❌ still original depth |
+| `ch11` | Message Queues & Streaming | ❌ still original depth |
+| `ch12` | Database Internals (+ data models, OLAP) | ✅ |
+| `ch13` | Microservices & Resilience | ❌ still original depth |
+| `ch14` | Observability & SRE | ✅ |
+| `ch15` | Security & API Design (+ encoding/evolution) | ✅ |
+
+---
+
+## 3. Source material
+
+**Primary source:** Martin Kleppmann, *Designing Data-Intensive Applications* (1st ed, 613pp).
+The PDF now sits in this folder.
+
+**➜ Read `DDIA_REFERENCE.md` first.** It has a 507-entry structural index (every section
+heading with its line number in the text extraction) plus per-chapter synthesis notes
+marking what has already been used and what has not. It contains no reproduced book
+text — regenerate `ddia.txt` from the PDF to make the line numbers usable.
+
+**Rule: paraphrase and explain. Never reproduce copyrighted passages.** DDIA supplies the
+rigor and the failure cases; the prose, diagrams, examples and exercises are original.
+
+To work with it efficiently — do **not** read it as PDF images:
+
+```bash
+pdftotext -layout "Designing Data Intensive Applications by Martin Kleppmann.pdf" ddia.txt
+grep -n "^\s*CHAPTER [0-9]" ddia.txt                # chapter line offsets
+grep -nE "^[A-Z][A-Za-z0-9 ,'-/()]{4,60}$" ddia.txt # section headings
+```
+
+Chapter line offsets in the 1st edition extraction (verify if re-extracting):
+`ch1:606  ch2:1502  ch3:3168  ch4:4678  ch5:6059  ch6:7873  ch7:8646  ch8:10679  ch9:12580  ch10:15221`
+
+**DDIA → this guide mapping** (already applied for the ✅ chapters):
+
+| DDIA | Goes into |
+|---|---|
+| Ch 1 Reliable/Scalable/Maintainable | `ch1` (faults) + `ch14` (percentiles, load params) |
+| Ch 2 Data Models | `ch12` (folded in *front* of storage engines) |
+| Ch 3 Storage & Retrieval | `ch12` |
+| Ch 4 Encoding & Evolution | `ch15` |
+| Ch 5 Replication | `ch4` |
+| Ch 6 Partitioning | `ch5` |
+| Ch 7 Transactions | `ch7` (isolation foundation goes *before* the 2PC content) |
+| Ch 8 Trouble with Distributed Systems | `ch1` + `ch8` |
+| Ch 9 Consistency & Consensus | `ch2` + `ch3` + `ch6` |
+
+**Structural decision — do not renumber chapters.** The glossary's `ch` field and the TOC
+both depend on `ch1..ch15`. DDIA topics with no natural home were folded into the closest
+existing chapter rather than inserted as new ones.
+
+---
+
+## 4. The glossary system (data-driven — do not hand-edit prose)
+
+181 terms. **Inline links are generated at page load, not written into the HTML.**
+To add or change a term, edit the `GLOSSARY` object in the **first** `<script>` block only.
+
+```js
+"fencing-token": {
+  t:   "Fencing Token",              // display title
+  cat: "Consensus",                  // category — drives the filter chips
+  ch:  "ch6",                        // chapter anchor for the "jump to chapter" chip
+  aka: ["fencing","epoch number"],   // extra match patterns for auto-linking
+  cs:  true,                         // OPTIONAL: case-sensitive match (acronyms: CAP, NTP, REST)
+  one: "…",                          // one-sentence definition (shown as the hero line)
+  why: "…",                          // the problem it solves
+  how: ["…","…"],                    // mechanics bullets; supports **bold** and `code`
+  analogy: "…",
+  ex:  "…",                          // concrete worked example
+  gotcha: "…",                       // where it bites in production
+  ask: "…",                          // what an L6 interviewer probes
+  rel: ["lease","split-brain"]       // related slugs; unknown slugs are filtered at render
+}
+```
+
+Every field except `t` and `one` is optional — the renderer skips empties.
+
+**How the auto-linker works** (second `<script>` block):
+builds one alternation regex from all `t` + `aka` values sorted longest-first, walks text
+nodes, wraps matches in `<span class="gt" data-gl="slug">`. Clicking opens a slide-in panel.
+
+- **`MAX_PER_ZONE = 2`** — at most 2 links per term per zone. Zones are `.design-card`,
+  `.toolkit-card`, then `div.content` / `div.chapter`. Keeps links from becoming noise.
+- **`SKIP_CLASS`** excludes: `codeblock, schema-code, api-code, flow, top-nav, cover,
+  toc-section, gl-, gt, nav-, toc-card, toc-badge, ch-num, part-tag, ng-val, dc-meta`
+- Also skips tags: `SCRIPT STYLE CODE PRE A BUTTON INPUT TEXTAREA SVG`
+
+**Nice property:** any new prose you add gets glossary links automatically on next load.
+
+---
+
+## 5. Component vocabulary
+
+Reuse these. Do not invent new block types without a reason.
+
+### Original blocks (present before enrichment)
+`.analogy` · `.insight` · `.warning` · `.deep` · `.scenario` · `.google-bar` ·
+`.qa-section` (interview Q&A) · `.compare` > `.compare-card` · `.summary-box` ·
+`.steps` · `.diagram` (SVG) · `table.to` (with `td.chosen` / `td.rej`) · `.ng` > `.ng-cell`
+
+### Teaching blocks (added for the DDIA enrichment)
+
+| Class | Purpose | Inner structure |
+|---|---|---|
+| `.flow` | Dark monospace ASCII diagram | `.fl-hi` green/good · `.fl-bad` red/failure · `.fl-key` orange/emphasis · `.fl-dim` grey annotation · `.fl-note` blue italic. Follow with `.flow-cap` caption |
+| `.exercise` | Mini exercise | `.label`, `.ex-q`, then `<details><summary>Show the worked answer</summary><div class="ex-a">` |
+| `.misconception` | "Many engineers assume X" | `.label`, `.mc-wrong` (the false belief, gets a ✗), `.mc-right` (the correction) |
+| `.teach-qa` | Teaching Q&A (≠ `.qa-section`) | `h3`, `.tq-sub`, then `.tq` > `.tq-q` + `.tq-a` |
+| `.usecase` | System-archetype table | `.label`, then `.uc-row` > `.uc-sys` + `.uc-why` |
+| `.takeaway` | Green chapter closer | `.label`, `<p>`, `<ul>` |
+| `.recall` | "Before this chapter, remember X" | `.rc-icon` + a `<div>` |
+| `.srcref` | Small inline chapter chip | `<span class="srcref">Ch 4, 12</span>` |
+
+### Chapter section shape that works
+
+```
+.recall              — dependency reminder, links back to earlier chapters
+h3 / h4 + prose      — the mechanism
+.flow + .flow-cap    — diagram of the mechanism or its failure
+.misconception       — the belief this corrects
+.exercise            — apply it, with a revealed worked answer
+.teach-qa            — 4–7 understanding-check questions with answers
+.usecase             — which real systems make which choice
+.takeaway            — 4–6 bullets + a sentence handing off to the next chapter
+```
+
+---
+
+## 6. Editing workflow — read this before touching the file
+
+**The file is ~960 KB. Never rewrite it wholesale.** Use surgical anchored insertion:
+
+```python
+python3 - <<'PYEOF'
+import io
+p = "index.html"
+h = io.open(p, encoding="utf-8").read()
+
+ANCHOR = "<some exact unique existing string>"
+assert h.count(ANCHOR) == 1, "anchor not unique"   # ALWAYS assert
+h = h.replace(ANCHOR, ANCHOR + NEW_HTML, 1)
+
+io.open(p, "w", encoding="utf-8").write(h)
+PYEOF
+```
+
+Rules that came from actually getting these wrong:
+
+1. **Always `assert h.count(ANCHOR) == 1`** before replacing. Silent no-match wastes a cycle.
+2. **Beware entity mismatch when picking anchors.** The file mixes `&` and `&amp;`, and
+   raw `—` alongside `&mdash;`. Grep the real bytes first rather than typing the anchor
+   from what the rendered page shows.
+3. **`.flow` blocks use `white-space: pre`.** Pad ASCII boxes **programmatically** —
+   hand-counted spacing comes out ragged. Build lines with `.ljust(width)` and print the
+   lengths to verify they match before inserting.
+4. Avoid box-drawing characters (`╔═╗║`) in `.flow` — they render at a different width
+   than text in JetBrains Mono and the right border goes ragged. Plain ASCII (`#`, `|`,
+   `+`) is safe. `│ ┌ ┐ ▼ ─` are acceptable and used in places.
+5. **Do not remove `flow` from `SKIP_CLASS`.** The glossary's `°` marker adds characters
+   and destroys monospace alignment inside diagrams.
+6. Keep the nav to one line. `.nav-inner` is `max-width: 1320px`; adding a 5th nav link
+   will wrap it (it wrapped at 1100px with 4).
+
+---
+
+## 7. Verifying — do not ship on assumption
+
+A `browser-automation` skill is available and was used throughout. Typical check:
+
+```bash
+node ~/.claude/skills/browser-automation/browser.mjs \
+  "file:///ABSOLUTE/PATH/index.html" \
+  --eval "({ gt: document.querySelectorAll('.gt').length,
+             gtInFlow: document.querySelectorAll('.flow .gt').length,
+             broken: [...document.querySelectorAll('a[href^=\"#\"]')]
+               .map(a=>a.getAttribute('href').slice(1))
+               .filter(id=>id && !document.getElementById(id)) })"
+```
+
+Note: the harness's `page.evaluate` runs in an **isolated world** — DOM is shared but page
+globals are not. `window.GLOSSARY` and `window.openGlossary` will read as `undefined` even
+though they exist. Drive the page by clicking real elements, not by calling its functions.
+
+**Baseline to regress against** (as of last session):
+
+```
+totalWords 53792 · flows 34 · exercises 12 · teachingQs 49 · misconceptions 16
+takeaways 11 · usecaseTables 6 · recalls 5 · glossaryTerms 181 · inlineLinks 1017
+gtInFlow 0 · gtInCodeOrLink 0 · brokenAnchors [] · navHeight 52 · consoleErrors 0
+```
+
+---
+
+## 8. State and what's next
+
+**Done:** chapters 1, 2, 3, 4, 5, 6, 7, 8, 12, 14, 15 enriched; Part 3 gained the
+mental-model / cheat-sheet card; the 181-term interactive glossary was built from scratch.
+
+**Not done — the four chapters with no DDIA Ch 1–9 source:**
+
+- `ch9` **Caching** — cache-aside/through/back, stampede, invalidation, eviction. Sources
+  would be first principles + the existing glossary entries, not DDIA.
+- `ch10` **Load Balancing & Rate Limiting** — L4/L7, P2C, token bucket, load shedding.
+- `ch11` **Message Queues & Streaming** — the natural source is **DDIA Ch 11 (Stream
+  Processing)**, which was scoped out of the original Ch 1–9 request. Worth asking.
+- `ch13` **Microservices & Resilience** — circuit breakers, bulkheads, retry budgets,
+  cascading failure. Partly covered by DDIA Ch 8.
+
+**Also never covered:** DDIA Ch 10 (Batch Processing) and Ch 12 (The Future of Data
+Systems). Ch 12's "derived data" framing would strengthen `ch12`'s CQRS/materialised-view
+material if the reader wants it.
+
+**Known cosmetic issue, pre-existing and not introduced by this work:** wide `table`
+elements overflow horizontally on phones (page `scrollWidth` ~564 px at a 390 px viewport;
+it was 564 in the untouched backup too). A `overflow-x: auto` wrapper on tables fixes it
+invisibly on desktop. Not applied — offered and not yet requested.
+
+---
+
+## 9. Voice — how the enriched prose reads
+
+Match this or the document stops feeling like one book:
+
+- **Lead with why it exists**, then the mechanism. Never "X is a technique where…".
+- **Name the trade explicitly.** "You have traded a correctness problem for a load
+  problem, which is almost always the right trade because load problems have more solutions."
+- **Give real numbers.** `0.999⁵ ≈ 99.5%`, `~7–14 ms of commit-wait`, `1 − 0.99¹⁰⁰ = 63%`.
+- **End exercises on a transferable principle**, and cross-reference where it recurs. The
+  recurring spine is: *make the constraint local instead of coordinating* — it appears in
+  ch4 (partition by conversation), ch5 (partition the crawler by host), ch6 (keep the
+  balance on one shard), ch7 (move the invariant onto one row).
+- **Correct misconceptions by quoting the false sentence**, then dismantling it.
+- British-leaning spelling is used throughout (`behaviour` ×14, `optimise` ×8, `organised`) —
+  though technical terms keep their standard forms (`serializability`, `linearizability`).

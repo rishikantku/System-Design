@@ -1,0 +1,5 @@
+# Copyrighted source book — do not commit (25 MB binary, and not ours to distribute)
+*.pdf
+
+# Extracted text from the book
+ddia*.txt

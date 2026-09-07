@@ -37,9 +37,9 @@ distributed systems concepts from first principles.
 
 | | |
 |---|---|
-| **File** | `index.html` — single self-contained file, ~936 KB |
+| **File** | `index.html` — single self-contained file, ~1.10 MB |
 | **Backup** | `Distributed_Systems_Deep_Guide.backup.html` — the original before any enrichment |
-| **Content** | ~53,800 words |
+| **Content** | ~68,700 words |
 | **Deps** | None. One Google Fonts `@import`. No JS libraries. Opens offline from `file://` |
 | **Structure** | 1 `<style>` block, 2 `<script>` blocks (glossary data, then glossary engine) |
 
@@ -53,13 +53,16 @@ distributed systems concepts from first principles.
   #ch1 … #ch15               15 chapters (div.chapter + div.content pairs)
 #part2-designs               Part 2 banner
   #design-url, #design-twitter, #design-kv, #design-whatsapp, #design-youtube,
-  #design-jobs, #design-kafka, #design-drive, #design-uber, #design-crawler
+  #design-jobs, #design-kafka, #design-drive, #design-uber, #design-crawler,
+  #design-metrics, #design-cache, #design-typeahead, #design-rag   ← D11–D14, the infra round
 #part3-toolkit               Part 3 banner
   #toolkit-framework, #toolkit-numbers, #toolkit-tradeoffs, #toolkit-behavioral
 #part3-mentalmodel
   #toolkit-mentalmodel       "T5" — DDIA mental model + pattern cheat sheet + 20 mistakes
+#part3-questionbank
+  #toolkit-questionbank      "T6" — what Google actually asks + the L4/L5/L6 rubric ladder
 #part4-glossary              Part 4 banner
-  #glossary-index            searchable 181-term glossary index
+  #glossary-index            searchable 199-term glossary index
 <script> GLOSSARY data </script>
 <script> glossary engine </script>
 .footer
@@ -77,8 +80,8 @@ distributed systems concepts from first principles.
 | `ch6` | Consensus | ✅ |
 | `ch7` | Distributed Transactions | ✅ |
 | `ch8` | Distributed Time & Clocks | ✅ |
-| `ch9` | Caching | ❌ still original depth |
-| `ch10` | Load Balancing & Rate Limiting | ❌ still original depth |
+| `ch9` | Caching | ✅ |
+| `ch10` | Load Balancing & Rate Limiting | ✅ |
 | `ch11` | Message Queues & Streaming | ❌ still original depth |
 | `ch12` | Database Internals (+ data models, OLAP) | ✅ |
 | `ch13` | Microservices & Resilience | ❌ still original depth |
@@ -133,7 +136,7 @@ existing chapter rather than inserted as new ones.
 
 ## 4. The glossary system (data-driven — do not hand-edit prose)
 
-181 terms. **Inline links are generated at page load, not written into the HTML.**
+199 terms. **Inline links are generated at page load, not written into the HTML.**
 To add or change a term, edit the `GLOSSARY` object in the **first** `<script>` block only.
 
 ```js
@@ -262,13 +265,35 @@ Note: the harness's `page.evaluate` runs in an **isolated world** — DOM is sha
 globals are not. `window.GLOSSARY` and `window.openGlossary` will read as `undefined` even
 though they exist. Drive the page by clicking real elements, not by calling its functions.
 
-**Baseline to regress against** (as of last session):
+**Baseline to regress against** (current, after the Google-question-bank work):
 
 ```
-totalWords 53792 · flows 34 · exercises 12 · teachingQs 49 · misconceptions 16
-takeaways 11 · usecaseTables 6 · recalls 5 · glossaryTerms 181 · inlineLinks 1017
+totalWords 68691 · designs 14 · toolkitCards 6 · designSteps 105 · flows 45
+exercises 14 · teachingQs 61 · misconceptions 21 · takeaways 14 · usecaseTables 8
+recalls 7 · glossaryTerms 199 · inlineLinks 1156 · tables 40 (all wrapped in .tw)
 gtInFlow 0 · gtInCodeOrLink 0 · brokenAnchors [] · navHeight 52 · consoleErrors 0
+tablesScrollingOnDesktop 0 · tocColumns 2
 ```
+
+*Previous baseline, for reference: totalWords 53792 · flows 34 · exercises 12 ·
+teachingQs 49 · misconceptions 16 · takeaways 11 · usecaseTables 6 · recalls 5 ·
+glossaryTerms 181 · inlineLinks 1017.*
+
+**Verifying `.flow` alignment — do not eyeball it.** Two alignment bugs got shipped
+and caught this way. Extract the rendered text and assert column positions:
+
+```python
+flows = re.findall(r'<div class="flow">(.*?)</div>', h, re.S)
+txt   = html.unescape(re.sub(r'<[^>]+>', '', flow))   # strip spans, resolve entities
+# then check .index(token) per line
+```
+
+Two traps that caused real bugs:
+1. **Never `.ljust()` a string containing HTML entities.** `&lt;` is 4 characters to
+   Python and 1 on screen. Build lines in *plain* text, pad, and escape only at render.
+2. **Never apply colour by `str.replace(substring)`.** A `("/", "bad")` replacement
+   matched inside a `</span>` and corrupted a heading; a `("TWO CHOICES", "hi")` one
+   matched inside its own title. Colour by explicit `(line, start, end)` column ranges.
 
 **Mobile baseline** (same run, after the mobile pass — check at 320 / 360 / 390 / 430 px):
 
@@ -285,22 +310,65 @@ panel is *deliberately* parked off-canvas and will always report as overflowing.
 
 ## 8. State and what's next
 
-**Done:** chapters 1, 2, 3, 4, 5, 6, 7, 8, 12, 14, 15 enriched; Part 3 gained the
-mental-model / cheat-sheet card; the 181-term interactive glossary was built from scratch.
+**Done:** chapters 1–10, 12, 14, 15 enriched; Part 3 gained the mental-model card (T5)
+and the Google question bank (T6); Part 2 grew from 10 designs to 14; the glossary went
+from 181 to 199 terms and gained an **AI Systems** category.
 
-**Not done — the four chapters with no DDIA Ch 1–9 source:**
+### The Google-question research and what it changed
 
-- `ch9` **Caching** — cache-aside/through/back, stampede, invalidation, eviction. Sources
-  would be first principles + the existing glossary entries, not DDIA.
-- `ch10` **Load Balancing & Rate Limiting** — L4/L7, P2C, token bucket, load shedding.
+A web-research pass over eight public question banks and candidate reports produced one
+load-bearing finding, and the last round of work was organised around it:
+
+> **At L6 the loop contains two design rounds, not one, split by kind — one
+> product/applied, one infrastructure/architecture.** L5 gets a single round.
+> Corroborated independently by Hello Interview and Design Gurus.
+
+Nine of the guide's original ten designs were the product round, so half the loop was
+unrehearsed. Google's reported pool also skews much harder to infrastructure and
+operations than the public canon does — *"upgrade 5000 servers"*, *"log messages in
+order"*, *"design a metrics and logging service"*, *"design a distributed LRU cache"*,
+*"deny service to banned IPs"*. That is fleet management, observability and admission
+control, not feeds and timelines.
+
+Three of the four un-enriched chapters turned out to *be* that infra round, which is why
+`ch9` and `ch10` were the ones enriched and why D11–D14 are the designs that were added.
+
+**T6 carries the full tiered list**, each question mapped to the chapter or design that
+answers it, with remaining gaps marked in red. Coverage of the Tier 1 list went 6/15 →
+10/15. Provenance caveat is stated in the card itself: none of it is confirmed by Google,
+and vendor lists are biased toward what they sell content for.
+
+**Not done — remaining chapters at original depth:**
+
 - `ch11` **Message Queues & Streaming** — the natural source is **DDIA Ch 11 (Stream
   Processing)**, which was scoped out of the original Ch 1–9 request. Worth asking.
-- `ch13` **Microservices & Resilience** — circuit breakers, bulkheads, retry budgets,
-  cascading failure. Partly covered by DDIA Ch 8.
+- `ch13` **Microservices & Resilience** — circuit breakers, bulkheads, cascading failure.
+  Partly covered by DDIA Ch 8, and retry budgets / metastable failure now live in `ch10`.
+
+**Not done — the five Tier 1 questions still marked as gaps in T6:**
+
+| Question | Note |
+|---|---|
+| Google Maps | Geospatial indexing exists in D9 (Uber H3) but there is no Maps design |
+| Collaborative editing (Google Docs) | CRDT theory is in `ch4`; no end-to-end design |
+| Denylist / banned-IP blocking | Reported twice; entirely absent |
+| Notification fan-out (push/email/SMS) | Reported twice; entirely absent |
+| Ticket booking under contention | The invariant-on-one-row idea is in `ch7` |
 
 **Also never covered:** DDIA Ch 10 (Batch Processing) and Ch 12 (The Future of Data
 Systems). Ch 12's "derived data" framing would strengthen `ch12`'s CQRS/materialised-view
 material if the reader wants it.
+
+**Glossary note:** `ch` on a glossary entry is rendered as a jump chip only if the value is
+a key in `CH_TITLES` (in the second `<script>`). That map now includes the four new design
+anchors (`'design-metrics'`, `'design-cache'`, `'design-typeahead'`, `'design-rag'`), so a
+term can point at a *design* rather than a chapter. Add a `CH_TITLES` entry before using a
+new anchor, or the chip silently disappears.
+
+**Auto-linker note:** `MASTER_RX` wraps every pattern in `(^|[^\w-])(…)(?![\w-])`, so
+short terms are safe from substring matches — `trie` does not fire inside `retrieval`. But
+the same boundary means plurals need explicit `aka` entries (`embedding` will not match
+`embeddings`).
 
 **Mobile view — fixed.** The page used to have a `scrollWidth` of ~564 px at a 390 px
 viewport (564 in the untouched backup too). It is now exactly viewport-width at 320 / 360 /

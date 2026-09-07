@@ -148,6 +148,7 @@ body {
 /* DIAGRAM */
 .diagram { margin: 28px 0; text-align: center; }
 .diagram svg { max-width: 100%; height: auto; }
+svg { max-width: 100%; height: auto; }   /* 10 diagrams live outside .diagram */
 .diagram .caption { font-size: 13px; color: var(--muted); margin-top: 8px; font-style: italic; }
 
 /* TABLE */
@@ -340,7 +341,7 @@ code { font-family: 'JetBrains Mono', monospace; font-size: 13px; background: va
 }
 .toc-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(310px, 100%), 1fr));
   gap: 14px;
 }
 .toc-card {
@@ -443,7 +444,7 @@ code { font-family: 'JetBrains Mono', monospace; font-size: 13px; background: va
 /* Number Crunching Grids */
 .ng {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr));
   gap: 12px;
   margin: 10px 0;
 }
@@ -750,7 +751,7 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
 .gl-cat.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 .gl-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(268px, 100%), 1fr));
   gap: 11px;
 }
 .gl-card {
@@ -993,6 +994,93 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
   .teach-qa { padding: 20px 18px; }
 }
 
+
+
+/* ============================================================
+   MOBILE HARDENING
+   ============================================================ */
+
+/* Any table scrolls inside its own box instead of widening the page */
+.tw { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 20px 0 24px; }
+.tw > table { margin: 0 !important; }
+.tw > table.to { margin: 0 !important; }
+
+/* Nothing may exceed the viewport */
+html, body { max-width: 100%; overflow-x: hidden; }
+img, svg, video, canvas, iframe { max-width: 100%; height: auto; }
+pre, code { overflow-wrap: break-word; word-break: break-word; }
+
+@media (max-width: 680px) {
+  /* long unbroken strings (URLs, code spans) must not push the page wide */
+  .content p, .content li, .qa .a, .tq-a, .ex-a, .mc-right { overflow-wrap: anywhere; }
+
+  /* the ASCII diagrams get a touch scroll hint */
+  .flow { -webkit-overflow-scrolling: touch; }
+
+  /* tighten oversized headings so they fit */
+  .cover h1 { font-size: 30px !important; }
+  .ch-title { font-size: 27px; }
+  .part-title { font-size: 23px; }
+  .dc-title { font-size: 21px; }
+  .toolkit-card, .design-card { padding: 22px 16px; }
+  .part-banner { padding: 30px 20px; }
+
+  /* Nav stays sticky, but compresses to ONE ~44px row instead of wrapping to
+     three. The long labels are swapped for one-word ones (.nl-abbr) and the
+     brand loses its wordmark, so persistent navigation costs 44px, not 112px. */
+  .nav-inner { flex-wrap: nowrap; gap: 10px; padding: 0 14px; justify-content: center; }
+  .nav-brand { display: none; }
+  .nav-links { gap: 4px; flex-wrap: nowrap; justify-content: center; width: 100%; }
+  .nav-links a { font-size: 13px; padding: 9px 8px; }   /* 13px + padding = 36px tap target */
+  .nav-badge { display: none; }
+  .top-nav { padding: 4px 0; }
+
+  .tw { margin-left: -4px; margin-right: -4px; }
+
+  /* Let a narrow table fill the column and NOT scroll; cap a wide one at 560px
+     so its cells stay readable and it scrolls instead of crushing to one word
+     per line. Percentage column widths fall back to auto here, which is fine. */
+  .tw > table { width: max-content; min-width: 100%; max-width: 560px; }
+  .tw > table th, .tw > table td { white-space: normal; }
+
+  /* The ASCII diagrams already have to scroll at any phone width, so spend the
+     width on legibility: 10.5px monospace is below comfortable reading size. */
+  .flow { font-size: 12px; }
+
+  /* Glossary filter chips and the panel close button as real tap targets. */
+  .gl-cat { padding: 8px 14px; }
+  .gl-close { width: 40px; height: 40px; }
+
+  /* 36px of padding on a 350px card leaves a 278px column. Reclaim 40px of
+     reading width in the two sections built entirely out of nested cards. */
+  .toc-section { padding: 22px 16px; }
+  .toc-head { font-size: 21px; }
+  .deep { padding: 18px 16px; }
+  .analogy { padding: 18px 16px; }
+  .footer { padding: 56px 20px; }
+}
+
+/* Scroll affordance for the two things that scroll sideways on a phone.
+   A styled ::-webkit-scrollbar renders persistently instead of as an overlay
+   that only appears mid-gesture, so the bar itself is the "there is more"
+   signal. The previous float+sticky fade computed to height:0 and never
+   painted. */
+.tw, .flow { scrollbar-width: thin; }
+.tw { scrollbar-color: rgba(0,0,0,.28) rgba(0,0,0,.07); }
+.flow { scrollbar-color: rgba(255,255,255,.34) rgba(255,255,255,.10); }
+.tw::-webkit-scrollbar, .flow::-webkit-scrollbar { height: 7px; -webkit-appearance: none; }
+.tw::-webkit-scrollbar-track { background: rgba(0,0,0,.07); border-radius: 4px; }
+.tw::-webkit-scrollbar-thumb { background: rgba(0,0,0,.28); border-radius: 4px; }
+.flow::-webkit-scrollbar-track { background: rgba(255,255,255,.10); border-radius: 4px; }
+.flow::-webkit-scrollbar-thumb { background: rgba(255,255,255,.34); border-radius: 4px; }
+
+/* Nav label swap: full labels on desktop, one-word labels on a phone. */
+.nl-abbr { display: none; }
+@media (max-width: 680px) {
+  .nl-full { display: none; }
+  .nl-abbr { display: inline; }
+}
+
 </style>
 </head>
 <body>
@@ -1003,10 +1091,10 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
       <span>&bull;</span> Google L6 Staff Distributed Systems Guide
     </div>
     <div class="nav-links">
-      <a href="#part1-theory">Part 1: 15 Theory Chapters</a>
-      <a href="#part2-designs">Part 2: 10 Full System Designs</a>
-      <a href="#part3-toolkit">Part 3: Staff Interview Toolkit</a>
-      <a href="#glossary-index">Glossary</a>
+      <a href="#part1-theory"><span class="nl-full">Part 1: 15 Theory Chapters</span><span class="nl-abbr">Theory</span></a>
+      <a href="#part2-designs"><span class="nl-full">Part 2: 10 Full System Designs</span><span class="nl-abbr">Designs</span></a>
+      <a href="#part3-toolkit"><span class="nl-full">Part 3: Staff Interview Toolkit</span><span class="nl-abbr">Toolkit</span></a>
+      <a href="#glossary-index"><span class="nl-full">Glossary</span><span class="nl-abbr">Glossary</span></a>
       <span class="nav-badge">Google L6 Standard</span>
     </div>
   </div>
@@ -1224,14 +1312,14 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
 
 <h4>The three sources of faults, in order of how much they actually matter</h4>
 
-<table class="to">
+<div class="tw"><table class="to">
   <thead><tr><th style="width:18%">Source</th><th style="width:42%">Reality</th><th style="width:40%">What actually helps</th></tr></thead>
   <tbody>
     <tr><td><strong>Hardware</strong></td><td>Disks ~2&ndash;5% annual failure rate. At 10,000 disks, <em>something dies every day</em>. Mostly independent and random.</td><td>Redundancy. This is the <em>easy</em> case &mdash; it is well understood and solved by replication.</td></tr>
     <tr><td><strong>Software</strong></td><td class="rej">Systematic and <strong>correlated</strong>. A leap-second bug or a bad input crashes <em>every</em> node at once. Redundancy does not help &mdash; all replicas run the same bug.</td><td>Process isolation, testing, gradual rollout, measuring invariants in production.</td></tr>
     <tr><td><strong>Humans</strong></td><td class="rej">The <strong>leading cause</strong> of outages in large-scale studies &mdash; configuration errors by operators outrank hardware by a wide margin.</td><td>Sandboxes, fast rollback, canaries, good tooling. Not &ldquo;be more careful.&rdquo;</td></tr>
   </tbody>
-</table>
+</table></div>
 
 <div class="insight"><div class="label">&#128161; Why the ordering of that table is the point</div><p>Most engineering effort goes into hardware redundancy, which is the <em>least</em> likely source of a major outage and the one already solved. The two that actually take systems down &mdash; correlated software bugs and human configuration error &mdash; are precisely the two that <strong>redundancy does not address</strong>. Adding a fifth replica does nothing about a bad config pushed to all five.</p><p>This is why the highest-leverage reliability work at scale is usually deployment tooling and rollback speed, not more machines.</p></div>
 
@@ -1457,7 +1545,7 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
 
 <p>If a total order is what we want, could we just number every operation? Partly. It depends on where the numbers come from.</p>
 
-<table class="to">
+<div class="tw"><table class="to">
   <thead><tr><th style="width:26%">Scheme</th><th style="width:37%">What it gives you</th><th style="width:37%">What it cannot do</th></tr></thead>
   <tbody>
     <tr><td><strong>Single-leader counter</strong></td><td class="chosen">A real total order, consistent with causality. Cheap, and this is what a replication log is.</td><td class="rej">The leader is a bottleneck and a failover problem.</td></tr>
@@ -1465,7 +1553,7 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
     <tr><td><strong>Wall-clock timestamps</strong></td><td>No coordination, roughly time-ordered.</td><td class="rej">Clock skew reorders events. LWW silently drops writes.</td></tr>
     <tr><td><strong>Lamport timestamps</strong></td><td class="chosen">A total order that <em>is</em> consistent with causality, at one integer per node.</td><td class="rej">Cannot enforce a constraint in the presence of faults &mdash; see below.</td></tr>
   </tbody>
-</table>
+</table></div>
 
 <div class="deep"><div class="label">&#128269; Why Lamport timestamps still cannot enforce uniqueness</div>
 <p>Lamport timestamps give a total order consistent with causality, so surely two nodes claiming a username can be resolved by &ldquo;lowest timestamp wins&rdquo;?</p>
@@ -1654,7 +1742,7 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
 <div class="caption">PACELC: the trade-off exists both during and outside of partitions.</div></div>
 <p>Even when there's no partition, if you want to make a read strongly consistent, you need to contact a quorum of nodes to confirm they all agree on the value. That takes at least one extra network round-trip — adding latency. Or you can read from the nearest replica, which might be slightly stale — lower latency but potential inconsistency.</p>
 
-<table>
+<div class="tw"><table>
   <thead><tr><th>System</th><th>During Partition</th><th>Normal Operation</th><th>Class</th></tr></thead>
   <tbody>
     <tr><td><strong>Cassandra</strong></td><td>Available (serve stale)</td><td>Low latency (local reads)</td><td>PA/EL</td></tr>
@@ -1664,14 +1752,14 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
     <tr><td><strong>ZooKeeper / etcd</strong></td><td>Consistent</td><td>Consistent (quorum reads)</td><td>PC/EC</td></tr>
     <tr><td><strong>Spanner</strong></td><td>Consistent</td><td>Consistent (TrueTime wait)</td><td>PC/EC</td></tr>
   </tbody>
-</table>
+</table></div>
 <div class="google-bar"><div class="label">🏔 What Google Expects at L6</div><ul><li>Don't just recite CAP theorem — reason about what specifically you give up in each system for each failure scenario</li><li>Know the difference between CAP's 'Consistency' (linearizability) and weaker models</li><li>Be able to classify any database (Cassandra, Spanner, MongoDB, etcd) on the PACELC spectrum and explain why</li><li>Explain the trade-off in PACELC's 'Else' clause — why serving from the nearest replica is faster but risks stale reads</li></ul></div>
 
 <h3>What CAP Actually Proves &mdash; and Four Things It Does Not</h3>
 
 <p>CAP is quoted more than any other result in distributed systems and misapplied more than any other. Being precise about its scope is genuinely useful, because most bad consistency arguments come from stretching it.</p>
 
-<table class="to">
+<div class="tw"><table class="to">
   <thead><tr><th style="width:44%">What CAP says</th><th style="width:56%">What people wrongly think it says</th></tr></thead>
   <tbody>
     <tr><td class="chosen">During a network partition, you must choose between linearizability and availability for the affected data.</td><td class="rej">&ldquo;You must pick two of three, permanently, as a system-wide property.&rdquo; P is not a choice &mdash; networks partition whether you like it or not.</td></tr>
@@ -1679,7 +1767,7 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
     <tr><td class="chosen">The &ldquo;A&rdquo; means <em>every non-failing node</em> returns a non-error response.</td><td class="rej">&ldquo;A means highly available.&rdquo; A system with 99.999% uptime can be &ldquo;not available&rdquo; in CAP's formal sense.</td></tr>
     <tr><td class="chosen">It applies only <strong>during</strong> a partition.</td><td class="rej">&ldquo;CAP explains why our database is eventually consistent.&rdquo; Usually it does not &mdash; see below.</td></tr>
   </tbody>
-</table>
+</table></div>
 
 <div class="deep"><div class="label">&#128269; The reason most systems relax consistency has nothing to do with CAP</div>
 <p>Here is the observation that reframes this whole chapter: <strong>RAM on a multi-core CPU is not linearizable.</strong> Write to an address on core 1, read it from core 2 moments later, and without a memory barrier you may not see the write &mdash; because each core has its own cache and store buffer updated asynchronously.</p>
@@ -1877,7 +1965,7 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
 
 <p>&ldquo;The leader sends its changes to followers&rdquo; hides the whole engineering problem. <em>What</em> exactly does it send? There are four answers in production use, and the differences have real operational consequences &mdash; including whether you can upgrade your database without downtime.</p>
 
-<table class="to">
+<div class="tw"><table class="to">
   <thead><tr><th style="width:20%">Method</th><th style="width:34%">What is shipped</th><th style="width:23%">Breaks when&hellip;</th><th style="width:23%">Used by</th></tr></thead>
   <tbody>
     <tr>
@@ -1905,7 +1993,7 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
       <td>Bucardo, Databus, bespoke setups</td>
     </tr>
   </tbody>
-</table>
+</table></div>
 
 <div class="deep"><div class="label">&#128269; Why this is not a trivia question</div>
 <p>The choice determines whether you can perform a <strong>zero-downtime database version upgrade</strong>.</p>
@@ -2324,7 +2412,7 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
 </div>
 <div class="flow-cap">Local index: cheap writes, expensive reads. Global index: cheap reads, expensive writes. There is no third option.</div>
 
-<table class="to">
+<div class="tw"><table class="to">
   <thead><tr><th style="width:22%"></th><th style="width:39%">Local (document-partitioned)</th><th style="width:39%">Global (term-partitioned)</th></tr></thead>
   <tbody>
     <tr><td><strong>Write cost</strong></td><td class="chosen">One partition. Stays inside the same local transaction as the row itself.</td><td class="rej">Touches several index partitions on other nodes &mdash; needs a distributed transaction, or asynchrony.</td></tr>
@@ -2332,7 +2420,7 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
     <tr><td><strong>Consistency</strong></td><td class="chosen">Index is always consistent with its rows.</td><td class="rej">Usually <strong>asynchronous</strong>, so reads shortly after a write may miss it.</td></tr>
     <tr><td><strong>Used by</strong></td><td>MongoDB, Cassandra, Elasticsearch, Riak, SolrCloud, VoltDB, DynamoDB LSIs</td><td>DynamoDB GSIs, Riak search, Oracle warehouse</td></tr>
   </tbody>
-</table>
+</table></div>
 
 <div class="misconception">
   <div class="label">&#9888; Common misconception</div>
@@ -2716,7 +2804,7 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
 
 <p>Consensus is not free, and a Staff-level design is largely about <em>minimising how much of your system touches it</em>.</p>
 
-<table class="to">
+<div class="tw"><table class="to">
   <thead><tr><th style="width:30%">Cost</th><th style="width:70%">What it means in practice</th></tr></thead>
   <tbody>
     <tr><td><strong>Latency floor</strong></td><td>Every decision needs a round trip to a majority. Same-zone: 1&ndash;2ms. Cross-region: 60&ndash;150ms, set by the speed of light and unfixable.</td></tr>
@@ -2726,7 +2814,7 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
     <tr><td><strong>Fixed membership</strong></td><td>Adding or removing nodes requires a careful reconfiguration protocol (joint consensus), not just editing a config file.</td></tr>
     <tr><td><strong>Odd sizes only</strong></td><td>3, 5, 7. A 4-node cluster tolerates the same single failure as a 3-node one but is slower &mdash; you added cost and no fault tolerance.</td></tr>
   </tbody>
-</table>
+</table></div>
 
 <div class="insight"><div class="label">&#128161; The architectural move that matters most</div><p><strong>Put the metadata through consensus and keep the data out of it.</strong></p><p>Kafka does not run consensus on your messages &mdash; it runs consensus on <em>which broker leads which partition</em>, then the data flows over ordinary replication. Kubernetes runs consensus on cluster state in etcd, not on your pods' traffic. Spanner shards data into many independent Paxos groups so most transactions touch exactly one group.</p><p>The pattern: <em>a small, low-throughput, strongly-consistent control plane governing a large, high-throughput, weakly-coordinated data plane.</em> When you see a design that routes all traffic through a consensus cluster, that is the mistake to point at.</p></div>
 
@@ -2843,7 +2931,7 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
 
 <p>ACID is quoted constantly and understood rarely. Three of the letters are real guarantees provided by the database. One is not.</p>
 
-<table class="to">
+<div class="tw"><table class="to">
   <thead><tr><th style="width:16%">Letter</th><th style="width:46%">What it actually means</th><th style="width:38%">Who is responsible</th></tr></thead>
   <tbody>
     <tr><td><strong>Atomicity</strong></td>
@@ -2859,7 +2947,7 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
       <td>Once committed, the write survives a crash. In practice: written to a WAL and fsynced, and on a replicated system, present on other nodes.</td>
       <td class="chosen">The database + your replication config</td></tr>
   </tbody>
-</table>
+</table></div>
 
 <div class="misconception">
   <div class="label">&#9888; Common misconception</div>
@@ -3148,7 +3236,7 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
 
 <div class="insight"><div class="label">&#128161; Why SSI is usually the right default now</div><p>Compared with 2PL, no transaction ever blocks waiting for a lock, so <strong>latency is far more predictable</strong> &mdash; and read-only queries run on a snapshot with no locks at all. Compared with serial execution, it is not limited to one CPU core; FoundationDB even distributes conflict detection across machines.</p><p><strong>The cost is the abort rate.</strong> SSI needs read-write transactions to be short: a transaction that reads and writes over a long window is very likely to hit a conflict and abort. Long read-only transactions remain fine.</p></div>
 
-<table class="to">
+<div class="tw"><table class="to">
   <thead><tr><th style="width:22%"></th><th style="width:26%">Serial execution</th><th style="width:26%">2PL (pessimistic)</th><th style="width:26%">SSI (optimistic)</th></tr></thead>
   <tbody>
     <tr><td><strong>Approach</strong></td><td>Avoid concurrency entirely</td><td>Block conflicts before they happen</td><td>Allow, detect, abort</td></tr>
@@ -3158,7 +3246,7 @@ a.gl-chip:hover { background: rgba(128,203,196,.28); border-color: rgba(128,203,
     <tr><td><strong>Scales past 1 core?</strong></td><td class="rej">No</td><td class="chosen">Yes</td><td class="chosen">Yes</td></tr>
     <tr><td><strong>Used by</strong></td><td>VoltDB, Redis</td><td>MySQL, SQL Server</td><td>PostgreSQL, FoundationDB</td></tr>
   </tbody>
-</table>
+</table></div>
 
 <div class="exercise">
   <div class="label">&#9998; Mini exercise 3</div>
@@ -3771,7 +3859,7 @@ and you serve 80% of traffic from fast memory instead of slow disk or expensive 
   <text x="515" y="262" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#636e72">✓ Cleaner app code. Used in ORMs, Hibernate L2 cache.</text>
   <text x="515" y="279" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#636e72">✗ First miss is always slow (cold start)</text>
 </svg><div class="caption">The four caching patterns. Cache-aside is the most common and most flexible.</div></div><h3>Eviction Policies</h3><p>Caches have finite memory. When full, they must evict. The right policy depends on your access pattern:</p>
-<table>
+<div class="tw"><table>
 <thead><tr><th>Policy</th><th>What It Does</th><th>Best For</th><th>Real Use</th></tr></thead>
 <tbody>
 <tr><td><strong>LRU</strong> (Least Recently Used)</td><td>Evict the item not accessed for the longest time</td><td>Temporal locality — recent = relevant</td><td>Redis default, most web caches</td></tr>
@@ -3780,7 +3868,7 @@ and you serve 80% of traffic from fast memory instead of slow disk or expensive 
 <tr><td><strong>TTL</strong> (Time To Live)</td><td>Evict after a set time regardless of access</td><td>Data that expires naturally (tokens, sessions)</td><td>Session caches, auth tokens</td></tr>
 <tr><td><strong>SLRU</strong> (Segmented LRU)</td><td>Protected + probationary segments</td><td>High churn with some always-hot items</td><td>Database buffer pools (InnoDB)</td></tr>
 </tbody>
-</table>
+</table></div>
 <h3>Cache Problems You Must Know</h3><h4>1. Thundering Herd (Cache Stampede)</h4><p>A popular cache entry expires. <em>At the exact moment it expires</em>, 1,000 concurrent requests come in. All miss. All query the DB simultaneously. The DB dies.</p><div class="scenario"><div class="label">🎯 Scenario — The Frontend Stampede</div><p>Your homepage loads user recommendations from a Redis cache with a 10-minute TTL.
 At 9:00:00 AM, the cache expires for user ID 1 (celebrity account with 10M followers).
 In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss. All 5,000 hit the DB. DB query time: 500ms. You just sent 5,000 concurrent 500ms queries to a DB expecting 100 QPS.</p>
@@ -3791,7 +3879,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
   <li><strong>Stale-while-revalidate:</strong> Serve the stale value. Trigger an async refresh. No blocking.</li>
   <li><strong>Jittered TTLs:</strong> Instead of TTL=600s for all users, use TTL=600 + random(0,60). Distributes expirations over time.</li>
 </ul></div><h4>2. Cache Penetration</h4><p>Requests for keys that don't exist — either in cache or DB. With cache-aside, every request for a non-existent key goes to the DB. An attacker can spam random non-existent IDs and hammer your DB.</p><p><strong>Solution:</strong> Cache null results with a short TTL (e.g., 5 min). 'Key not found' → store NULL → subsequent requests return NULL from cache. Alternatively: Bloom filter to check existence before any lookup.</p><h4>3. Cache Avalanche</h4><p>Many cache entries expire at the same time (e.g., after a cache server restart). Traffic floods the DB.</p><p><strong>Solutions:</strong> Jitter TTLs (different expiries). Redis Cluster (no single cache server restart loses all data). Pre-warming: populate cache from DB before routing traffic.</p><div class="insight"><div class="label">💡 Key Insight</div><p>Cache hit rate is your most important cache metric. A 99% hit rate means 1% of traffic hits the DB. A 95% hit rate means 5× more DB traffic — which at high QPS can be the difference between a healthy system and an outage.</p></div><h3>Multi-Layer Caching (L1/L2/L3)</h3><p>Production systems use multiple cache layers. Facebook's Memcache paper introduced the 'look-aside cache' at scale:</p>
-<table>
+<div class="tw"><table>
 <thead><tr><th>Layer</th><th>Where</th><th>Latency</th><th>Hit Rate Target</th></tr></thead>
 <tbody>
 <tr><td><strong>L1: In-process</strong></td><td>Local memory in the app server</td><td>~1μs</td><td>30-40%</td></tr>
@@ -3800,7 +3888,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
 <tr><td><strong>L4: CDN</strong></td><td>Edge servers globally</td><td>~10ms</td><td>80-95% for static</td></tr>
 <tr><td><strong>L5: Origin/DB</strong></td><td>Database</td><td>~10ms</td><td>Last resort</td></tr>
 </tbody>
-</table>
+</table></div>
 <div class="deep"><div class="label">🔬 Google-Level Depth — Facebook's Memcache at Scale</div><p>Facebook (2013 paper) runs thousands of Memcache servers globally. Key engineering choices:</p>
 <ul>
   <li><strong>Lease mechanism:</strong> When a key is deleted/invalidated, a lease token is issued. Only the token holder can refill that key. Others wait. Prevents stampede AND resolves stale-set races.</li>
@@ -3845,7 +3933,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
   <text x="375" y="156" font-family="Inter,sans-serif" font-size="11" fill="#636e72">✗ More CPU (parses HTTP)</text>
   <text x="375" y="174" font-family="Inter,sans-serif" font-size="11" fill="#636e72">Examples: nginx, AWS ALB, Envoy</text>
 </svg><div class="caption">L4 vs L7 load balancing. Most production systems use both: L4 for the outer tier, L7 for service-level routing.</div></div><h3>Load Balancing Algorithms</h3>
-<table>
+<div class="tw"><table>
 <thead><tr><th>Algorithm</th><th>Logic</th><th>Best For</th><th>Problem</th></tr></thead>
 <tbody>
 <tr><td><strong>Round Robin</strong></td><td>Requests cycle: 1→2→3→1→2→3</td><td>Uniform request cost</td><td>Server 2 might be slow; still gets equal load</td></tr>
@@ -3854,7 +3942,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
 <tr><td><strong>Consistent Hashing</strong></td><td>Hash(user/session) → always same backend</td><td>Stateful servers (WebSocket, sessions)</td><td>Uneven distribution if few servers</td></tr>
 <tr><td><strong>Random with Two Choices (P2C)</strong></td><td>Pick 2 random backends, send to better one</td><td>Large clusters (O(1) overhead)</td><td>Slightly suboptimal vs least-connections</td></tr>
 </tbody>
-</table>
+</table></div>
 <div class="insight"><div class="label">💡 Key Insight</div><p>Power of Two Random Choices (P2C) is the secret weapon for large-scale LB. Instead of checking all N backends (O(N)) or maintaining sorted order, pick 2 at random and use the better one. Achieves near-optimal distribution with O(1) overhead. Used by Nginx, Envoy, and Netflix's Ribbon.</p></div><h3>Rate Limiting — The Circuit Breaker for Traffic</h3><p>Rate limiting protects your system from overwhelming traffic — whether from bugs, abusive clients, or traffic spikes. Without it, one misbehaving client can take down your system for everyone.</p><h4>Token Bucket Algorithm (Most Common)</h4><p>Imagine a bucket that holds tokens. Tokens are added at a fixed rate (e.g., 100/sec). Each request consumes one token. When the bucket is empty, requests are rejected. The bucket has a maximum size (burst capacity).</p><div class="diagram">
 <svg width="680" height="180" viewBox="0 0 680 180" xmlns="http://www.w3.org/2000/svg">
   <!-- Bucket -->
@@ -3933,14 +4021,14 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
   <text x="10" y="275" font-family="Inter,sans-serif" font-size="11" font-weight="700" fill="#e65100">On-disk structure:</text>
   <text x="10" y="292" font-family="Inter,sans-serif" font-size="10" fill="#636e72">Each partition = ordered list of segment files (.log + .index). Segments are append-only. Old segments deleted by time/size policy.</text>
 </svg><div class="caption">Kafka topics are split into partitions. Each partition is an ordered, append-only log on disk.</div></div><h4>Why Kafka Is Fast</h4><p>Kafka achieves millions of messages/sec per broker because:</p><ul><li><strong>Sequential I/O:</strong> Appending to a log file is sequential. HDDs do sequential reads at 100+ MB/s; random reads at 100 KB/s. Kafka exploits sequential access completely.</li><li><strong>OS page cache:</strong> Linux aggressively caches recently read/written disk data in RAM. Kafka's sequential access pattern means nearly all reads come from page cache — effectively RAM speed.</li><li><strong>Zero-copy:</strong> <code>sendfile()</code> syscall copies data directly from OS page cache to NIC buffer, bypassing user space. No unnecessary copies.</li><li><strong>Batching:</strong> Producers batch messages before sending. Consumers fetch in batches. Amortizes network overhead.</li></ul><h3>Delivery Guarantees</h3>
-<table>
+<div class="tw"><table>
 <thead><tr><th>Guarantee</th><th>How</th><th>Risk</th><th>Use For</th></tr></thead>
 <tbody>
 <tr><td><strong>At-most-once</strong></td><td>Send and forget. No retry.</td><td>Data loss if broker down</td><td>Telemetry where loss is OK</td></tr>
 <tr><td><strong>At-least-once</strong></td><td>Retry on failure. Consumer must handle duplicates.</td><td>Duplicate messages</td><td>Most applications. Consumer must be idempotent.</td></tr>
 <tr><td><strong>Exactly-once</strong></td><td>Idempotent producer + transactional consumer</td><td>Higher latency, complexity</td><td>Financial transactions, deduplication-critical</td></tr>
 </tbody>
-</table>
+</table></div>
 <div class="deep"><div class="label">🔬 Google-Level Depth — Exactly-Once in Kafka</div>
 <p><strong>Producer side (idempotent producer):</strong> Each producer gets a PID. Each message has a sequence number. Broker deduplicates: if it sees a message with a sequence number it already committed, it drops it. Retries are safe.</p>
 <p><strong>Consumer side (transactional):</strong> Wrap read-process-write in a Kafka transaction. Atomically commit the output message AND the consumed offset. Either both happen or neither. If the consumer crashes mid-way, the transaction is aborted — message is reprocessed. But the output is atomic so no duplicate outputs.</p>
@@ -3987,7 +4075,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
 </div>
 <div class="flow-cap">Not &ldquo;SQL vs NoSQL&rdquo;. The relationship shape picks the model, and the access pattern confirms it.</div>
 
-<table class="to">
+<div class="tw"><table class="to">
   <thead><tr><th style="width:18%"></th><th style="width:28%">Relational</th><th style="width:28%">Document</th><th style="width:26%">Graph</th></tr></thead>
   <tbody>
     <tr><td><strong>Wins at</strong></td><td>Many-to-many, joins, ad-hoc queries, constraints</td><td>Tree-shaped data read as a whole; storage <strong>locality</strong></td><td>Deep or variable-length traversals</td></tr>
@@ -3995,7 +4083,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
     <tr><td><strong>Weak at</strong></td><td>Object-relational mismatch; deep traversal needs recursive CTEs</td><td class="rej">Joins (often emulated in application code); many-to-many</td><td>Bulk aggregate scans</td></tr>
     <tr><td><strong>Real cost</strong></td><td>Migrations on large tables</td><td class="rej">Update anomalies once data is duplicated</td><td>Fewer engineers know the query language</td></tr>
   </tbody>
-</table>
+</table></div>
 
 <div class="misconception">
   <div class="label">&#9888; Common misconception</div>
@@ -4078,7 +4166,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
   <text x="10" y="150" font-family="Inter,sans-serif" font-size="11" fill="#636e72">Write amplification in compaction is a cost. Read amplification controlled with Bloom filters per SST.</text>
   <text x="10" y="168" font-family="Inter,sans-serif" font-size="11" fill="#636e72">Used by: Cassandra, RocksDB, LevelDB, HBase, TiKV</text>
 </svg><div class="caption">LSM-tree: writes always go to MemTable (sequential). Compaction merges SSTs in background. No in-place updates.</div></div>
-<table>
+<div class="tw"><table>
 <thead><tr><th></th><th>B-Tree</th><th>LSM-Tree</th></tr></thead>
 <tbody>
 <tr><td><strong>Write Performance</strong></td><td>Slower (random writes, page splits)</td><td>Faster (sequential writes, batched)</td></tr>
@@ -4086,13 +4174,13 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
 <tr><td><strong>Space Amplification</strong></td><td>Low (in-place updates, no garbage)</td><td>High (multiple versions during compaction)</td></tr>
 <tr><td><strong>Best For</strong></td><td>Read-heavy, OLTP, joins</td><td>Write-heavy, time-series, append workloads</td></tr>
 </tbody>
-</table>
+</table></div>
 <h3>Write-Ahead Log (WAL)</h3><p>Every database uses a WAL (also called a redo log, commit log, or journal). Before any data is modified on disk, the change is written to the WAL first. The WAL is append-only and sequential — very fast.</p><p><strong>Why:</strong> If the database crashes mid-write, the data pages might be partially updated — corrupted. On restart, the database replays the WAL to bring data pages to a consistent state. The WAL ensures durability: once written to WAL and fsync'd, the write is guaranteed even on crash.</p><h3>MVCC — Multi-Version Concurrency Control</h3><p>MVCC is how modern databases (PostgreSQL, MySQL InnoDB, MongoDB) implement isolation without locking reads against writes. Instead of locking a row when writing, the database creates a new version of the row. Old versions remain visible to transactions that started before the write.</p><div class="scenario"><div class="label">🎯 Scenario — Reading While Writing — Without Locks</div><p>Transaction A starts at T=100. It reads user row (version at T=80: name='Alice').</p>
 <p>Transaction B starts at T=105 and updates: name='Alice Smith'. Creates new row version at T=105.</p>
 <p>Transaction A reads user row again (still at snapshot T=100): still sees 'Alice' (T=80 version). No lock contention.</p>
 <p>Transaction A commits. Transaction B's changes are now visible to new transactions.</p>
 <p>Background vacuum process deletes old row versions that no transaction can see anymore (T=80 version).</p></div><div class="insight"><div class="label">💡 Key Insight</div><p>MVCC enables non-blocking reads alongside writes. Readers never block writers; writers never block readers. This is why PostgreSQL can handle high concurrency with many reads and writes simultaneously. The cost: storage for old versions, and vacuum overhead.</p></div><h3>Indexes — When to Add, When to Remove</h3><p>An index is a separate data structure that maps column values to row locations. Adding an index speeds up reads for that column but slows down every write (the index must be updated on insert/update/delete).</p>
-<table>
+<div class="tw"><table>
 <thead><tr><th>Index Type</th><th>Best For</th><th>Example Query</th></tr></thead>
 <tbody>
 <tr><td><strong>B-Tree (default)</strong></td><td>Equality + range queries, sortable</td><td><code>WHERE age BETWEEN 20 AND 30</code></td></tr>
@@ -4102,7 +4190,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
 <tr><td><strong>Composite Index</strong></td><td>Multi-column queries (column order matters!)</td><td><code>WHERE user_id = 1 AND created_at > X</code></td></tr>
 <tr><td><strong>Covering Index</strong></td><td>Include all columns needed in query</td><td>No table access needed — "index-only scan"</td></tr>
 </tbody>
-</table>
+</table></div>
 <div class="warning"><div class="label">⚠ Common Mistake</div><p>Composite index column order matters enormously. Index (user_id, created_at) can answer queries on user_id alone, or (user_id AND created_at), but NOT created_at alone. The leftmost prefix rule: only prefix columns can be used for filtering without a full scan.</p></div>
 
 <h3>Trace It End to End: One Write, One Read</h3>
@@ -4162,7 +4250,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
 
 <p>Everything above assumed OLTP: many small, keyed, latency-sensitive operations. Analytics is the opposite workload in every dimension, and running it on the same system is one of the most common architectural mistakes.</p>
 
-<table class="to">
+<div class="tw"><table class="to">
   <thead><tr><th style="width:22%"></th><th style="width:39%">OLTP (transactional)</th><th style="width:39%">OLAP (analytic)</th></tr></thead>
   <tbody>
     <tr><td><strong>Read pattern</strong></td><td>A few rows, fetched by key</td><td>Millions of rows, a handful of columns</td></tr>
@@ -4172,7 +4260,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
     <tr><td><strong>Bottleneck</strong></td><td>Disk seeks</td><td class="chosen">Disk <em>bandwidth</em> &mdash; a different problem entirely</td></tr>
     <tr><td><strong>Layout</strong></td><td>Row-oriented</td><td class="chosen">Column-oriented</td></tr>
   </tbody>
-</table>
+</table></div>
 
 <h4>Why column-oriented storage changes the economics</h4>
 
@@ -4338,7 +4426,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
   <line x1="590" y1="140" x2="90" y2="150" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#cb)"/>
   <text x="340" y="165" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#2e7d32">probes succeed → back to CLOSED</text>
 </svg><div class="caption">Circuit breaker: after too many failures, 'trip' the circuit — fail fast without waiting. Test recovery gradually.</div></div><h3>Bulkhead Pattern</h3><p>Named after ship compartments that prevent flooding from sinking the whole ship. In microservices: isolate resources per downstream service. Service A has two thread pools: one for Payment calls, one for Inventory calls. If Payment slows down and fills its thread pool, Inventory calls are unaffected.</p><p>Without bulkheads: a single slow dependency consumes ALL threads → everything fails. With bulkheads: only the threads for that dependency are exhausted → all other features continue working.</p><h3>Service Mesh</h3><p>A service mesh is an infrastructure layer that handles all inter-service communication concerns: mTLS, load balancing, circuit breaking, retry, timeouts, observability. It runs as a sidecar proxy (Envoy) next to each service.</p><p>The key insight: instead of each service implementing retry logic, circuit breakers, and mTLS in its own language and framework, the sidecar handles all of it transparently. Services only write business logic.</p>
-<table>
+<div class="tw"><table>
 <thead><tr><th>Pattern</th><th>Problem Solved</th><th>Implementation</th></tr></thead>
 <tbody>
 <tr><td><strong>Retry</strong></td><td>Transient network failures</td><td>3 retries, exponential backoff with jitter</td></tr>
@@ -4348,7 +4436,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
 <tr><td><strong>Sidecar/Mesh</strong></td><td>Cross-cutting concerns</td><td>Envoy + Istio: handles mTLS, LB, observability</td></tr>
 <tr><td><strong>Health Check</strong></td><td>Remove failed instances</td><td>Liveness (is it alive?) + Readiness (can it serve?)</td></tr>
 </tbody>
-</table>
+</table></div>
 <div class="qa-section"><h3>📝 Interview Q&amp;A</h3><div class="qa"><div class="q">A service has a 99% success rate. It calls 5 downstream services in sequence, each with 99% success rate. What's the overall success rate?</div><div class="a"><p>0.99⁵ = 95.1%. A chain of 5 services, each individually reliable, produces a system that fails 5% of the time. This is why error rates compound in microservice chains.</p><p>With 10 services in the chain: 0.99¹⁰ = 90.4%. This is called the <em>reliability tax</em> of microservices. Mitigation: (1) Parallelize where possible — call all 5 simultaneously instead of sequentially, where the system fails only if ANY one fails... wait, that's worse for OR chains (0.99^5 = 95% for AND-chains). (2) Make operations optional — if inventory check fails, proceed with order and verify async. (3) Cache results — if catalog service is slow, serve cached data.</div></div><div class="qa"><div class="q">Your circuit breaker opens (trips) and starts failing fast. The client is now getting immediate errors instead of waiting 10 seconds. But the user experience is still broken — what do you do?</div><div class="a"><p>Failing fast is step 1. The real goal is a <strong>graceful degradation</strong> strategy:</p><p>(1) <strong>Fallback to cache:</strong> Return the last known good response from cache. User sees slightly stale data instead of an error.</p><p>(2) <strong>Default response:</strong> Return a sensible default. If payment service is down, show 'payment temporarily unavailable, try again' instead of a 500 error page.</p><p>(3) <strong>Feature flag:</strong> Disable the feature entirely but keep the rest of the app working. 'Recommendations are temporarily unavailable' — but the user can still browse and checkout.</p><p>The staff-level insight: design for failure modes upfront. Every call to an external service should have a defined fallback. This is a design review question: 'What does this feature do if Service X is down?'</div></div></div>
 <div class="practice-design">
   <div class="pd-header">
@@ -4367,24 +4455,24 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
 </div>
 <div class="content">
 <p>Observability is the ability to understand what your system is doing from the outside, by examining its outputs. The three pillars are logs, metrics, and traces. At Google, this is formalized into the SRE (Site Reliability Engineering) discipline.</p><h3>SLI, SLO, SLA — The Language of Reliability</h3><p>These three terms define how you measure and commit to reliability:</p><ul><li><strong>SLI (Service Level Indicator):</strong> A specific measurement. Examples: request success rate, p99 latency, error rate.</li><li><strong>SLO (Service Level Objective):</strong> A target for an SLI. Examples: 'success rate ≥ 99.9% over 30 days', 'p99 latency ≤ 200ms'.</li><li><strong>SLA (Service Level Agreement):</strong> A legal contract with customers — SLO with consequences (usually credits/refunds if breached). Always weaker than your internal SLO — never set your SLA equal to your SLO.</li></ul><h4>Error Budgets — Making Reliability a Business Decision</h4><p>Error budget = 1 - SLO. If SLO = 99.9%, error budget = 0.1% = <strong>43.2 minutes/month</strong> of allowed downtime.</p><p>Error budgets make reliability a shared responsibility between SREs and developers: if the budget is full, no new risky features get deployed. If budget is healthy, the team can move fast. This removes the adversarial relationship between 'dev wants to ship' and 'SRE wants stability.'</p><h3>The Three Pillars</h3>
-<table>
+<div class="tw"><table>
 <thead><tr><th>Pillar</th><th>What</th><th>Best For</th><th>Tools</th></tr></thead>
 <tbody>
 <tr><td><strong>Logs</strong></td><td>Timestamped, structured events. "User 123 checked out at 14:32:01. Order ID: 456"</td><td>Debugging specific incidents. Audit trails.</td><td>Stackdriver, ELK, Splunk</td></tr>
 <tr><td><strong>Metrics</strong></td><td>Numeric aggregates over time. "99th percentile latency = 245ms"</td><td>Dashboards, alerting, capacity planning</td><td>Prometheus, Datadog, Cloud Monitoring</td></tr>
 <tr><td><strong>Traces</strong></td><td>End-to-end journey of a single request across services</td><td>Finding latency bottlenecks across service boundaries</td><td>Dapper (Google), Jaeger, OpenTelemetry</td></tr>
 </tbody>
-</table>
+</table></div>
 <div class="deep"><div class="label">🔬 Google-Level Depth — Google Dapper — The Paper That Defined Distributed Tracing</div><p>Dapper (2010 Google paper) introduced the <strong>trace context</strong> pattern: every request gets a globally unique trace ID. At each service boundary, a new span is created with the parent span's ID. All spans are reported to a central collector.</p>
 <p>Critically, Dapper samples at 1/1024 of requests. At Google's scale (billions of requests/day), sampling everything would be petabytes of trace data. 1/1024 still gives thousands of samples per operation per minute — statistically meaningful for performance analysis.</p>
 <p>The real insight: traces turn 'our API is slow' from a guess into a fact: 'the API is slow because Cart Service spends 180ms waiting for Inventory Service, which spends 150ms in a DB query for which no index exists.' Actionable in minutes, not days.</p></div><h3>RED and USE Frameworks</h3><p>Use these frameworks to know what to monitor:</p>
-<table>
+<div class="tw"><table>
 <thead><tr><th>Framework</th><th>Scope</th><th>Metrics</th></tr></thead>
 <tbody>
 <tr><td><strong>RED</strong></td><td>Every service/endpoint</td><td><strong>R</strong>ate (requests/sec) + <strong>E</strong>rrors (error rate %) + <strong>D</strong>uration (latency p50/p99/p999)</td></tr>
 <tr><td><strong>USE</strong></td><td>Every resource (CPU, disk, network)</td><td><strong>U</strong>tilization (%) + <strong>S</strong>aturation (queue length) + <strong>E</strong>rrors (hardware errors)</td></tr>
 </tbody>
-</table>
+</table></div>
 
 <h3>Percentiles &mdash; Why the Average Is Always the Wrong Number</h3>
 
@@ -4542,7 +4630,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
   <text x="204" y="78" font-family="Inter,sans-serif" font-size="28" font-weight="900" fill="#636e72">.</text>
   <text x="448" y="78" font-family="Inter,sans-serif" font-size="28" font-weight="900" fill="#636e72">.</text>
 </svg><div class="caption">JWT = 3 base64-encoded sections separated by dots. Payload is NOT encrypted — only signed. Don't put secrets in JWT claims.</div></div><h3>API Design Principles</h3><h4>REST vs gRPC vs GraphQL</h4>
-<table>
+<div class="tw"><table>
 <thead><tr><th>Aspect</th><th>REST</th><th>gRPC</th><th>GraphQL</th></tr></thead>
 <tbody>
 <tr><td><strong>Transport</strong></td><td>HTTP/1.1 (HTTP/2 optional)</td><td>HTTP/2 (required)</td><td>HTTP/1.1+</td></tr>
@@ -4552,7 +4640,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
 <tr><td><strong>Best for</strong></td><td>Public APIs, browser clients</td><td>Internal service-to-service</td><td>Mobile with variable data needs</td></tr>
 <tr><td><strong>Latency</strong></td><td>Moderate (JSON parse)</td><td>Low (binary, multiplexed)</td><td>Moderate</td></tr>
 </tbody>
-</table>
+</table></div>
 <h4>Idempotency — Critical for Financial APIs</h4><p>An operation is idempotent if calling it N times produces the same result as calling it once. GET is idempotent. DELETE is idempotent. POST is NOT by default.</p><p>For payment APIs: add an <code>Idempotency-Key</code> header. Server stores (key → response) for 24 hours. If the same key comes in again, return the stored response. Client can safely retry on network failure without double-charging.</p><h4>API Versioning</h4><ul><li><strong>URL versioning</strong> (<code>/v1/users</code>, <code>/v2/users</code>): Visible, easy to cache. Most common.</li><li><strong>Header versioning</strong> (<code>Accept: application/vnd.api+json;version=2</code>): Cleaner URLs. Harder to test.</li><li><strong>Never break backwards compatibility</strong>: Add fields; never remove. Never change field types. Deprecate over 12+ months.</li></ul><h4>Pagination — Cursor vs Offset</h4><p>Offset pagination (<code>?page=50&size=20</code>) requires the DB to skip 1,000 rows — O(N) cost. Breaks when items are inserted/deleted during pagination. Never use at scale.</p><p>Cursor pagination (<code>?after=eyJpZCI6MTAwMH0</code>): the cursor encodes the last seen item (e.g., base64(id=1000)). Query: <code>WHERE id > 1000 LIMIT 20</code>. O(1) cost. Stable under writes. Always use at scale.</p>
 
 <h3>Encoding and Evolution &mdash; How Systems Change Without Downtime</h3>
@@ -4583,7 +4671,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
 </div>
 <div class="flow-cap">A rolling deploy is a period during which your system runs two versions at once, in both directions.</div>
 
-<table class="to">
+<div class="tw"><table class="to">
   <thead><tr><th style="width:18%">Format</th><th style="width:30%">How it identifies fields</th><th style="width:26%">Schema evolution</th><th style="width:26%">Use when</th></tr></thead>
   <tbody>
     <tr><td><strong>JSON / XML</strong></td><td>By name, in every message &mdash; verbose and repeated</td><td>Ad-hoc; readers must be written defensively</td><td>Public APIs, human debugging, browser clients</td></tr>
@@ -4591,7 +4679,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
     <tr><td><strong>Avro</strong></td><td>By position, using a writer schema and a reader schema resolved at read time</td><td>Excellent &mdash; designed for it. Great for dynamically-generated schemas</td><td>Data lakes, Kafka with a schema registry, big-data files</td></tr>
     <tr><td><strong>Thrift</strong></td><td>Field IDs, like protobuf</td><td>Similar to protobuf</td><td>Legacy; largely superseded</td></tr>
   </tbody>
-</table>
+</table></div>
 
 <div class="insight"><div class="label">&#128161; Why field numbers rather than names</div><p>Protobuf's central trick: the wire format carries <code>2: "Rishi"</code>, not <code>"name": "Rishi"</code>. That single decision gives you three things at once.</p><p><strong>Size</strong> &mdash; typically 3&ndash;10&times; smaller than the equivalent JSON, because names are not repeated on every message. <strong>Renaming for free</strong> &mdash; change <code>name</code> to <code>full_name</code> in the schema and the wire format is unchanged, so nothing breaks. <strong>Forward compatibility by default</strong> &mdash; an old reader encountering field number 7 that it does not know simply skips it, because the wire type tells it how many bytes to jump.</p><p>And the corresponding rule: <strong>a field number is permanent.</strong> Reusing the number of a deleted field is the one truly catastrophic mistake, because old data will be silently reinterpreted as the new type. Mark removed numbers <code>reserved</code>.</p></div>
 
@@ -4844,7 +4932,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
 <p><strong>Expiration:</strong> Store expires_at in DynamoDB. Redis TTL = expires_at - now. On redirect: check expiry -> 410 Gone. Background sweeper job daily deletes expired entries.</p></div>
 </div><div class="design-step tradeoff">
   <div class="ds-header">[balance] 7. Trade-off Analysis</div>
-  <div class="ds-body"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>DB choice</strong></td><td class='chosen'>DynamoDB</td><td class='rej'>PostgreSQL</td><td>Pure key-value access. No joins. Auto-scales. Managed. 100:1 read ratio means caching dominates -- DB is rarely hit.</td></tr><tr><td><strong>ID generation</strong></td><td class='chosen'>Counter + Base62</td><td class='rej'>Random/Hash</td><td>No collision handling. Predictable length. Pre-allocated ranges eliminate hot path to counter service.</td></tr><tr><td><strong>Redirect code</strong></td><td class='chosen'>301 (popular URLs)</td><td class='rej'>302 always</td><td>301 = CDN/browser cache = massive origin load reduction. 302 required for analytics. Use 301 for non-tracked, 302 for tracked.</td></tr><tr><td><strong>Analytics</strong></td><td class='chosen'>Async Kafka pipeline</td><td class='rej'>Sync DB write on redirect</td><td>Zero added latency to redirect critical path. Analytics are eventually consistent -- acceptable.</td></tr></tbody></table></div>
+  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>DB choice</strong></td><td class='chosen'>DynamoDB</td><td class='rej'>PostgreSQL</td><td>Pure key-value access. No joins. Auto-scales. Managed. 100:1 read ratio means caching dominates -- DB is rarely hit.</td></tr><tr><td><strong>ID generation</strong></td><td class='chosen'>Counter + Base62</td><td class='rej'>Random/Hash</td><td>No collision handling. Predictable length. Pre-allocated ranges eliminate hot path to counter service.</td></tr><tr><td><strong>Redirect code</strong></td><td class='chosen'>301 (popular URLs)</td><td class='rej'>302 always</td><td>301 = CDN/browser cache = massive origin load reduction. 302 required for analytics. Use 301 for non-tracked, 302 for tracked.</td></tr><tr><td><strong>Analytics</strong></td><td class='chosen'>Async Kafka pipeline</td><td class='rej'>Sync DB write on redirect</td><td>Zero added latency to redirect critical path. Analytics are eventually consistent -- acceptable.</td></tr></tbody></table></div></div>
 </div><div class="design-step fault">
   <div class="ds-header">[shield] 8. Fault Tolerance</div>
   <div class="ds-body"><div class="ft-row"><div class="ft-fail">DynamoDB node failure</div><div class="ft-fix">Managed multi-AZ DynamoDB: automatic failover. Read from Redis during DB degradation -- cache continues serving popular URLs. On cache miss during outage: return 503 with Retry-After header.</div></div><div class="ft-row"><div class="ft-fail">Redis failure</div><div class="ft-fix">Redis Cluster with replicas. On failure: read API falls through to DynamoDB directly (5ms vs 0.1ms, but correct). CDN cache continues serving popular URLs without any origin hit.</div></div><div class="ft-row"><div class="ft-fail">ID generator crash</div><div class="ft-fix">Pre-allocated ranges stored per server. On crash: ID range is abandoned (some IDs wasted, no duplicates). New instance gets new range. No coordination needed on hot path.</div></div><div class="ft-row"><div class="ft-fail">CDN outage</div><div class="ft-fix">DNS failover to origin. Higher latency (CDN miss -> origin). Multi-CDN strategy (CloudFront + Fastly) as mitigation for critical SLAs.</div></div><div class="ft-row"><div class="ft-fail">Analytics pipeline lag</div><div class="ft-fix">Kafka durable (7-day retention). Consumer lag = analytics delayed, not lost. Zero impact on redirect service -- analytics consumer entirely decoupled.</div></div></div>
@@ -4955,7 +5043,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
 <p><strong>Like counts:</strong> Redis INCR like:{tweet_id}. Async flush to Cassandra every 60s. Read likes from Redis (fresh) not Cassandra. Eventual consistency -- +/-60s accuracy on like count is fine.</p></div>
 </div><div class="design-step tradeoff">
   <div class="ds-header">[balance] 7. Trade-off Analysis</div>
-  <div class="ds-body"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Fan-out strategy</strong></td><td class='chosen'>Hybrid (write for regular, read for celebs)</td><td class='rej'>Pure write OR pure read</td><td>Pure write: 100M ops for one celebrity tweet impossible. Pure read: 1,000 Cassandra reads per timeline load for heavy followers. Hybrid balances both.</td></tr><tr><td><strong>Tweet storage</strong></td><td class='chosen'>Cassandra</td><td class='rej'>MySQL</td><td>Write-heavy, time-series access, no joins. Cassandra's LSM-tree excellent for append-heavy workloads. MySQL's B-tree would be slower for writes.</td></tr><tr><td><strong>Timeline storage</strong></td><td class='chosen'>Redis sorted set</td><td class='rej'>Cassandra</td><td>Sub-ms sorted reads. Volatile OK (rebuild from Cassandra on miss). ZRANGE is ideal for time-ordered tweet IDs.</td></tr><tr><td><strong>Consistency</strong></td><td class='chosen'>Eventual (seconds lag OK)</td><td class='rej'>Strong</td><td>Strong consistency requires synchronous fan-out to millions of Redis nodes. Not feasible. 2-5 second timeline lag is invisible to users.</td></tr></tbody></table></div>
+  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Fan-out strategy</strong></td><td class='chosen'>Hybrid (write for regular, read for celebs)</td><td class='rej'>Pure write OR pure read</td><td>Pure write: 100M ops for one celebrity tweet impossible. Pure read: 1,000 Cassandra reads per timeline load for heavy followers. Hybrid balances both.</td></tr><tr><td><strong>Tweet storage</strong></td><td class='chosen'>Cassandra</td><td class='rej'>MySQL</td><td>Write-heavy, time-series access, no joins. Cassandra's LSM-tree excellent for append-heavy workloads. MySQL's B-tree would be slower for writes.</td></tr><tr><td><strong>Timeline storage</strong></td><td class='chosen'>Redis sorted set</td><td class='rej'>Cassandra</td><td>Sub-ms sorted reads. Volatile OK (rebuild from Cassandra on miss). ZRANGE is ideal for time-ordered tweet IDs.</td></tr><tr><td><strong>Consistency</strong></td><td class='chosen'>Eventual (seconds lag OK)</td><td class='rej'>Strong</td><td>Strong consistency requires synchronous fan-out to millions of Redis nodes. Not feasible. 2-5 second timeline lag is invisible to users.</td></tr></tbody></table></div></div>
 </div><div class="design-step fault">
   <div class="ds-header">[shield] 8. Fault Tolerance</div>
   <div class="ds-body"><div class="ft-row"><div class="ft-fail">Redis timeline lost</div><div class="ft-fix">Redis Cluster. On node loss: rebuild affected timelines from Cassandra on next request. Slow first load (~500ms), fast thereafter. Alert if rebuild rate is high (many nodes lost).</div></div><div class="ft-row"><div class="ft-fail">Fan-out service overwhelmed</div><div class="ft-fix">Kafka back-pressure: fan-out workers pull at their own rate. Scale worker pods horizontally. Kafka retains messages for 7 days -- no loss during overload. Users see timeline lag, not errors.</div></div><div class="ft-row"><div class="ft-fail">Cassandra node failure</div><div class="ft-fix">RF=3, quorum reads/writes. Node failure -> automatic reroute to replicas. Cassandra's gossip protocol detects failure in ~3s. No manual intervention.</div></div><div class="ft-row"><div class="ft-fail">Celebrity posts viral tweet (traffic spike)</div><div class="ft-fix">Celebrity tweets use read fan-out -- no write spike. CDN caches user profile pages. Rate limit profile page fetches. Auto-scale read API pods on CPU metric.</div></div></div>
@@ -5037,7 +5125,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
 <span class="kw">HINTS</span>  ->  { target_node: [(key, value, timestamp)] }</span></div></div>
 </div><div class="design-step tradeoff">
   <div class="ds-header">[balance] 7. Trade-off Analysis</div>
-  <div class="ds-body"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Consistency model</strong></td><td class='chosen'>Tunable quorum (R+W>N=strong, else eventual)</td><td class='rej'>Always strong</td><td>Tunable gives flexibility: low-latency apps use W=1,R=1; financial use W=3,R=2. One size doesn't fit all.</td></tr><tr><td><strong>Conflict resolution</strong></td><td class='chosen'>LWW (default) + vector clocks (opt-in)</td><td class='rej'>Reject conflicts (require re-read)</td><td>Rejecting conflicts kills availability. LWW is simple. Vector clocks enable app-level merge for complex data types.</td></tr><tr><td><strong>Partitioning</strong></td><td class='chosen'>Consistent hashing + vnodes</td><td class='rej'>Range partitioning</td><td>Consistent hashing: smooth rebalancing. Vnodes: even distribution. Range: good for scans but creates hot partitions for sequential writes.</td></tr></tbody></table></div>
+  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Consistency model</strong></td><td class='chosen'>Tunable quorum (R+W>N=strong, else eventual)</td><td class='rej'>Always strong</td><td>Tunable gives flexibility: low-latency apps use W=1,R=1; financial use W=3,R=2. One size doesn't fit all.</td></tr><tr><td><strong>Conflict resolution</strong></td><td class='chosen'>LWW (default) + vector clocks (opt-in)</td><td class='rej'>Reject conflicts (require re-read)</td><td>Rejecting conflicts kills availability. LWW is simple. Vector clocks enable app-level merge for complex data types.</td></tr><tr><td><strong>Partitioning</strong></td><td class='chosen'>Consistent hashing + vnodes</td><td class='rej'>Range partitioning</td><td>Consistent hashing: smooth rebalancing. Vnodes: even distribution. Range: good for scans but creates hot partitions for sequential writes.</td></tr></tbody></table></div></div>
 </div><div class="design-step fault">
   <div class="ds-header">[shield] 8. Fault Tolerance</div>
   <div class="ds-body"><div class="ft-row"><div class="ft-fail">Node failure (permanent)</div><div class="ft-fix">Detect via gossip heartbeat timeout (phi = 8 threshold). Remove from ring. Adjacent nodes inherit its key range. Replica count temporarily drops to 2; auto-repair brings it back to 3 via anti-entropy within minutes.</div></div><div class="ft-row"><div class="ft-fail">Network partition (split-ring)</div><div class="ft-fix">Both halves continue serving with their available replicas. Writes with W=2 succeed on majority side, fail on minority (if only 1 replica there). On heal: anti-entropy detects divergence, repairs. LWW resolves conflicts.</div></div><div class="ft-row"><div class="ft-fail">Hot key (one key getting 1M QPS)</div><div class="ft-fix">Detect via coordinator: if key appears in >10% of requests -> replicate to local cache. Or: key sharding -- append suffix (0-9), fan-out writes to 10 keys, fan-in reads with merge.</div></div></div>
@@ -5135,7 +5223,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
 <p><strong>Read receipts:</strong> Two blue ticks. Receiver sends ACK -> delivered receipt. Receiver opens conversation -> seen receipt. Receipts stored in receipts table. Sender's server updates the message status and notifies sender over their WebSocket.</p></div>
 </div><div class="design-step tradeoff">
   <div class="ds-header">[balance] 7. Trade-off Analysis</div>
-  <div class="ds-body"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Transport</strong></td><td class='chosen'>WebSocket (persistent)</td><td class='rej'>HTTP polling</td><td>Persistent connection = instant delivery, no polling overhead. Critical for sub-500ms delivery. Poll would require 1-5 req/sec x 2B users = billions of wasted requests.</td></tr><tr><td><strong>Message store</strong></td><td class='chosen'>Cassandra</td><td class='rej'>PostgreSQL</td><td>Time-series append workload. 100B msgs/day = 1.16M writes/sec. Cassandra's LSM-tree handles this. PostgreSQL B-tree would require enormous infrastructure for this write rate.</td></tr><tr><td><strong>Group messaging</strong></td><td class='chosen'>Fan-out on send (for small groups)</td><td class='rej'>Fan-out on receive</td><td>For 256-member groups: fan-out on send = 256 DB writes + 256 WS pushes. Manageable. On receive = one write but N reads on timeline load. Fan-out on send is better for groups this size.</td></tr></tbody></table></div>
+  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Transport</strong></td><td class='chosen'>WebSocket (persistent)</td><td class='rej'>HTTP polling</td><td>Persistent connection = instant delivery, no polling overhead. Critical for sub-500ms delivery. Poll would require 1-5 req/sec x 2B users = billions of wasted requests.</td></tr><tr><td><strong>Message store</strong></td><td class='chosen'>Cassandra</td><td class='rej'>PostgreSQL</td><td>Time-series append workload. 100B msgs/day = 1.16M writes/sec. Cassandra's LSM-tree handles this. PostgreSQL B-tree would require enormous infrastructure for this write rate.</td></tr><tr><td><strong>Group messaging</strong></td><td class='chosen'>Fan-out on send (for small groups)</td><td class='rej'>Fan-out on receive</td><td>For 256-member groups: fan-out on send = 256 DB writes + 256 WS pushes. Manageable. On receive = one write but N reads on timeline load. Fan-out on send is better for groups this size.</td></tr></tbody></table></div></div>
 </div><div class="design-step fault">
   <div class="ds-header">[shield] 8. Fault Tolerance</div>
   <div class="ds-body"><div class="ft-row"><div class="ft-fail">WebSocket server crashes</div><div class="ft-fix">All connections on that server disconnect. Clients auto-reconnect to any WS server (load balancer with sticky session NOT required -- connection registry handles routing). Reconnect within 1-2 seconds. Messages in flight are re-delivered from Cassandra.</div></div><div class="ft-row"><div class="ft-fail">Connection registry (Redis) down</div><div class="ft-fix">Short outage: WS servers cache recent {user->server} mappings locally (LRU, 5 min TTL). On cache miss: fan-out to all WS servers (expensive but rare). Redis Cluster + sentinels for HA.</div></div><div class="ft-row"><div class="ft-fail">Cassandra node failure</div><div class="ft-fix">RF=3, W=2, R=1. Node failure -> writes still succeed (2 of remaining 4 nodes). Read: if returning stale data, read-repair brings it up to date. Hinted handoff for writes during node unavailability.</div></div><div class="ft-row"><div class="ft-fail">Message lost in transit</div><div class="ft-fix">Message ID is Snowflake (globally unique). ACK from WS server means it received the message. If sender doesn't get ACK in 5s -> retry (idempotent: same message_id = same Cassandra row). Three retries, then store in outbox for async retry.</div></div></div>
@@ -5209,7 +5297,7 @@ In the next 200ms, 5,000 requests arrive for user 1's recommendations. All miss.
 <p><strong>CDN strategy:</strong> HLS segments are immutable (content-addressed by segment hash). Cache-Control: max-age=31536000 (1 year). CDN naturally geo-distributes popular content. New videos: cold start -- first viewers get from GCS. After 100 views: cached at every CDN edge worldwide.</p></div>
 </div><div class="design-step tradeoff">
   <div class="ds-header">[balance] 7. Trade-off Analysis</div>
-  <div class="ds-body"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Transcoding</strong></td><td class='chosen'>Async Kafka pipeline (eventual availability)</td><td class='rej'>Sync (block upload until done)</td><td>Sync transcode = wait 5-60 min for every upload. Terrible UX. Async = upload acknowledged immediately, video available in ~5 min. Acceptable.</td></tr><tr><td><strong>Streaming format</strong></td><td class='chosen'>HLS (HTTP Live Streaming)</td><td class='rej'>RTMP / WebRTC</td><td>HLS works over standard CDN HTTP. RTMP requires special servers. WebRTC good for sub-second latency (live streaming) but overkill for pre-recorded video. HLS adaptive bitrate = optimal for variable bandwidth.</td></tr><tr><td><strong>Storage</strong></td><td class='chosen'>GCS object storage</td><td class='rej'>HDFS / custom</td><td>GCS: 11-nine durability, petabyte scale, CDN integration, managed. HDFS: operational burden, no CDN, doesn't scale to exabytes easily.</td></tr></tbody></table></div>
+  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Transcoding</strong></td><td class='chosen'>Async Kafka pipeline (eventual availability)</td><td class='rej'>Sync (block upload until done)</td><td>Sync transcode = wait 5-60 min for every upload. Terrible UX. Async = upload acknowledged immediately, video available in ~5 min. Acceptable.</td></tr><tr><td><strong>Streaming format</strong></td><td class='chosen'>HLS (HTTP Live Streaming)</td><td class='rej'>RTMP / WebRTC</td><td>HLS works over standard CDN HTTP. RTMP requires special servers. WebRTC good for sub-second latency (live streaming) but overkill for pre-recorded video. HLS adaptive bitrate = optimal for variable bandwidth.</td></tr><tr><td><strong>Storage</strong></td><td class='chosen'>GCS object storage</td><td class='rej'>HDFS / custom</td><td>GCS: 11-nine durability, petabyte scale, CDN integration, managed. HDFS: operational burden, no CDN, doesn't scale to exabytes easily.</td></tr></tbody></table></div></div>
 </div><div class="design-step fault">
   <div class="ds-header">[shield] 8. Fault Tolerance</div>
   <div class="ds-body"><div class="ft-row"><div class="ft-fail">Transcode worker crashes mid-job</div><div class="ft-fix">Kafka offset not committed until job complete. Worker crash -> message re-delivered -> new worker picks up from beginning (idempotent: transcode is pure function, same input = same output). Partial segments discarded.</div></div><div class="ft-row"><div class="ft-fail">GCS regional outage</div><div class="ft-fix">Multi-region GCS bucket (US + EU). If primary region down, read from secondary with minimal latency increase. Writes queued and replayed when primary recovers. CDN cache continues serving most traffic during outage.</div></div><div class="ft-row"><div class="ft-fail">CDN node failure</div><div class="ft-fix">CDN routes around failed edge nodes automatically. Traffic shifts to next-nearest edge. Brief latency increase. Popular content likely cached on multiple edges.</div></div></div>
@@ -5301,7 +5389,7 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 <p><strong>Scheduler high availability:</strong> Multiple scheduler instances. Only one is active (leader election via etcd/ZooKeeper/DB advisory lock). Follower schedulers are on hot standby. Leader failure -> follower takes over in &lt;30s. With SELECT FOR UPDATE, even if two schedulers are briefly both active, no double execution.</p></div>
 </div><div class="design-step tradeoff">
   <div class="ds-header">[balance] 7. Trade-off Analysis</div>
-  <div class="ds-body"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Job claim</strong></td><td class='chosen'>SELECT FOR UPDATE SKIP LOCKED</td><td class='rej'>Distributed lock (Redis)</td><td>DB-level locking eliminates network round-trip to external lock service. SKIP LOCKED allows concurrent schedulers without contention. Simpler -- no lock service dependency.</td></tr><tr><td><strong>Exactly-once</strong></td><td class='chosen'>DB lock + idempotent handler contract</td><td class='rej'>Transactions</td><td>Full exactly-once requires handler to be idempotent (we guarantee at-most-once delivery; handler must handle retries). Telling customers: 'your handler may run twice on failure -- make it idempotent' is standard practice.</td></tr><tr><td><strong>Delivery</strong></td><td class='chosen'>Pull (DB poll every 1s)</td><td class='rej'>Push (DB triggers)</td><td>DB triggers couple scheduler to DB internals. Poll is simple, predictable, scalable. 1-second poll granularity acceptable for most cron use cases. Sub-second scheduling needs a different architecture.</td></tr></tbody></table></div>
+  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Job claim</strong></td><td class='chosen'>SELECT FOR UPDATE SKIP LOCKED</td><td class='rej'>Distributed lock (Redis)</td><td>DB-level locking eliminates network round-trip to external lock service. SKIP LOCKED allows concurrent schedulers without contention. Simpler -- no lock service dependency.</td></tr><tr><td><strong>Exactly-once</strong></td><td class='chosen'>DB lock + idempotent handler contract</td><td class='rej'>Transactions</td><td>Full exactly-once requires handler to be idempotent (we guarantee at-most-once delivery; handler must handle retries). Telling customers: 'your handler may run twice on failure -- make it idempotent' is standard practice.</td></tr><tr><td><strong>Delivery</strong></td><td class='chosen'>Pull (DB poll every 1s)</td><td class='rej'>Push (DB triggers)</td><td>DB triggers couple scheduler to DB internals. Poll is simple, predictable, scalable. 1-second poll granularity acceptable for most cron use cases. Sub-second scheduling needs a different architecture.</td></tr></tbody></table></div></div>
 </div><div class="design-step fault">
   <div class="ds-header">[shield] 8. Fault Tolerance</div>
   <div class="ds-body"><div class="ft-row"><div class="ft-fail">Scheduler leader crashes</div><div class="ft-fix">Follower detects via etcd lease expiry (~15s). Takes over leadership. Jobs due during those 15s: lock_expires hasn't passed, so they're safe. After 15s: new leader picks up pending jobs. Max 15-second delay.</div></div><div class="ft-row"><div class="ft-fail">Worker crashes mid-execution</div><div class="ft-fix">lock_expires passes -> sweeper resets job to pending -> re-executed. Handler MUST be idempotent (most are: send email with idempotency key, write to DB with upsert). Document this contract clearly.</div></div><div class="ft-row"><div class="ft-fail">DB (PostgreSQL) failure</div><div class="ft-fix">Primary fails -> replica promoted (RDS Multi-AZ: ~30s). Schedulers lose DB connection, buffer job picks in memory (Kafka), retry DB connection. No jobs lost. Some delayed by up to ~1 min.</div></div></div>
@@ -5431,7 +5519,7 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 <p>Each producer is assigned a 64-bit <code>ProducerId (PID)</code> by the broker coordinator. For every partition, the producer tracks a monotonically increasing <code>SequenceNumber</code>. The broker rejects any duplicate sequence number. For multi-partition atomic writes (Read-Process-Write cycle), a Two-Phase Commit Transaction Coordinator maintains a <code>__transaction_state</code> log and writes COMMIT/ABORT markers into topic partitions.</p></div>
 </div><div class="design-step tradeoff">
   <div class="ds-header">[balance] 7. Trade-off Analysis</div>
-  <div class="ds-body"><table class="to"><thead><tr><th>Decision</th><th>Chosen &check;</th><th>Alternative &cross;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Storage Engine</strong></td><td class='chosen'>Append-Only Segmented Log</td><td class='rej'>B-Tree / Embedded DB (RocksDB)</td><td>Log gives O(1) disk writes, sequential reads, and instant zero-copy transfer. B-Trees incur random writes, write amplification, and complex locking.</td></tr><tr><td><strong>Replication Consensus</strong></td><td class='chosen'>ISR with Quorum Controller (KRaft)</td><td class='rej'>Paxos / Raft per partition</td><td>ISR allows dynamic quorum based on live replica speed, achieving maximum write throughput. KRaft manages cluster metadata with a single Raft quorum instead of ZooKeeper.</td></tr><tr><td><strong>Consumption Model</strong></td><td class='chosen'>Pull (Long-Polling by Consumers)</td><td class='rej'>Push (Broker pushes to clients)</td><td>Pull lets consumers pace themselves according to their processing capacity (eliminating consumer overload) and simplifies batch fetching and replay.</td></tr></tbody></table></div>
+  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &check;</th><th>Alternative &cross;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Storage Engine</strong></td><td class='chosen'>Append-Only Segmented Log</td><td class='rej'>B-Tree / Embedded DB (RocksDB)</td><td>Log gives O(1) disk writes, sequential reads, and instant zero-copy transfer. B-Trees incur random writes, write amplification, and complex locking.</td></tr><tr><td><strong>Replication Consensus</strong></td><td class='chosen'>ISR with Quorum Controller (KRaft)</td><td class='rej'>Paxos / Raft per partition</td><td>ISR allows dynamic quorum based on live replica speed, achieving maximum write throughput. KRaft manages cluster metadata with a single Raft quorum instead of ZooKeeper.</td></tr><tr><td><strong>Consumption Model</strong></td><td class='chosen'>Pull (Long-Polling by Consumers)</td><td class='rej'>Push (Broker pushes to clients)</td><td>Pull lets consumers pace themselves according to their processing capacity (eliminating consumer overload) and simplifies batch fetching and replay.</td></tr></tbody></table></div></div>
 </div><div class="design-step fault">
   <div class="ds-header">[shield] 8. Fault Tolerance</div>
   <div class="ds-body"><div class="ft-row"><div class="ft-fail">Leader Broker Crashes</div><div class="ft-fix">KRaft controller detects heartbeat failure in <3s. Elects new leader from the ISR pool. No committed data is lost because ISR nodes are byte-for-byte in sync up to HW.</div></div><div class="ft-row"><div class="ft-fail">Slow / Stalled Follower</div><div class="ft-fix">Controller evicts the lagging node from ISR so it does not block produce requests when acks=all. Once caught up, it rejoins the ISR.</div></div><div class="ft-row"><div class="ft-fail">Consumer Crashes during processing</div><div class="ft-fix">Consumer group coordinator detects missed heartbeat (session.timeout.ms). Triggers Consumer Group Rebalance, reassigning crashed consumer's partitions to remaining workers from last committed offset.</div></div><div class="ft-row"><div class="ft-fail">Split Brain in Controller Quorum</div><div class="ft-fix">KRaft uses Raft majority quorum (e.g. 3 of 5 nodes). A network partition cannot elect an illegitimate leader in the minority partition.</div></div></div>
@@ -5578,7 +5666,7 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 <p>When files/versions are permanently deleted, chunks cannot be immediately removed from S3 because other files or users might share the same content-addressed hash. Each chunk row maintains a <code>ref_count</code> in the DB. When a version is purged, decrement <code>ref_count</code>. A daily MapReduce / Spark batch sweeper queries chunks with <code>ref_count == 0</code> and deletes the underlying S3 objects.</p></div>
 </div><div class="design-step tradeoff">
   <div class="ds-header">[balance] 7. Trade-off Analysis</div>
-  <div class="ds-body"><table class="to"><thead><tr><th>Decision</th><th>Chosen &check;</th><th>Alternative &cross;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Chunk Splitting</strong></td><td class='chosen'>Client-side Rabin Chunking</td><td class='rej'>Server-side Chunking</td><td>Client-side saves huge upload bandwidth (never uploads chunks already in S3) and offloads CPU hashing from server infrastructure.</td></tr><tr><td><strong>Metadata Store</strong></td><td class='chosen'>Spanner / CockroachDB (NewSQL)</td><td class='rej'>Cassandra / DynamoDB (NoSQL)</td><td>File tree operations (renaming a folder, moving 10,000 files) require atomic multi-row ACID transactions. NoSQL eventual consistency causes phantom or orphaned files.</td></tr><tr><td><strong>Sync Protocol</strong></td><td class='chosen'>Delta Sync with WebSocket notify</td><td class='rej'>Periodic Client Polling</td><td>WebSockets deliver sub-second sync latency to all connected devices without hammering servers with millions of empty poll requests.</td></tr></tbody></table></div>
+  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &check;</th><th>Alternative &cross;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Chunk Splitting</strong></td><td class='chosen'>Client-side Rabin Chunking</td><td class='rej'>Server-side Chunking</td><td>Client-side saves huge upload bandwidth (never uploads chunks already in S3) and offloads CPU hashing from server infrastructure.</td></tr><tr><td><strong>Metadata Store</strong></td><td class='chosen'>Spanner / CockroachDB (NewSQL)</td><td class='rej'>Cassandra / DynamoDB (NoSQL)</td><td>File tree operations (renaming a folder, moving 10,000 files) require atomic multi-row ACID transactions. NoSQL eventual consistency causes phantom or orphaned files.</td></tr><tr><td><strong>Sync Protocol</strong></td><td class='chosen'>Delta Sync with WebSocket notify</td><td class='rej'>Periodic Client Polling</td><td>WebSockets deliver sub-second sync latency to all connected devices without hammering servers with millions of empty poll requests.</td></tr></tbody></table></div></div>
 </div><div class="design-step fault">
   <div class="ds-header">[shield] 8. Fault Tolerance</div>
   <div class="ds-body"><div class="ft-row"><div class="ft-fail">Upload Aborted Midway (Network drop)</div><div class="ft-fix">Chunk uploads are idempotent. Client queries <code>/upload/status</code> with upload_id, receives list of already-persisted chunks, and resumes only the remaining chunks without re-uploading.</div></div><div class="ft-row"><div class="ft-fail">S3 / Cloud Storage Outage</div><div class="ft-fix">Blob storage is multi-region replicated (e.g. S3 Cross-Region Replication). Read requests failover to secondary region CDN endpoint.</div></div><div class="ft-row"><div class="ft-fail">Metadata DB Primary Failure</div><div class="ft-fix">Spanner / CockroachDB uses Multi-Paxos / Raft per range. Automatic leader election completes in <2s with zero data loss.</div></div><div class="ft-row"><div class="ft-fail">Zombie / Corrupt Chunks</div><div class="ft-fix">Every downloaded chunk is verified against its expected SHA-256 hash by the client. If corrupted, client requests chunk from alternate replica.</div></div></div>
@@ -5735,7 +5823,7 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 <p>When two riders request a ride simultaneously in the same street corner, both may match with Driver D. To avoid double booking: The Dispatch Service executes a conditional atomic update on the driver's state in Redis/DB: <code>UPDATE drivers SET status = 'DISPATCHED', active_trip_id = {trip_id} WHERE driver_id = {d_id} AND status = 'AVAILABLE'</code>. If 0 rows updated, driver was already claimed; engine immediately selects next candidate.</p></div>
 </div><div class="design-step tradeoff">
   <div class="ds-header">[balance] 7. Trade-off Analysis</div>
-  <div class="ds-body"><table class="to"><thead><tr><th>Decision</th><th>Chosen &check;</th><th>Alternative &cross;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Spatial Grid</strong></td><td class='chosen'>Uber H3 Hexagonal Grid</td><td class='rej'>Quadtree / Geohash</td><td>Hexagons guarantee uniform neighbor distance in all 6 directions, drastically simplifying k-ring spatial smoothing and surge pricing calculations.</td></tr><tr><td><strong>Location Storage</strong></td><td class='chosen'>In-Memory Redis + TTL (Ephemeral)</td><td class='rej'>Persistent RDBMS / Disk DB</td><td>Driver location pings are only relevant for ~30 seconds. Persisting 1.25M writes/sec to disk is wasteful. History is downsampled and written to cold analytics via Kafka.</td></tr><tr><td><strong>Matching Architecture</strong></td><td class='chosen'>Centralized Dispatch (Batch Mini-Auction)</td><td class='rej'>Greedy First-Come-First-Serve</td><td>Batching ride requests every 2-3 seconds achieves global optimization (minimizing total wait time for all riders) rather than greedily assigning the closest car to the first request.</td></tr></tbody></table></div>
+  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &check;</th><th>Alternative &cross;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Spatial Grid</strong></td><td class='chosen'>Uber H3 Hexagonal Grid</td><td class='rej'>Quadtree / Geohash</td><td>Hexagons guarantee uniform neighbor distance in all 6 directions, drastically simplifying k-ring spatial smoothing and surge pricing calculations.</td></tr><tr><td><strong>Location Storage</strong></td><td class='chosen'>In-Memory Redis + TTL (Ephemeral)</td><td class='rej'>Persistent RDBMS / Disk DB</td><td>Driver location pings are only relevant for ~30 seconds. Persisting 1.25M writes/sec to disk is wasteful. History is downsampled and written to cold analytics via Kafka.</td></tr><tr><td><strong>Matching Architecture</strong></td><td class='chosen'>Centralized Dispatch (Batch Mini-Auction)</td><td class='rej'>Greedy First-Come-First-Serve</td><td>Batching ride requests every 2-3 seconds achieves global optimization (minimizing total wait time for all riders) rather than greedily assigning the closest car to the first request.</td></tr></tbody></table></div></div>
 </div><div class="design-step fault">
   <div class="ds-header">[shield] 8. Fault Tolerance</div>
   <div class="ds-body"><div class="ft-row"><div class="ft-fail">Driver Loses Internet Mid-Trip</div><div class="ft-fix">Driver app buffers GPS points in local SQLite. Upon reconnection, app uploads buffered breadcrumbs to reconcile route and compute accurate fare.</div></div><div class="ft-row"><div class="ft-fail">Dispatch Service Node Crashes during 15s offer</div><div class="ft-fix">Driver offer is backed by Redis TTL key with an expiring lease. If dispatch node dies, heartbeat supervisor detects pending trip and re-dispatches to another driver.</div></div><div class="ft-row"><div class="ft-fail">Surge Traffic Spike (New Year's Eve 10x Load)</div><div class="ft-fix">Rate limit nearby driver map refreshes from 4s to 8s per rider; drop unneeded background location telemetry while preserving dispatch pipeline.</div></div><div class="ft-row"><div class="ft-fail">Redis H3 Shard Failure</div><div class="ft-fix">Redis Sentinel / Cluster promotes replica in <1s. Lost ephemeral driver pings are replenished within 4 seconds as drivers broadcast.</div></div></div>
@@ -5869,7 +5957,7 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 <p>Websites with infinite calendar loops (<code>/calendar?year=2027&month=13...</code>) or session IDs in URLs trap crawlers. Defenses include: Max URL length limit (e.g. 512 chars), max path depth &le; 8, URL pattern frequency monitoring per domain, and anomaly detection if a single domain yields &gt; 50,000 URLs without new unique SimHash content.</p></div>
 </div><div class="design-step tradeoff">
   <div class="ds-header">[balance] 7. Trade-off Analysis</div>
-  <div class="ds-body"><table class="to"><thead><tr><th>Decision</th><th>Chosen &check;</th><th>Alternative &cross;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>URL Seen Test</strong></td><td class='chosen'>Bloom Filter + Bigtable</td><td class='rej'>RDBMS Unique Index</td><td>Bloom Filter answers 'seen' checks in 5 nanoseconds from memory, saving 4,000 expensive disk round-trips per second.</td></tr><tr><td><strong>Near-Duplicate</strong></td><td class='chosen'>64-bit SimHash (Cosine distance)</td><td class='rej'>MinHash / Jaccard similarity</td><td>SimHash produces a compact 8-byte fingerprint per document and enables bitwise Hamming distance comparisons with zero decompression.</td></tr><tr><td><strong>Crawler Storage</strong></td><td class='chosen'>SSTable / Bigtable Sparse Column</td><td class='rej'>Relational DB / Postgres</td><td>Bigtable handles massive append throughput, automatic tablet sharding across petabytes, and compresses sparse web documents efficiently.</td></tr></tbody></table></div>
+  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &check;</th><th>Alternative &cross;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>URL Seen Test</strong></td><td class='chosen'>Bloom Filter + Bigtable</td><td class='rej'>RDBMS Unique Index</td><td>Bloom Filter answers 'seen' checks in 5 nanoseconds from memory, saving 4,000 expensive disk round-trips per second.</td></tr><tr><td><strong>Near-Duplicate</strong></td><td class='chosen'>64-bit SimHash (Cosine distance)</td><td class='rej'>MinHash / Jaccard similarity</td><td>SimHash produces a compact 8-byte fingerprint per document and enables bitwise Hamming distance comparisons with zero decompression.</td></tr><tr><td><strong>Crawler Storage</strong></td><td class='chosen'>SSTable / Bigtable Sparse Column</td><td class='rej'>Relational DB / Postgres</td><td>Bigtable handles massive append throughput, automatic tablet sharding across petabytes, and compresses sparse web documents efficiently.</td></tr></tbody></table></div></div>
 </div><div class="design-step fault">
   <div class="ds-header">[shield] 8. Fault Tolerance</div>
   <div class="ds-body"><div class="ft-row"><div class="ft-fail">Fetcher Worker Freezes (Slow Server Response)</div><div class="ft-fix">Fetchers use non-blocking asynchronous I/O (epoll/libuv) with hard 5-second socket read timeouts and 2MB response size caps.</div></div><div class="ft-row"><div class="ft-fail">DNS Resolution Bottleneck</div><div class="ft-fix">Local custom caching DNS server with pre-fetching; eliminates 100ms DNS query delay per crawled page.</div></div><div class="ft-row"><div class="ft-fail">Frontier Master Node Failure</div><div class="ft-fix">Frontier queue state is checkpointed to RocksDB / distributed log (Kafka). Standby master restores queue pointers in <5s.</div></div><div class="ft-row"><div class="ft-fail">Malicious Spider Trap / Zip Bomb</div><div class="ft-fix">Decompression stream reader capped at 10MB; immediately aborts and blacklists the URL pattern if exceeded.</div></div></div>
@@ -5893,7 +5981,7 @@ This SQL atomically locks selected rows. A second scheduler running the same que
     <h3>1. The 45-Minute Staff (L6) System Design Pacing Guide</h3>
     <p>At Google L6, the interviewer does not want to prompt you. They expect you to <strong>own the room</strong>, proactively drive the architecture, state assumptions clearly, and pivot between high-level macro trade-offs and micro-level algorithmic deep dives.</p>
     
-    <table class="to">
+    <div class="tw"><table class="to">
       <thead>
         <tr>
           <th>Time</th>
@@ -5940,7 +6028,7 @@ This SQL atomically locks selected rows. A second scheduler running the same que
           <td>Executive communication and holistic strategic vision.</td>
         </tr>
       </tbody>
-    </table>
+    </table></div>
   </div>
 
   <!-- TOOLKIT 2: NUMBERS CHEAT SHEET -->
@@ -5976,7 +6064,7 @@ This SQL atomically locks selected rows. A second scheduler running the same que
     <h3>3. The Grand Architecture Trade-off Matrix</h3>
     <p>Staff engineers never say "Technology X is the best." They say: "Under constraints A and B, Technology X is superior because of trade-off Y."</p>
     
-    <table class="to">
+    <div class="tw"><table class="to">
       <thead>
         <tr>
           <th>Architectural Decision</th>
@@ -6023,7 +6111,7 @@ This SQL atomically locks selected rows. A second scheduler running the same que
           <td>Use Postgres FTS when data volume is &lt; 10M rows and you want zero operational overhead. Use Elasticsearch when you need fuzzy matching, typo tolerance, multi-faceted filtering, and scale across billions of documents.</td>
         </tr>
       </tbody>
-    </table>
+    </table></div>
   </div>
 
   <!-- TOOLKIT 4: GOOGLE BEHAVIORAL & LEADERSHIP -->
@@ -6123,7 +6211,7 @@ This SQL atomically locks selected rows. A second scheduler running the same que
     <h3 style="margin-top:36px">When You See This in a Design Problem, Think This</h3>
     <p>The point of the guide is that when you meet an unfamiliar problem, you recognise its shape. This is the lookup table.</p>
 
-    <table class="to">
+    <div class="tw"><table class="to">
       <thead><tr><th style="width:32%">When the problem says&hellip;</th><th style="width:36%">The real question is&hellip;</th><th style="width:32%">Reach for</th></tr></thead>
       <tbody>
         <tr><td>&ldquo;must never lose data&rdquo;</td><td>What is the acceptable RPO, and against which failure?</td><td>Sync replication, WAL + fsync, quorum writes <span class="srcref">Ch 4, 12</span></td></tr>
@@ -6145,7 +6233,7 @@ This SQL atomically locks selected rows. A second scheduler running the same que
         <tr><td>&ldquo;survive a region failure&rdquo;</td><td>What is the RTO, and how do clients reconverge?</td><td>Geo-replication, fencing, rehearsed failover <span class="srcref">Ch 4</span></td></tr>
         <tr><td>&ldquo;one slow dependency broke everything&rdquo;</td><td>Shared resource pool + retries = cascade.</td><td>Bulkhead, circuit breaker, retry budget, deadline propagation <span class="srcref">Ch 13</span></td></tr>
       </tbody>
-    </table>
+    </table></div>
 
     <h3 style="margin-top:36px">Twenty Design Mistakes Caused by Misunderstanding This Material</h3>
     <p>Each of these is a real, recurring failure &mdash; and each traces to a specific misconception in the chapters above.</p>

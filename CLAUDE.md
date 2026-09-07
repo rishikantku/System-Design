@@ -270,6 +270,17 @@ takeaways 11 · usecaseTables 6 · recalls 5 · glossaryTerms 181 · inlineLinks
 gtInFlow 0 · gtInCodeOrLink 0 · brokenAnchors [] · navHeight 52 · consoleErrors 0
 ```
 
+**Mobile baseline** (same run, after the mobile pass — check at 320 / 360 / 390 / 430 px):
+
+```
+scrollWidth == viewport at every width · overflowingElements 0 · navHeight 50
+navPosition sticky · navInner does not overflow · tapTargetsUnder32px 0
+desktop: tablesScrolling 0 · navHeight 52 · tocColumns 2
+```
+
+Exclude `#gl-panel`, `#gl-backdrop` and `#gl-hint` from any overflow sweep — the glossary
+panel is *deliberately* parked off-canvas and will always report as overflowing.
+
 ---
 
 ## 8. State and what's next
@@ -291,10 +302,31 @@ mental-model / cheat-sheet card; the 181-term interactive glossary was built fro
 Systems). Ch 12's "derived data" framing would strengthen `ch12`'s CQRS/materialised-view
 material if the reader wants it.
 
-**Known cosmetic issue, pre-existing and not introduced by this work:** wide `table`
-elements overflow horizontally on phones (page `scrollWidth` ~564 px at a 390 px viewport;
-it was 564 in the untouched backup too). A `overflow-x: auto` wrapper on tables fixes it
-invisibly on desktop. Not applied — offered and not yet requested.
+**Mobile view — fixed.** The page used to have a `scrollWidth` of ~564 px at a 390 px
+viewport (564 in the untouched backup too). It is now exactly viewport-width at 320 / 360 /
+390 / 430 px, with zero overflowing elements. What was done, all under
+`@media (max-width: 680px)` in the **MOBILE HARDENING** block at the end of the `<style>`:
+
+| Problem | Fix |
+|---|---|
+| 35 wide tables widened the page | Each wrapped in `<div class="tw">` (`overflow-x: auto`). On mobile `.tw > table` is `width: max-content; min-width: 100%; max-width: 560px` — a narrow table fills the column and does *not* scroll; a wide one caps at 560 px and scrolls rather than crushing cells to one word per line |
+| `.toc-grid` / `.gl-grid` / `.ng` clipped below their track minimum | `minmax(310px, 1fr)` → `minmax(min(310px, 100%), 1fr)` (same for 268px and 170px) |
+| Nav wrapped to 3 rows / 112 px, so it had been made `position: static` | Nav is **sticky again at 50 px**: brand hidden, badge hidden, and each link carries a `.nl-full` + `.nl-abbr` span pair so labels become Theory / Designs / Toolkit / Glossary |
+| Scroll affordance was dead CSS | The old `float + position: sticky + height: 100%` `::after` computed to `height: 0px` and never painted. Replaced with styled `::-webkit-scrollbar` (+ `scrollbar-width/color`) on `.tw` and `.flow`, which renders persistently instead of as a gesture-only overlay |
+| 24 tap targets under 32 px | Nav links get `padding: 9px 8px`, `.gl-cat` gets `8px 14px`, `.gl-close` is 40×40. Now zero |
+| `.flow` ASCII diagrams at 10.5 px | Raised to 12 px. They have to scroll at any phone width regardless, so the width is better spent on legibility. Monospace scales uniformly, so alignment is unaffected |
+| 36 px padding on a 350 px card | `.toc-section` → `22px 16px`, `.deep` / `.analogy` → `18px 16px`, `.footer` → `56px 20px` |
+
+Guard rails also added globally (not media-scoped): `html, body { max-width: 100%;
+overflow-x: hidden }`, `svg { max-width: 100% }` (10 diagrams live outside `.diagram`),
+and `overflow-wrap` on prose so long URLs cannot widen the page.
+
+Desktop is byte-for-byte unaffected in behaviour: 0 tables scroll at 1440 px, the nav is
+52 px with full labels, and the TOC is still 2 columns.
+
+**Still open, unrelated to mobile:** the `.ds-header` titles read `[list] 1. Requirements`,
+`[chart] 2. Capacity Estimation`, `[plug]`, `[db]`, `[build]` — literal bracketed
+placeholder text, present in the original backup. Never raised, never fixed.
 
 ---
 

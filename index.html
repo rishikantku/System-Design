@@ -266,7 +266,9 @@ code { font-family: 'JetBrains Mono', monospace; font-size: calc(13px * var(--fs
   align-items: center;
   gap: 8px;
 }
-.nav-brand span { color: #26a69a; }
+.nav-brand > span:first-child { color: #26a69a; }
+.nav-brand .nb-abbr { display: none; }
+.nav-brand .nb-full { display: inline; }
 .nav-links {
   display: flex;
   gap: 16px;
@@ -1064,10 +1066,14 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
   /* Nav stays sticky, but compresses to ONE ~44px row instead of wrapping to
      three. The long labels are swapped for one-word ones (.nl-abbr) and the
      brand loses its wordmark, so persistent navigation costs 44px, not 112px. */
-  .nav-inner { flex-wrap: nowrap; gap: 10px; padding: 0 14px; justify-content: center; }
-  .nav-brand { display: none; }
-  .nav-links { gap: 4px; flex-wrap: nowrap; justify-content: center; width: 100%; }
-  .nav-links a { font-size: 13px; padding: 9px 8px; }   /* 13px + padding = 36px tap target */
+  /* The left drawer now covers navigation far better than four part links
+     (37 destinations vs 4), so the links come out and the brand comes back.
+     Two buttons plus four links overflowed a 320px nav. */
+  .nav-inner { flex-wrap: nowrap; gap: 6px; padding: 0 10px; justify-content: flex-start; }
+  .nav-links { display: none; }
+  .nav-brand { display: flex; font-size: 13.5px; white-space: nowrap; min-width: 0; }
+  .nav-brand .nb-full { display: none; }
+  .nav-brand .nb-abbr { display: inline; }
   .nav-badge { display: none; }
   .top-nav { padding: 4px 0; }
 
@@ -1113,14 +1119,194 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
 .flow::-webkit-scrollbar-track { background: rgba(255,255,255,.10); border-radius: 4px; }
 .flow::-webkit-scrollbar-thumb { background: rgba(255,255,255,.34); border-radius: 4px; }
 
-/* Nav label swap: full labels on desktop, one-word labels on a phone. */
-.nl-abbr { display: none; }
+/* Nav labels are the short form at every width now. The long ones
+   ("Part 1: 15 Theory Chapters") plus the two new nav buttons wrapped
+   .nav-inner to 91px on desktop -- the failure mode section 6 warns about.
+   The left sidebar carries the descriptive outline instead. */
+.nl-full { display: none; }
+.nl-abbr { display: inline; }
+
+
+
+/* ============================================================
+   SEARCH PALETTE  (Cmd/Ctrl-F, Cmd/Ctrl-K, or /)
+   ============================================================ */
+#cp-wrap { position: fixed; inset: 0; z-index: 1700; font-family: 'Inter', sans-serif; }
+#cp-wrap[hidden] { display: none; }
+#cp-back { position: absolute; inset: 0; background: rgba(15,20,40,.52); backdrop-filter: blur(3px); }
+#cp-box {
+  position: relative; margin: 9vh auto 0; width: 620px; max-width: 92vw;
+  background: var(--bg); border-radius: 14px; overflow: hidden;
+  box-shadow: 0 24px 70px rgba(15,20,40,.42); border: 1px solid var(--line);
+  display: flex; flex-direction: column; max-height: 76vh;
+}
+#cp-top { display: flex; align-items: center; gap: 10px; padding: 13px 15px; border-bottom: 1px solid var(--line); }
+#cp-icon { color: var(--muted); font-size: calc(16px * var(--fscale, 1)); }
+#cp-input {
+  flex: 1; min-width: 0; border: 0; outline: none; background: transparent;
+  font-family: inherit; font-size: calc(16px * var(--fscale, 1)); color: var(--ink);
+}
+#cp-input::placeholder { color: var(--muted); }
+#cp-list { overflow-y: auto; overscroll-behavior: contain; padding: 6px; flex: 1; }
+.cp-gh {
+  font-size: calc(10.5px * var(--fscale, 1)); font-weight: 800; text-transform: uppercase;
+  letter-spacing: 1.2px; color: var(--muted); padding: 10px 10px 5px;
+  position: sticky; top: 0; background: var(--bg); z-index: 1;
+}
+.cp-row {
+  display: flex; align-items: baseline; gap: 10px; padding: 8px 10px;
+  border-radius: 8px; cursor: pointer; scroll-margin: 34px;
+}
+.cp-row[aria-selected="true"] { background: var(--bgcool); box-shadow: inset 2px 0 0 var(--accent); }
+.cp-b {
+  flex-shrink: 0; min-width: 26px; padding: 2px 5px; border-radius: 5px;
+  background: var(--bgwarm); border: 1px solid var(--line); color: var(--muted);
+  font-size: calc(9.8px * var(--fscale, 1)); font-weight: 800; text-align: center;
+  text-transform: uppercase; letter-spacing: .3px;
+}
+.cp-t { font-size: calc(14.2px * var(--fscale, 1)); color: var(--ink); font-weight: 600; }
+.cp-d {
+  font-size: calc(12.5px * var(--fscale, 1)); color: var(--muted); margin-left: auto;
+  padding-left: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46%;
+}
+.cp-none { padding: 26px 14px; text-align: center; color: var(--muted); font-size: calc(14px * var(--fscale, 1)); }
+#cp-foot {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 9px 14px; border-top: 1px solid var(--line); background: var(--bgwarm);
+  font-size: calc(11.5px * var(--fscale, 1)); color: var(--muted);
+}
+#cp-count { margin-left: auto; }
+#cp-foot kbd, #cp-esc {
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+  background: #fff; border: 1px solid var(--line); border-bottom-width: 2px;
+  border-radius: 4px; padding: 1px 5px; color: var(--soft);
+}
+#cp-esc { flex-shrink: 0; }
+#cp-native { color: var(--muted); opacity: .85; }
+
+#cp-open {
+  appearance: none; border: 0; background: transparent; cursor: pointer;
+  width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+  color: #cfd8dc; font-size: 15px; display: flex; align-items: center; justify-content: center;
+}
+#cp-open:hover { background: rgba(255,255,255,.12); color: #fff; }
+#cp-open:focus-visible { outline: 2px solid #80cbc4; outline-offset: 1px; }
+
 @media (max-width: 680px) {
-  .nl-full { display: none; }
-  .nl-abbr { display: inline; }
+  #cp-box { margin-top: 5vh; max-height: 84vh; }
+  .cp-d { display: none; }
+  #cp-native { display: none; }
+}
+@media print { #cp-wrap, #cp-open { display: none !important; } }
+
+/* ============================================================
+   LEFT NAVIGATION  (docked >=1200px, drawer below)
+   ============================================================ */
+
+html { scroll-padding-top: 66px; }   /* stop anchors landing under the sticky nav */
+
+#side-nav {
+  position: fixed; top: 0; left: 0; bottom: 0; z-index: 1460;
+  width: 272px; max-width: 86vw;
+  background: #171728;
+  border-right: 1px solid rgba(255,255,255,.10);
+  display: flex; flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform .24s cubic-bezier(.4,0,.2,1);
+  font-family: 'Inter', sans-serif;
+}
+html.nav-open #side-nav { transform: none; }
+
+#side-backdrop {
+  position: fixed; inset: 0; z-index: 1440;
+  background: rgba(15,20,40,.46); backdrop-filter: blur(2px);
+  opacity: 0; pointer-events: none; transition: opacity .22s ease;
+}
+html.nav-open #side-backdrop { opacity: 1; pointer-events: auto; }
+
+.sn-top {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 12px 10px; border-bottom: 1px solid rgba(255,255,255,.10);
+  flex-shrink: 0;
+}
+#sn-filter {
+  flex: 1; min-width: 0;
+  background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14);
+  border-radius: 8px; color: #eceff1; font-family: inherit;
+  font-size: calc(13px * var(--fscale, 1)); padding: 8px 10px; outline: none;
+}
+#sn-filter::placeholder { color: rgba(255,255,255,.42); }
+#sn-filter:focus { border-color: #26a69a; background: rgba(255,255,255,.10); }
+#sn-close {
+  appearance: none; border: 0; background: transparent; color: #b0bec5;
+  width: 32px; height: 32px; border-radius: 8px; cursor: pointer;
+  font-size: 15px; flex-shrink: 0; line-height: 1;
+}
+#sn-close:hover { background: rgba(255,255,255,.12); color: #fff; }
+
+.sn-scroll { overflow-y: auto; overscroll-behavior: contain; padding: 10px 10px 28px; flex: 1; }
+.sn-group { margin-top: 14px; }
+.sn-gh {
+  font-size: calc(10.5px * var(--fscale, 1)); font-weight: 800;
+  text-transform: uppercase; letter-spacing: 1.2px;
+  color: rgba(255,255,255,.42); padding: 6px 8px 5px;
+  position: sticky; top: -10px; background: #171728; z-index: 1;
+}
+.sn-link {
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 7px 9px; border-radius: 8px;
+  color: #b6c0cc; text-decoration: none; line-height: 1.35;
+  font-size: calc(13.2px * var(--fscale, 1));
+  border-left: 2px solid transparent;
+}
+.sn-link:hover { background: rgba(255,255,255,.08); color: #fff; }
+.sn-link.is-active {
+  background: rgba(38,166,154,.16); color: #fff; font-weight: 600;
+  border-left-color: #26a69a;
+}
+.sn-b {
+  flex-shrink: 0; min-width: 24px; height: 18px; padding: 0 4px;
+  border-radius: 5px; background: rgba(255,255,255,.10);
+  color: rgba(255,255,255,.72);
+  font-size: calc(9.8px * var(--fscale, 1)); font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  margin-top: 1px; letter-spacing: .3px;
+}
+.sn-link.is-active .sn-b { background: #26a69a; color: #fff; }
+.sn-top-link { margin-bottom: 2px; }
+.sn-empty { color: rgba(255,255,255,.45); font-size: 13px; padding: 18px 10px; font-style: italic; }
+
+/* hamburger */
+#side-toggle {
+  appearance: none; border: 0; background: transparent; cursor: pointer;
+  width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+  display: flex; flex-direction: column; justify-content: center;
+  align-items: center; gap: 4px; margin-right: 4px;
+}
+#side-toggle:hover { background: rgba(255,255,255,.12); }
+#side-toggle:focus-visible { outline: 2px solid #80cbc4; outline-offset: 1px; }
+#side-toggle span {
+  display: block; width: 17px; height: 2px; border-radius: 2px;
+  background: #cfd8dc; transition: transform .2s, opacity .2s;
+}
+html.nav-open #side-toggle span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+html.nav-open #side-toggle span:nth-child(2) { opacity: 0; }
+html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
+/* Docked: the sidebar becomes part of the layout instead of an overlay. */
+@media (min-width: 1200px) {
+  #side-backdrop { display: none; }
+  html.nav-open body { padding-left: 272px; }
+  #side-nav { z-index: 998; }          /* below the sticky nav, nothing overlaps */
+  #sn-close { display: none; }
 }
 
+@media (max-width: 680px) {
+  #side-nav { width: 288px; }
+  .sn-link { padding: 9px 9px; font-size: calc(13.6px * var(--fscale, 1)); }
+}
 
+@media print { #side-nav, #side-backdrop, #side-toggle { display: none !important; } }
 
 /* ============================================================
    VIEW-SIZE CONTROL
@@ -1177,13 +1363,28 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
     var v = parseFloat(localStorage.getItem('dsg.fscale'));
     if (v >= 0.85 && v <= 1.45) document.documentElement.style.setProperty('--fscale', v);
   } catch (e) {}
+  /* Sidebar starts docked on a wide screen unless the reader closed it. It never
+     auto-opens as a drawer on a narrow screen. Set before paint to avoid a slide-in. */
+  try {
+    var wide = window.matchMedia('(min-width: 1200px)').matches;
+    var pref = localStorage.getItem('dsg.nav');
+    if (wide && pref !== '0') document.documentElement.classList.add('nav-open');
+  } catch (e) {
+    if (window.innerWidth >= 1200) document.documentElement.classList.add('nav-open');
+  }
 })();
 </script>
 
 <div class="top-nav">
   <div class="nav-inner">
+    <button id="side-toggle" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="side-nav">
+      <span></span><span></span><span></span>
+    </button>
+    <button id="cp-open" type="button" aria-label="Search this guide (Command-F)" title="Search  &#8984;F">
+      <span aria-hidden="true">&#9906;</span>
+    </button>
     <div class="nav-brand">
-      <span>&bull;</span> Google L6 Staff Distributed Systems Guide
+      <span>&bull;</span><span class="nb-full">Google L6 Staff Distributed Systems Guide</span><span class="nb-abbr">L6 Guide</span>
     </div>
     <div class="nav-links">
       <a href="#part1-theory"><span class="nl-full">Part 1: 15 Theory Chapters</span><span class="nl-abbr">Theory</span></a>
@@ -1246,7 +1447,7 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
     </div>
 
     <div style="margin-bottom: 24px;">
-      <h4 style="color: #6a1b9a; text-transform: uppercase; font-size: calc(13px * var(--fscale, 1)); letter-spacing: 1px; margin-bottom: 12px;">Part 2: 10 End-to-End System Designs (Google L6 Standard)</h4>
+      <h4 style="color: #6a1b9a; text-transform: uppercase; font-size: calc(13px * var(--fscale, 1)); letter-spacing: 1px; margin-bottom: 12px;">Part 2: 14 End-to-End System Designs (Google L6 Standard)</h4>
       <div class="toc-grid">
         <a href="#design-url" class="toc-card design-toc"><div class="toc-badge">D1</div><div class="toc-info"><div class="toc-title">URL Shortener (TinyURL)</div><div class="toc-sub">Base62 encoding, KGS, bloom filter, caching</div></div></a>
         <a href="#design-twitter" class="toc-card design-toc"><div class="toc-badge">D2</div><div class="toc-info"><div class="toc-title">Twitter / Social Media Feed</div><div class="toc-sub">Fan-out-on-write vs read, celebrity problem</div></div></a>
@@ -10217,7 +10418,7 @@ var GLOSSARY = {
   /* ---------- 2. auto-linker ---------- */
   var SKIP_TAGS  = { SCRIPT:1, STYLE:1, CODE:1, PRE:1, A:1, BUTTON:1, INPUT:1,
                      TEXTAREA:1, SVG:1, svg:1, TEXT:1, text:1, OPTION:1 };
-  var SKIP_CLASS = /\b(codeblock|schema-code|api-code|flow|top-nav|cover|toc-section|gl-|gt|nav-|toc-card|toc-badge|ch-num|part-tag|ng-val|dc-meta|vs-)/;
+  var SKIP_CLASS = /\b(codeblock|schema-code|api-code|flow|top-nav|cover|toc-section|gl-|gt|nav-|toc-card|toc-badge|ch-num|part-tag|ng-val|dc-meta|vs-|cp-|sn-|side-)/;
   var MAX_PER_ZONE = 2;
 
   function skippable(el) {
@@ -10486,6 +10687,87 @@ var GLOSSARY = {
 </script>
 
 
+<div id="cp-wrap" hidden>
+  <div id="cp-back"></div>
+  <div id="cp-box" role="dialog" aria-modal="true" aria-label="Search this guide">
+    <div id="cp-top">
+      <span id="cp-icon" aria-hidden="true">&#9906;</span>
+      <input id="cp-input" type="text" role="combobox" aria-expanded="true" aria-controls="cp-list"
+             aria-autocomplete="list" placeholder="Search chapters, designs and 199 concepts&hellip;"
+             autocomplete="off" spellcheck="false">
+      <kbd id="cp-esc">esc</kbd>
+    </div>
+    <div id="cp-list" role="listbox" aria-label="Results"></div>
+    <div id="cp-foot">
+      <span><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move</span>
+      <span><kbd>&#8629;</kbd> open</span>
+      <span id="cp-count"></span>
+      <span id="cp-native">&#8984;F again for browser find</span>
+    </div>
+  </div>
+</div>
+
+<nav id="side-nav" aria-label="Document outline" aria-hidden="true">
+  <div class="sn-top">
+    <input id="sn-filter" type="search" placeholder="Filter sections…" aria-label="Filter sections" autocomplete="off">
+    <button id="sn-close" type="button" aria-label="Close navigation">&#10005;</button>
+  </div>
+  <div class="sn-scroll" id="sn-scroll">
+    <a class="sn-link sn-top-link" href="#master-toc"><span class="sn-b">&#9776;</span>Complete Table of Contents</a>
+    <div class="sn-group">
+      <div class="sn-gh">Part 1 &middot; Theory</div>
+      <a class="sn-link" href="#ch1"><span class="sn-b">1</span>Why Distributed Systems are Hard</a>
+      <a class="sn-link" href="#ch2"><span class="sn-b">2</span>Consistency Models</a>
+      <a class="sn-link" href="#ch3"><span class="sn-b">3</span>CAP & PACELC Theorems</a>
+      <a class="sn-link" href="#ch4"><span class="sn-b">4</span>Replication Strategies</a>
+      <a class="sn-link" href="#ch5"><span class="sn-b">5</span>Partitioning (Sharding)</a>
+      <a class="sn-link" href="#ch6"><span class="sn-b">6</span>Distributed Consensus</a>
+      <a class="sn-link" href="#ch7"><span class="sn-b">7</span>Distributed Transactions</a>
+      <a class="sn-link" href="#ch8"><span class="sn-b">8</span>Distributed Time & Clocks</a>
+      <a class="sn-link" href="#ch9"><span class="sn-b">9</span>Caching & Invalidation</a>
+      <a class="sn-link" href="#ch10"><span class="sn-b">10</span>Load Balancing & Rate Limiting</a>
+      <a class="sn-link" href="#ch11"><span class="sn-b">11</span>Message Queues & Streaming</a>
+      <a class="sn-link" href="#ch12"><span class="sn-b">12</span>Database Internals & Storage</a>
+      <a class="sn-link" href="#ch13"><span class="sn-b">13</span>Microservices & Resilience</a>
+      <a class="sn-link" href="#ch14"><span class="sn-b">14</span>Observability & SRE (Google SRE)</a>
+      <a class="sn-link" href="#ch15"><span class="sn-b">15</span>Security & API Architecture</a>
+    </div>
+    <div class="sn-group">
+      <div class="sn-gh">Part 2 &middot; Designs</div>
+      <a class="sn-link" href="#design-url"><span class="sn-b">D1</span>URL Shortener (TinyURL)</a>
+      <a class="sn-link" href="#design-twitter"><span class="sn-b">D2</span>Twitter / Social Media Feed</a>
+      <a class="sn-link" href="#design-kv"><span class="sn-b">D3</span>Distributed KV Store (Dynamo)</a>
+      <a class="sn-link" href="#design-whatsapp"><span class="sn-b">D4</span>WhatsApp / Messaging System</a>
+      <a class="sn-link" href="#design-youtube"><span class="sn-b">D5</span>YouTube / Video Streaming</a>
+      <a class="sn-link" href="#design-jobs"><span class="sn-b">D6</span>Distributed Job Scheduler</a>
+      <a class="sn-link" href="#design-kafka"><span class="sn-b">D7</span>Distributed Message Queue (Kafka)</a>
+      <a class="sn-link" href="#design-drive"><span class="sn-b">D8</span>Google Drive / File Sync</a>
+      <a class="sn-link" href="#design-uber"><span class="sn-b">D9</span>Uber / Lyft Dispatch</a>
+      <a class="sn-link" href="#design-crawler"><span class="sn-b">D10</span>Web Crawler & Search Indexer</a>
+      <a class="sn-link" href="#design-metrics"><span class="sn-b">D11</span>Metrics &amp; Logging Pipeline</a>
+      <a class="sn-link" href="#design-cache"><span class="sn-b">D12</span>Distributed Cache (Memcached)</a>
+      <a class="sn-link" href="#design-typeahead"><span class="sn-b">D13</span>Typeahead / Autocomplete</a>
+      <a class="sn-link" href="#design-rag"><span class="sn-b">D14</span>RAG Q&amp;A over Private Data</a>
+    </div>
+    <div class="sn-group">
+      <div class="sn-gh">Part 3 &middot; Toolkit</div>
+      <a class="sn-link" href="#toolkit-framework"><span class="sn-b">T1</span>45-Minute Interview Pacing Guide</a>
+      <a class="sn-link" href="#toolkit-numbers"><span class="sn-b">T2</span>Latency & Capacity Numbers Cheat Sheet</a>
+      <a class="sn-link" href="#toolkit-tradeoffs"><span class="sn-b">T3</span>The Grand Architecture Trade-off Matrix</a>
+      <a class="sn-link" href="#toolkit-behavioral"><span class="sn-b">T4</span>Google L6 Leadership & Engineering Excellence</a>
+      <a class="sn-link" href="#toolkit-mentalmodel"><span class="sn-b">T5</span>The DDIA Mental Model &amp; Pattern Cheat Sheet</a>
+      <a class="sn-link" href="#toolkit-questionbank"><span class="sn-b">T6</span>What Google Actually Asks &mdash; Question Bank</a>
+      <a class="sn-link" href="#toolkit-video"><span class="sn-b">T7</span>Further Study &mdash; Video &amp; Lecture References</a>
+    </div>
+    <div class="sn-group">
+      <div class="sn-gh">Part 4 &middot; Glossary</div>
+      <a class="sn-link" href="#glossary-index"><span class="sn-b">G</span>199-Term Interactive Glossary</a>
+    </div>
+    <div class="sn-empty" id="sn-empty" hidden>No section matches that.</div>
+  </div>
+</nav>
+<div id="side-backdrop"></div>
+
 <div id="vs-ctl" role="group" aria-label="Reading size">
   <button id="vs-dec" type="button" aria-label="Decrease text size" title="Smaller text">A&minus;</button>
   <span id="vs-val" aria-live="polite">100%</span>
@@ -10496,6 +10778,292 @@ var GLOSSARY = {
 </div>
 
 <script>
+/* ============================================================
+   SEARCH PALETTE
+   Searches the 37 document sections AND all 199 glossary terms.
+   Opens on Cmd/Ctrl-F, Cmd/Ctrl-K or "/". Empty query lists everything.
+   ============================================================ */
+(function () {
+  var wrap = document.getElementById('cp-wrap');
+  var box = document.getElementById('cp-box');
+  var input = document.getElementById('cp-input');
+  var list = document.getElementById('cp-list');
+  var count = document.getElementById('cp-count');
+  var openBtn = document.getElementById('cp-open');
+  if (!wrap || !input) return;
+
+  /* ---------- corpus ---------- */
+  function norm(s) { return s.toLowerCase(); }
+  /* A very small stemmer, only so that "cache" finds "Caching" and "quorums"
+     finds "Quorum". Applied to both the query and the haystack. */
+  function stem(w) { return w.replace(/(ing|ed|es|s|e)$/, ''); }
+  function stemAll(s) { return s.toLowerCase().split(/[^a-z0-9]+/).map(stem).join(' '); }
+
+  var items = [];
+  Array.prototype.forEach.call(document.querySelectorAll('#side-nav .sn-link'), function (a) {
+    var b = a.querySelector('.sn-b');
+    var badge = b ? b.textContent.trim() : '#';
+    var title = a.textContent.replace(badge, '').trim();
+    var g = a.closest('.sn-group');
+    var part = g ? g.querySelector('.sn-gh').textContent.trim() : 'Document';
+    items.push({ kind: 'sec', badge: badge, title: title, meta: part,
+                 hay: norm(title + ' ' + badge + ' ' + part),
+                 stem: stemAll(title + ' ' + badge),
+                 href: a.getAttribute('href') });
+  });
+  try {
+    if (typeof GLOSSARY === 'object' && GLOSSARY) {
+      Object.keys(GLOSSARY).forEach(function (k) {
+        var e = GLOSSARY[k];
+        var aka = (e.aka || []).join(' ');
+        items.push({ kind: 'gl', badge: 'term', title: e.t, meta: e.cat || 'Glossary',
+                     hay: norm(e.t + ' ' + aka + ' ' + (e.cat || '')),
+                     stem: stemAll(e.t + ' ' + aka), slug: k });
+      });
+    }
+  } catch (e) {}
+
+  /* ---------- ranking ---------- */
+  /* Substring, with a big bonus for matching at a word start, then a stemmed
+     retry. A loose subsequence fallback was tried and removed: it made "raft"
+     return Failover, Checksum and Heartbeat. Predictable beats clever here. */
+  function sub(q, s, base) {
+    var i = s.indexOf(q);
+    if (i < 0) return -1;
+    if (i === 0) return base;
+    return (/[^a-z0-9]/.test(s.charAt(i - 1)) ? base * 0.7 : base * 0.38) - Math.min(i, 60);
+  }
+  function score(q, x) {
+    var qs = q.split(/\s+/).filter(Boolean);
+    var total = 0;
+    for (var n = 0; n < qs.length; n++) {
+      var t = qs[n];
+      var s = sub(t, x.hay, 1000);
+      if (s < 0) s = sub(stem(t), x.stem, 260);
+      if (s < 0) return -1;                       /* every token must match */
+      total += s;
+    }
+    return total;
+  }
+
+  var rows = [], sel = -1;
+  var MAX = 60;
+
+  function esc(t) { return t.replace(/[&<>"]/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  function render() {
+    var q = input.value.trim().toLowerCase();
+    var hits;
+    if (!q) {
+      /* focus with no query: every section first, then the glossary */
+      hits = items.filter(function (x) { return x.kind === 'sec'; })
+             .concat(items.filter(function (x) { return x.kind === 'gl'; }));
+    } else {
+      hits = items.map(function (x) { return { x: x, s: score(q, x) }; })
+             .filter(function (r) { return r.s > 0; })
+             .sort(function (a, b) { return b.s - a.s || a.x.title.length - b.x.title.length; })
+             .map(function (r) { return r.x; });
+    }
+    /* Partition into two blocks so each header appears exactly once, but let
+       whichever kind produced the best hit lead. Relevance order is kept
+       inside each block. */
+    var secs = hits.filter(function (x) { return x.kind === 'sec'; });
+    var gls  = hits.filter(function (x) { return x.kind === 'gl'; });
+    var glFirst = q && hits.length && hits[0].kind === 'gl';
+    var ordered = glFirst ? gls.concat(secs) : secs.concat(gls);
+    var total = ordered.length;
+    var shown = ordered.slice(0, MAX);
+    rows = shown;
+    var html = '', lastKind = null;
+    shown.forEach(function (x, i) {
+      if (x.kind !== lastKind) {
+        html += '<div class="cp-gh">' + (x.kind === 'sec' ? 'Sections' : 'Glossary') + '</div>';
+        lastKind = x.kind;
+      }
+      html += '<div class="cp-row" role="option" id="cp-r' + i + '" data-i="' + i + '" aria-selected="false">' +
+              '<span class="cp-b">' + esc(x.badge) + '</span>' +
+              '<span class="cp-t">' + esc(x.title) + '</span>' +
+              '<span class="cp-d">' + esc(x.meta) + '</span></div>';
+    });
+    list.innerHTML = html || '<div class="cp-none">Nothing matches &ldquo;' + esc(input.value) + '&rdquo;.</div>';
+    count.textContent = total ? (total > MAX ? MAX + ' of ' + total : total + (total === 1 ? ' result' : ' results')) : '';
+    sel = rows.length ? 0 : -1;
+    paint();
+  }
+
+  function paint() {
+    var els = list.querySelectorAll('.cp-row');
+    Array.prototype.forEach.call(els, function (el, i) {
+      el.setAttribute('aria-selected', i === sel ? 'true' : 'false');
+    });
+    if (sel >= 0 && els[sel]) {
+      input.setAttribute('aria-activedescendant', 'cp-r' + sel);
+      var r = els[sel].getBoundingClientRect(), c = list.getBoundingClientRect();
+      if (r.top < c.top + 30) list.scrollTop -= (c.top + 30 - r.top);
+      else if (r.bottom > c.bottom) list.scrollTop += (r.bottom - c.bottom + 6);
+    }
+  }
+
+  function open() {
+    wrap.hidden = false;
+    input.value = '';
+    render();
+    input.focus();
+  }
+  function close() { wrap.hidden = true; input.blur(); }
+  function isOpen() { return !wrap.hidden; }
+
+  function choose(i) {
+    var x = rows[i];
+    if (!x) return;
+    close();
+    if (x.kind === 'sec') { location.hash = x.href; }
+    else if (window.openGlossary) { window.openGlossary(x.slug); }
+  }
+
+  input.addEventListener('input', render);
+  list.addEventListener('click', function (e) {
+    var r = e.target.closest('.cp-row'); if (r) choose(+r.dataset.i);
+  });
+  list.addEventListener('mousemove', function (e) {
+    var r = e.target.closest('.cp-row'); if (r && +r.dataset.i !== sel) { sel = +r.dataset.i; paint(); }
+  });
+  document.getElementById('cp-back').addEventListener('click', close);
+  if (openBtn) openBtn.addEventListener('click', open);
+
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); if (rows.length) { sel = (sel + 1) % rows.length; paint(); } }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); if (rows.length) { sel = (sel - 1 + rows.length) % rows.length; paint(); } }
+    else if (e.key === 'Enter') { e.preventDefault(); choose(sel); }
+    else if (e.key === 'Escape') { e.preventDefault(); close(); }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    var mod = e.metaKey || e.ctrlKey;
+    var tag = (e.target.tagName || '').toUpperCase();
+    var typing = tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable;
+
+    if (mod && (e.key === 'f' || e.key === 'F')) {
+      /* First press opens this palette. Pressing it AGAIN while open falls through
+         to the browser's own find-in-page, so native find is never taken away. */
+      if (isOpen()) { close(); return; }
+      e.preventDefault(); open(); return;
+    }
+    if (mod && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); isOpen() ? close() : open(); return; }
+    if (e.key === '/' && !typing && !isOpen()) { e.preventDefault(); open(); return; }
+    if (e.key === 'Escape' && isOpen()) { close(); }
+  });
+})();
+
+/* ============================================================
+   LEFT NAVIGATION
+   Docked at >=1200px (pads the body), overlay drawer below that.
+   ============================================================ */
+(function () {
+  var root = document.documentElement;
+  var nav = document.getElementById('side-nav');
+  var btn = document.getElementById('side-toggle');
+  var back = document.getElementById('side-backdrop');
+  var closeBtn = document.getElementById('sn-close');
+  var filter = document.getElementById('sn-filter');
+  var scroller = document.getElementById('sn-scroll');
+  var empty = document.getElementById('sn-empty');
+  if (!nav || !btn) return;
+
+  var wideQ = window.matchMedia('(min-width: 1200px)');
+  var links = Array.prototype.slice.call(nav.querySelectorAll('.sn-link'));
+
+  function isOpen() { return root.classList.contains('nav-open'); }
+
+  function sync() {
+    var open = isOpen();
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
+    nav.setAttribute('aria-hidden', (!open && !wideQ.matches) ? 'true' : 'false');
+  }
+
+  function setOpen(open, remember) {
+    root.classList.toggle('nav-open', open);
+    if (remember && wideQ.matches) { try { localStorage.setItem('dsg.nav', open ? '1' : '0'); } catch (e) {} }
+    sync();
+    /* Docking changes the content box, so the fit engine must remeasure. */
+    if (wideQ.matches) window.dispatchEvent(new Event('resize'));
+  }
+
+  btn.addEventListener('click', function () { setOpen(!isOpen(), true); });
+  if (closeBtn) closeBtn.addEventListener('click', function () { setOpen(false, true); });
+  back.addEventListener('click', function () { setOpen(false, false); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && isOpen() && !wideQ.matches) { setOpen(false, false); btn.focus(); }
+  });
+  /* On a narrow screen the drawer covers the page, so a jump should close it. */
+  nav.addEventListener('click', function (e) {
+    if (e.target.closest('.sn-link') && !wideQ.matches) setOpen(false, false);
+  });
+  /* Crossing the breakpoint while open would leave a drawer stuck open. */
+  var onMQ = function () {
+    if (!wideQ.matches) setOpen(false, false);
+    else { var pref = null; try { pref = localStorage.getItem('dsg.nav'); } catch (e) {} setOpen(pref !== '0', false); }
+  };
+  if (wideQ.addEventListener) wideQ.addEventListener('change', onMQ);
+  else if (wideQ.addListener) wideQ.addListener(onMQ);
+
+  /* ---- filter ---- */
+  if (filter) {
+    filter.addEventListener('input', function () {
+      var q = filter.value.trim().toLowerCase();
+      var any = false;
+      links.forEach(function (a) {
+        var txt = a.textContent.toLowerCase();
+        var hit = !q || txt.indexOf(q) !== -1 ||
+                  txt.split(/[^a-z0-9]+/).map(function (w) { return w.replace(/(ing|ed|es|s|e)$/, ''); })
+                     .join(' ').indexOf(q.replace(/(ing|ed|es|s|e)$/, '')) !== -1;
+        a.hidden = !hit; if (hit) any = true;
+      });
+      Array.prototype.forEach.call(nav.querySelectorAll('.sn-group'), function (g) {
+        g.hidden = !g.querySelector('.sn-link:not([hidden])');
+      });
+      if (empty) empty.hidden = any;
+    });
+    filter.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { filter.value = ''; filter.dispatchEvent(new Event('input')); }
+    });
+  }
+
+  /* ---- scroll spy ---- */
+  var targets = links.map(function (a) {
+    var el = document.getElementById(a.getAttribute('href').slice(1));
+    if (!el) return null;
+    /* design ids sit on a <span> inside the heading, so use the card's box */
+    return { a: a, el: el.closest('.design-card') || el.closest('.toolkit-card') || el };
+  }).filter(Boolean);
+
+  var current = null, ticking = false;
+  function spy() {
+    ticking = false;
+    var line = 70, best = null;
+    for (var i = 0; i < targets.length; i++) {
+      if (targets[i].el.getBoundingClientRect().top <= line) best = targets[i]; else break;
+    }
+    if (!best) best = targets[0];
+    if (!best || best.a === current) return;
+    if (current) current.classList.remove('is-active');
+    current = best.a; current.classList.add('is-active');
+    /* keep the active item visible without ever scrolling the page itself */
+    if (scroller && isOpen()) {
+      var r = current.getBoundingClientRect(), s = scroller.getBoundingClientRect();
+      if (r.top < s.top + 8) scroller.scrollTop -= (s.top + 8 - r.top);
+      else if (r.bottom > s.bottom - 8) scroller.scrollTop += (r.bottom - s.bottom + 8);
+    }
+  }
+  window.addEventListener('scroll', function () {
+    if (!ticking) { ticking = true; requestAnimationFrame(spy); }
+  }, { passive: true });
+
+  sync(); spy();
+})();
+
 /* ============================================================
    VIEW SIZE
    Two independent controls:

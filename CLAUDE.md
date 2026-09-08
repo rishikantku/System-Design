@@ -39,9 +39,9 @@ distributed systems concepts from first principles.
 |---|---|
 | **File** | `index.html` — single self-contained file, ~1.16 MB |
 | **Backup** | `Distributed_Systems_Deep_Guide.backup.html` — the original before any enrichment |
-| **Content** | ~71,000 words |
+| **Content** | ~71,300 words |
 | **Deps** | None. One Google Fonts `@import`. No JS libraries. Opens offline from `file://` |
-| **Structure** | 1 `<style>` block, 4 `<script>` blocks (early size-restore in `<body>`, glossary data, glossary engine, view-size engine) |
+| **Structure** | 1 `<style>` block, 5 `<script>` blocks (early state-restore in `<body>`, glossary data, glossary engine, search palette, left-nav engine, view-size engine) |
 
 ### Document layout (in DOM order)
 
@@ -67,6 +67,8 @@ distributed systems concepts from first principles.
   #glossary-index            searchable 199-term glossary index
 <script> GLOSSARY data </script>
 <script> glossary engine </script>
+#cp-wrap                     search palette (Cmd/Ctrl-F, Cmd/Ctrl-K, /)
+#side-nav + #side-backdrop   left navigation: docked >=1200px, drawer below
 #vs-ctl                      floating view-size control (fixed, bottom-right)
 <script> view-size engine </script>
 .footer
@@ -177,6 +179,38 @@ nodes, wraps matches in `<span class="gt" data-gl="slug">`. Clicking opens a sli
 
 ---
 
+## 4a. Navigation and search
+
+**Left sidebar (`#side-nav`).** Docked at `>=1200px` (adds `padding-left: 272px` to
+`body`, which is safe because `* { box-sizing: border-box }`), an overlay drawer with a
+backdrop below that. State lives on `<html>` as `.nav-open`, set **before first paint** by
+the early inline script; it only auto-opens on a wide screen, never as a drawer on a phone.
+Desktop preference persists in `dsg.nav`.
+
+- **The 37 links are generated from `#master-toc`**, not hand-written, so the sidebar cannot
+  drift out of sync. If you add a section, add it to the TOC and regenerate.
+- Toggling the dock changes the content box, so it fires a synthetic `resize` to make the
+  Fit engine remeasure.
+- Scroll-spy is a rAF-throttled scroll listener picking the last section above a 70px line.
+  Design ids sit on a `<span>` inside the heading, so it resolves to `.closest('.design-card')`
+  for a usable box.
+- `html { scroll-padding-top: 66px }` stops anchor jumps landing under the sticky nav —
+  this fixes every anchor in the document, not just the sidebar's.
+
+**Search palette (`#cp-wrap`).** Opens on **Cmd/Ctrl-F**, Cmd/Ctrl-K, `/`, or the nav
+magnifier. Searches **both** corpora: the 37 sections and all 199 glossary terms (it reads
+the global `var GLOSSARY` and opens results through `window.openGlossary(slug)`). An empty
+query lists everything, sections first.
+
+- **Cmd-F pressed again while the palette is open closes it and does not `preventDefault`,
+  so the browser's own find-in-page opens.** Native find is never taken away — important in
+  a 71k-word document. The footer says so.
+- Ranking is substring + word-start bonus, then a retry against a lightly stemmed haystack
+  (`(ing|ed|es|s|e)$` stripped) so "cache" finds "Caching" and "quorums" finds "Quorum".
+  **A subsequence fallback was tried and removed** — it made `raft` return Failover,
+  Checksum and Heartbeat. Predictable beats clever on a corpus of short titles.
+- Every query token must match, and each group header renders once.
+
 ## 4b. The view-size system (`--fscale` + Fit)
 
 Two independent controls in `#vs-ctl`, both persisted in `localStorage`
@@ -282,8 +316,12 @@ Rules that came from actually getting these wrong:
    `+`) is safe. `│ ┌ ┐ ▼ ─` are acceptable and used in places.
 5. **Do not remove `flow` from `SKIP_CLASS`.** The glossary's `°` marker adds characters
    and destroys monospace alignment inside diagrams.
-6. Keep the nav to one line. `.nav-inner` is `max-width: 1320px`; adding a 5th nav link
-   will wrap it (it wrapped at 1100px with 4).
+6. **Keep the nav to one line — it is now full.** `.nav-inner` holds a hamburger, a search
+   button, the brand, 4 links and a badge. Adding the two buttons wrapped it to 91px on
+   desktop until the link labels were shortened to `.nl-abbr` at every width (they were the
+   long "Part 1: 15 Theory Chapters" form). At `<=680px` the links are hidden entirely and
+   the brand drops to "L6 Guide" — two buttons plus four links overflowed a 320px nav.
+   **There is no room left: anything new goes in the sidebar, not the nav.**
 
 ---
 
@@ -308,14 +346,14 @@ though they exist. Drive the page by clicking real elements, not by calling its 
 **Baseline to regress against** (current, after the Google-question-bank work):
 
 ```
-totalWords 71059 · designs 14 · toolkitCards 7 · designSteps 105 · flows 45
+totalWords 71258 · designs 14 · toolkitCards 7 · designSteps 105 · flows 45
 vidrefs 22 · externalLinks 63 (all target=_blank rel=noopener, all verified 200)
 flowsScrollingOnDesktop 0 (was 9; Fit is on by default) · gtInCtl 0
 at 145% scale: 0 overflowing elements at 1440/430/390/360/320, navHeight unchanged
 exercises 14 · teachingQs 61 · misconceptions 21 · takeaways 14 · usecaseTables 8
 recalls 7 · glossaryTerms 199 · inlineLinks 1178 · tables 42 (all wrapped in .tw)
-gtInFlow 0 · gtInCodeOrLink 0 · brokenAnchors [] · navHeight 52 · consoleErrors 0
-tablesScrollingOnDesktop 0 · tocColumns 2
+gtInFlow 0 · gtInCodeOrLink 0 · brokenAnchors [] · navHeight 59 · consoleErrors 0
+tablesScrollingOnDesktop 0 · sidebarLinks 37 · paletteCorpus 237
 ```
 
 *Previous baseline, for reference: totalWords 53792 · flows 34 · exercises 12 ·

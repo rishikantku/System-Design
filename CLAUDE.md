@@ -37,11 +37,11 @@ distributed systems concepts from first principles.
 
 | | |
 |---|---|
-| **File** | `index.html` — single self-contained file, ~1.10 MB |
+| **File** | `index.html` — single self-contained file, ~1.16 MB |
 | **Backup** | `Distributed_Systems_Deep_Guide.backup.html` — the original before any enrichment |
-| **Content** | ~68,700 words |
+| **Content** | ~71,000 words |
 | **Deps** | None. One Google Fonts `@import`. No JS libraries. Opens offline from `file://` |
-| **Structure** | 1 `<style>` block, 2 `<script>` blocks (glossary data, then glossary engine) |
+| **Structure** | 1 `<style>` block, 4 `<script>` blocks (early size-restore in `<body>`, glossary data, glossary engine, view-size engine) |
 
 ### Document layout (in DOM order)
 
@@ -67,6 +67,8 @@ distributed systems concepts from first principles.
   #glossary-index            searchable 199-term glossary index
 <script> GLOSSARY data </script>
 <script> glossary engine </script>
+#vs-ctl                      floating view-size control (fixed, bottom-right)
+<script> view-size engine </script>
 .footer
 ```
 
@@ -175,6 +177,41 @@ nodes, wraps matches in `<span class="gt" data-gl="slug">`. Clicking opens a sli
 
 ---
 
+## 4b. The view-size system (`--fscale` + Fit)
+
+Two independent controls in `#vs-ctl`, both persisted in `localStorage`
+(`dsg.fscale`, `dsg.fit`) inside try/catch, since storage throws in private mode.
+
+**1. Reading size — `--fscale`.** Every `font-size` in the stylesheet was rewritten to
+`calc(Npx * var(--fscale, 1))` — 125 declarations, plus the 7 inline `style="font-size:"`
+in the body. Steps are `[0.85, 1, 1.15, 1.30, 1.45]`, default `1`.
+
+- **If you add a rule with a raw `font-size: Npx`, it will not scale.** Write
+  `calc(Npx * var(--fscale, 1))`.
+- **Deliberately excluded:** `.nav-brand`, `.nav-links a`, `.nav-badge` (scaling them
+  re-wraps the 50px sticky nav that section 6 rule 6 warns about) and `#vs-ctl` itself.
+- A tiny inline script immediately after `<body>` restores the saved scale **before first
+  paint**, otherwise a 130% reader gets a flash of 100%.
+
+**2. Fit.** Shrinks `.flow, .codeblock, .schema-code, .api-code` to the largest font at
+which the widest line fits, by setting an inline `font-size`. Default **ON**.
+
+- It never grows past the stylesheet size — it is *max font **to fit***, not "fill".
+- Monospace scales linearly, so one measure pass suffices:
+  `f = base × (availText / neededText) × 0.995`, computed on the **text** box
+  (`clientWidth − padding`), because padding does not scale with the font.
+- Runs in three phases — clear all, measure all, write all — so there is one layout pass
+  rather than 68 read/write ping-pongs.
+- **`MIN_PX = 9`, and below it Fit gives up entirely rather than clamping.** Clamping
+  produced smaller text *and* a scrollbar, which is strictly worse than leaving it alone.
+  This is what happens to the wide ASCII diagrams on a phone: they need ~6.5px at 390px, so
+  they keep their 12px and keep scrolling. Fit still helps the blocks it can (`.api-code`
+  overflow goes 4 → 1 at 390px).
+- Recomputed on resize (150ms debounce) and on `document.fonts.ready` — JetBrains Mono
+  loads async and changes the metrics the first pass measured.
+
+Effect of the default: **desktop diagram scrolling goes from 9 of 45 to 0.**
+
 ## 5. Component vocabulary
 
 Reuse these. Do not invent new block types without a reason.
@@ -271,8 +308,10 @@ though they exist. Drive the page by clicking real elements, not by calling its 
 **Baseline to regress against** (current, after the Google-question-bank work):
 
 ```
-totalWords 71055 · designs 14 · toolkitCards 7 · designSteps 105 · flows 45
+totalWords 71059 · designs 14 · toolkitCards 7 · designSteps 105 · flows 45
 vidrefs 22 · externalLinks 63 (all target=_blank rel=noopener, all verified 200)
+flowsScrollingOnDesktop 0 (was 9; Fit is on by default) · gtInCtl 0
+at 145% scale: 0 overflowing elements at 1440/430/390/360/320, navHeight unchanged
 exercises 14 · teachingQs 61 · misconceptions 21 · takeaways 14 · usecaseTables 8
 recalls 7 · glossaryTerms 199 · inlineLinks 1178 · tables 42 (all wrapped in .tw)
 gtInFlow 0 · gtInCodeOrLink 0 · brokenAnchors [] · navHeight 52 · consoleErrors 0

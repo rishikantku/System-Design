@@ -1129,6 +1129,50 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
 
 
 
+/* Scenario drills — situational judgement, click to reveal the answer.
+   Distinct from .exercise (mechanism practice) and .teach-qa (understanding
+   checks): these are decisions a staff engineer is actually asked to make. */
+.drills { display: grid; gap: 12px; margin: 18px 0 8px; }
+.drill { background: #fff; border: 1px solid var(--line); border-radius: 11px; overflow: hidden; }
+.drill > summary {
+  cursor: pointer; list-style: none; padding: 15px 18px;
+  display: flex; gap: 13px; align-items: flex-start;
+  font-size: calc(15px * var(--fscale, 1)); line-height: 1.6; color: var(--ink);
+}
+.drill > summary::-webkit-details-marker { display: none; }
+.drill > summary:hover { background: var(--bgwarm); }
+.drill .dr-n {
+  flex: 0 0 auto; min-width: 26px; height: 22px; padding: 0 7px; border-radius: 6px;
+  background: var(--bgcool); color: var(--accent); font-weight: 800;
+  font-size: calc(11px * var(--fscale, 1)); display: flex; align-items: center; justify-content: center;
+  margin-top: 2px;
+}
+.drill .dr-q { flex: 1; }
+.drill .dr-q b { color: var(--accent5); font-weight: 700; }
+.drill .dr-cue {
+  flex: 0 0 auto; font-size: calc(11px * var(--fscale, 1)); font-weight: 700;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .8px;
+  align-self: center; white-space: nowrap;
+}
+.drill[open] .dr-cue { color: var(--accent); }
+.drill[open] > summary { background: var(--bgcool); border-bottom: 1px solid var(--line); }
+.dr-a { padding: 15px 18px 17px; font-size: calc(14.6px * var(--fscale, 1)); line-height: 1.72; color: var(--soft); }
+.dr-a p { margin-bottom: 11px; } .dr-a p:last-child { margin-bottom: 0; }
+.dr-a strong { color: var(--ink); }
+.dr-a .dr-key {
+  display: block; margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--line);
+  font-size: calc(13.6px * var(--fscale, 1)); color: var(--accent5); font-style: italic;
+}
+.dr-cat {
+  font-size: calc(11px * var(--fscale, 1)); font-weight: 800; text-transform: uppercase;
+  letter-spacing: 1.2px; color: var(--muted); margin: 26px 0 10px;
+  padding-bottom: 7px; border-bottom: 1px solid var(--line);
+}
+@media (max-width: 680px) {
+  .drill > summary { flex-wrap: wrap; padding: 13px 14px; }
+  .drill .dr-cue { flex-basis: 100%; margin-top: 6px; }
+}
+
 /* Orientation card — how this document is organised and how to read it */
 .startcard { background: var(--bgwarm); border: 1px solid var(--line); border-radius: 14px; padding: 30px 34px; margin: 40px 0; }
 .startcard h2 { font-family: 'Lora', serif; font-size: calc(26px * var(--fscale, 1)); color: var(--ink); margin-bottom: 6px; }
@@ -1782,6 +1826,7 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
         <a href="#toolkit-mentalmodel" class="toc-card toolkit-toc"><div class="toc-badge">T5</div><div class="toc-info"><div class="toc-title">The DDIA Mental Model &amp; Pattern Cheat Sheet</div><div class="toc-sub">How all 15 chapters connect, 18 problem&#8594;concept mappings, 20 classic mistakes</div></div></a>
         <a href="#toolkit-questionbank" class="toc-card toolkit-toc"><div class="toc-badge">T6</div><div class="toc-info"><div class="toc-title">What Google Actually Asks &mdash; Question Bank</div><div class="toc-sub">Two rounds not one, tiered question list, the L4/L5/L6 rubric ladder</div></div></a>
         <a href="#toolkit-video" class="toc-card toolkit-toc"><div class="toc-badge">T7</div><div class="toc-info"><div class="toc-title">Further Study &mdash; Video &amp; Lecture References</div><div class="toc-sub">MIT 6.824, Kleppmann, CMU 15-445, channels ranked, and where video runs out</div></div></a>
+        <a href="#toolkit-drills" class="toc-card toolkit-toc"><div class="toc-badge">T8</div><div class="toc-info"><div class="toc-title">Scenario Drills &mdash; 24 Situations</div><div class="toc-sub">Incidents, design reviews, scaling and consistency calls; click to reveal</div></div></a>
         <a href="questions-google.html" class="toc-card toolkit-toc"><div class="toc-badge">Q</div><div class="toc-info"><div class="toc-title">Question Bank &mdash; 78 Google-Tagged Questions <span style="font-weight:600;color:var(--accent)">(separate page &rarr;)</span></div><div class="toc-sub">Filter by company, type and topic; each mapped to the section that answers it</div></div></a>
       </div>
     </div>
@@ -12278,6 +12323,152 @@ removals must be applied immediately.</p></div>
   </div>
 </div>
 
+<div class="content" id="part3-drills">
+
+  <div class="toolkit-card" id="toolkit-drills">
+    <h3>8. Scenario Drills &mdash; 24 Situations With Worked Answers</h3>
+
+    <p>The designs in Part 2 test whether you can build a system. These test something different
+    and harder to practise: <strong>the judgement calls a staff engineer is actually asked to
+    make</strong> &mdash; in an incident, in a design review, in a room where someone has proposed
+    something reasonable-sounding and wrong. Several are drawn directly from the reported question
+    bank, where &ldquo;a production service started erroring after a deployment, how would you
+    troubleshoot it?&rdquo; is a real Google prompt.</p>
+
+    <div class="insight">
+      <div class="label">&#128161; How to use these</div>
+      <p><strong>Answer out loud before you click.</strong> Reading a good answer produces the
+      comfortable feeling of understanding without any of the retrieval that makes it stick. Say
+      your answer, then open the drill and look specifically for what you <em>did not</em> say
+      &mdash; that gap is the entire value of the exercise.</p>
+      <p>Most of these have no single right answer. What is being assessed is whether you name the
+      trade-off, ask what the answer changes, and say what you would do <em>first</em>.</p>
+    </div>
+
+<div class="dr-cat">Incident &amp; on-call judgement</div>
+<div class="drills">
+<details class="drill">
+  <summary><span class="dr-n">1</span><span class="dr-q">p99 latency has tripled. p50 is unchanged. Dashboards are green on every service. Where do you look first?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>An unchanged p50 with a tripled p99 rules out most causes immediately.</strong> A genuinely overloaded service slows everything, so the median would move too. What moves only the tail is <em>something a minority of requests touch</em>: a cache that has partially cooled, one degraded replica in a pool, a hot partition, GC pauses on a subset of hosts, or a dependency called only on certain code paths.</p><p>Look at the distribution rather than the average: latency <em>per host</em>, <em>per shard</em>, and <em>per endpoint</em>. If one host is bad, it is hardware or GC. If one shard is bad, it is a hot key. If one endpoint is bad, it is a code path and its dependency. Service-level dashboards are green precisely because they aggregate away the thing you are hunting.</p><span class="dr-key">The principle: averages hide the tail, and the tail is the user experience. Always disaggregate before theorising.</span></div>
+</details>
+<details class="drill">
+  <summary><span class="dr-n">2</span><span class="dr-q">A dependency was down for 20 minutes. It has been healthy for an hour, but your service is still failing. Why?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>You are in a metastable failure.</strong> During the outage, clients timed out and retried; the retry backlog is now itself enough load to keep your service saturated. The original cause is gone and the effect sustains itself &mdash; the system has two stable states and you are in the bad one.</p><p>The server is also doing <em>more</em> work than before, computing responses for requests whose callers already gave up. That work is pure waste crowding out requests that could still be served.</p><p>Recovery requires <strong>shedding</strong>, not patience: drain traffic or reject aggressively so queues empty, then reopen gradually. Adding capacity often fails because the retry volume scales with the number of clients, not with your capacity.</p><span class="dr-key">The principle: fixing the trigger is not the same as recovering. See <a class="qlink" href="#anim-ch10">the animation in Ch 10</a>.</span></div>
+</details>
+<details class="drill">
+  <summary><span class="dr-n">3</span><span class="dr-q">At 3am you can restore service by failing over to a replica that is 30 seconds behind. Do you?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>It depends entirely on what those 30 seconds contain, and that is a question you must be able to answer before the incident.</strong> Thirty seconds of profile-picture updates is nothing. Thirty seconds of payments is a reconciliation project and possibly a regulatory one.</p><p>Ask three things: are the lost writes recoverable from another source &mdash; a queue, an upstream log, the client? Will the old primary come back and try to re-apply them, creating a split brain? And can you <em>detect</em> which writes were lost, or will they be silent?</p><p>If the writes are unrecoverable and undetectable, staying down is often the better call &mdash; downtime is visible and reversible, silent data loss is neither.</p><span class="dr-key">The principle: prefer failures you can see over failures you cannot. Decide the acceptable data loss before you are on the call.</span></div>
+</details>
+<details class="drill">
+  <summary><span class="dr-n">4</span><span class="dr-q">Your team wants to add a retry to fix intermittent 500s from a downstream service. Do you approve it?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>Not as stated.</strong> Ask two questions first. <em>Is anyone else already retrying?</em> If the client and the gateway both retry three times, adding a third layer means 27&times; amplification against a service that is already failing. Retry at exactly one layer &mdash; the one closest to the user that can make a meaningful decision.</p><p><em>Is the operation idempotent?</em> Retrying a non-idempotent write turns intermittent errors into duplicate side effects, which is a worse problem than the one you are solving.</p><p>If a retry is genuinely right, it needs <strong>jitter</strong> (or clients synchronise), a <strong>budget</strong> (or volume is unbounded), and a <strong>circuit breaker</strong> (or you keep paying the timeout after the outage is established). Backoff alone closes one axis of five.</p><span class="dr-key">The principle: a retry is a load multiplier applied at the worst possible moment.</span></div>
+</details>
+<details class="drill">
+  <summary><span class="dr-n">5</span><span class="dr-q">Error rate is 0.5% and your SLO allows 0.1%. A product launch is scheduled for tomorrow. What do you do?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>This is what error budgets are for &mdash; it converts an argument into arithmetic.</strong> You are burning budget at five times the allowed rate; the question is not whether the launch is important but whether there is budget left to spend on it.</p><p>Say it in those terms: &ldquo;we have consumed X% of this quarter&rsquo;s budget and at the current rate it is exhausted in N days. Launching adds risk on top of that.&rdquo; That reframes it from engineering-versus-product into a shared decision with a number attached.</p><p>Then offer options rather than a veto: launch behind a flag to a small percentage, launch after the specific regression is fixed, or launch and accept a feature freeze afterwards. <strong>An L6 brings the trade-off, not the refusal.</strong></p><span class="dr-key">The principle: reliability arguments are won with budgets, not with adjectives.</span></div>
+</details>
+<details class="drill">
+  <summary><span class="dr-n">6</span><span class="dr-q">A single customer's traffic is degrading the service for everyone else. What is the fix, in order?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>Isolate first, optimise later.</strong> The immediate action is a per-tenant concurrency limit or rate limit so one caller cannot consume shared capacity &mdash; a bulkhead, applied at the edge where rejection is cheap.</p><p>Then find out <em>why</em> they are expensive: a hot key, an unbounded query, a missing index on their data shape, a retry loop on their side. The answer changes the durable fix &mdash; a hot key needs replication or client-side caching, an unbounded query needs a hard limit in the API contract.</p><p>The structural fix, if this recurs, is <strong>cellular architecture</strong>: partition tenants across independent cells so the blast radius of any one tenant is one cell rather than the fleet.</p><span class="dr-key">The principle: noisy-neighbour problems are isolation failures before they are performance problems.</span></div>
+</details>
+</div>
+<div class="dr-cat">Design review &amp; technical judgement</div>
+<div class="drills">
+<details class="drill">
+  <summary><span class="dr-n">7</span><span class="dr-q">A team proposes moving from a monolith to 40 microservices. How do you respond?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>Ask how many teams there are.</strong> Microservices are an organisational solution with a technical cost: they buy independent deployability and team autonomy, and they charge you distributed transactions, eventual consistency, network failure modes on every call, and versioned interfaces forever.</p><p>If three engineers are shipping a product, 40 services means 40 deploy pipelines and 40 sets of timeouts maintained by people who are also trying to build features. If eight teams are blocking each other on a shared release train, the trade is obviously worth it.</p><p>The middle path is usually right: extract the two or three components with genuinely different scaling or ownership, keep the rest together, and revisit. <strong>Splitting is easy to do and very hard to undo.</strong></p><span class="dr-key">The principle: match the architecture to the org chart, not to the fashion.</span></div>
+</details>
+<details class="drill">
+  <summary><span class="dr-n">8</span><span class="dr-q">Someone proposes a distributed lock via Redis to prevent double-processing. What do you say?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>Ask whether the constraint can be made local instead.</strong> Most double-processing problems are a uniqueness constraint in disguise, and a uniqueness constraint on one row in the database you are already writing to is atomic, free, and cannot fail independently.</p><p>If a distributed lock is genuinely needed, it has a specific hazard: <strong>a lock lease can expire while its holder is paused</strong> &mdash; a GC pause, a hypervisor stall &mdash; and that holder will wake up believing it still holds the lock. Redis locks do not prevent this. The mitigation is a <em>fencing token</em>: a monotonically increasing number the resource checks and rejects if stale.</p><p>So the answer is: prefer a conditional write on one row; if you must lock, demand fencing; and never rely on a lock for correctness of something a database constraint could enforce.</p><span class="dr-key">The principle: do not prevent the stale actor from acting &mdash; make its action harmless.</span></div>
+</details>
+<details class="drill">
+  <summary><span class="dr-n">9</span><span class="dr-q">A design proposes strong consistency across three regions. What do you probe?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>The latency floor, and whether it was chosen or inherited.</strong> Strong consistency across regions means a write is not acknowledged until a quorum in other regions has it &mdash; that is a round trip measured in tens or hundreds of milliseconds, paid on <em>every write, forever</em>, not just during incidents.</p><p>Ask which specific operations need it. Usually it is a small minority &mdash; the ledger, the inventory decrement &mdash; and the rest are being dragged along by a decision made once at the database level. Classifying per operation rather than per system is the actual design work.</p><p>Then ask what happens during a partition, because the answer is forced: the minority side stops serving. If nobody has agreed that a region going read-only is acceptable, they have not actually chosen CP.</p><span class="dr-key">The principle: consistency is paid in latency on the happy path and in availability on the bad one.</span></div>
+</details>
+<details class="drill">
+  <summary><span class="dr-n">10</span><span class="dr-q">An engineer wants to cache a permission check to cut latency. Do you agree?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>Be careful: this one has a security edge.</strong> Caching an authorisation decision means that when permission is <em>revoked</em>, the stale &ldquo;allow&rdquo; keeps working for the length of the TTL. That is not a staleness inconvenience, it is a window in which a removed employee can still read data.</p><p>The asymmetry is the key insight: caching a <em>deny</em> is safe, caching an <em>allow</em> is not. So bound it hard &mdash; seconds, not minutes &mdash; and add an explicit revocation channel that invalidates on permission change rather than waiting for expiry.</p><p>Also ask whether the latency actually matters. A permission check against a local replica is often already sub-millisecond, and the cache is being added to a path that was never the bottleneck.</p><span class="dr-key">The principle: a cache is a replica you chose not to keep consistent &mdash; decide what a wrong answer costs before you add one.</span></div>
+</details>
+<details class="drill">
+  <summary><span class="dr-n">11</span><span class="dr-q">A proposal says &ldquo;we will use Kafka exactly-once semantics so duplicates are impossible.&rdquo; Your response?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>That guarantee stops at the boundary of the system that issued it.</strong> Exactly-once mode gives you idempotent producers and a transaction that commits the consumer offset together with writes back into the same system. Within that boundary it is real and useful.</p><p>It says nothing about external effects. If the consumer charges a card, sends an email or calls a partner API, that call cannot join the broker&rsquo;s transaction and a retry will do it again.</p><p>So the correct design is at-least-once delivery plus <strong>idempotency at the point of effect</strong>: commit the side effect and the record that it happened in one transaction, and push an idempotency key across every boundary you do not control. Exactly-once <em>delivery</em> is impossible; exactly-once <em>processing</em> is achievable, and it is something you build in the consumer.</p><span class="dr-key">The principle: guarantees do not cross system boundaries unless you carry them across explicitly.</span></div>
+</details>
+<details class="drill">
+  <summary><span class="dr-n">12</span><span class="dr-q">A team wants to add a new required field to a message consumed by six services. How should they ship it?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>Never as one change.</strong> You cannot deploy every producer and consumer simultaneously, so for some window old and new code coexist &mdash; and a required field breaks any consumer that has not been updated.</p><p>Use expand-and-contract. First make the field <em>optional</em> and have producers start writing it. Wait until every consumer has been updated to read it and handle its absence. Only then, once no old readers remain, make it required and remove the fallback. Each step is independently deployable and independently reversible.</p><p>The underlying requirement is that the encoding is <strong>backward and forward compatible</strong>: old readers must skip fields they do not recognise, and new readers must tolerate fields that are missing.</p><span class="dr-key">The principle: every schema change is a distributed deployment problem, not a data-modelling one.</span></div>
+</details>
+</div>
+<div class="dr-cat">Scaling &amp; capacity</div>
+<div class="drills">
+<details class="drill">
+  <summary><span class="dr-n">13</span><span class="dr-q">Traffic will grow 10&times; in six months. Where do you look for what breaks first?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>Look for the things that do not scale horizontally</strong>, because everything else is a budget conversation rather than an engineering one.</p><p>The usual list: a single-primary database taking all writes; anything with global coordination on the request path &mdash; a shared counter, a distributed lock, a strongly-consistent config read; connection-pool ceilings, which are often reached long before CPU; and any component sized by <em>total data</em> rather than by request rate, such as an in-memory index.</p><p>Then check the non-linear ones. Cache hit rate is the big one: a hit rate that drifts from 99% to 95% is a 5&times; increase in origin load, so growth can break the database without the database itself changing at all.</p><span class="dr-key">The principle: find the components whose cost curve is not a straight line, because they fail before the obvious ones.</span></div>
+</details>
+<details class="drill">
+  <summary><span class="dr-n">14</span><span class="dr-q">Your database is at 80% CPU. Someone proposes a read replica. Is that the right move?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>Only if the load is reads.</strong> Replicas offload reads and add <em>nothing</em> for writes &mdash; in fact each replica adds replication work to the primary. If the 80% is write-driven, replicas make it slightly worse.</p><p>So first disaggregate: what fraction is reads, and are those reads cacheable? A cache in front is usually cheaper and faster than a replica, and does not introduce replication lag. If reads dominate and are not cacheable &mdash; varied, personalised, freshly written &mdash; then replicas are right.</p><p>Then confront the consequence nobody mentions in the proposal: reads from a replica are <strong>stale</strong>. You now need to decide, per query, which ones tolerate that, and add read-your-writes routing for the ones that do not.</p><span class="dr-key">The principle: adding a replica is choosing a consistency model, not adding hardware.</span></div>
+</details>
+<details class="drill">
+  <summary><span class="dr-n">15</span><span class="dr-q">One shard holds 60% of your traffic. What are your options?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>Diagnose the shape before choosing a fix, because the three causes have different answers.</strong></p><p>If it is a <em>bad partition key</em> &mdash; say partitioning by country when one country dominates &mdash; the fix is to repartition on something with better distribution, which is expensive but permanent.</p><p>If it is a <em>hot key</em>, no partition scheme helps: a single key cannot be split. Replicate that key across nodes with salted names and pick one at random, or cache it client-side with a short TTL, which collapses enormous read volume into almost nothing.</p><p>If it is <em>temporary</em> &mdash; a celebrity, a launch &mdash; consider handling it as a special case rather than reshaping the whole system for an event that ends next week.</p><span class="dr-key">The principle: partitioning distributes keys, not load. Zipfian traffic guarantees the two diverge.</span></div>
+</details>
+<details class="drill">
+  <summary><span class="dr-n">16</span><span class="dr-q">You need to migrate 10 TB from one database to another with no downtime. Outline the approach.</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>Dual-write with backfill, then verify, then cut over &mdash; and the verification step is the one people skip.</strong></p><p>Start writing to both systems while continuing to read from the old one. Backfill history in batches, watching that the backfill does not saturate the source. Then run a <em>comparison</em> job continuously: read from both, compare, alert on divergence. You will find bugs here, and finding them now is the entire point.</p><p>Cut reads over gradually &mdash; 1%, 10%, 100% &mdash; with a fast path back. Only once reads have been fully on the new system for a meaningful period do you stop writing to the old one, because until then rollback is free and afterwards it is not.</p><span class="dr-key">The principle: keep rollback cheap for as long as possible, and let a comparison job find your bugs rather than your users.</span></div>
+</details>
+<details class="drill">
+  <summary><span class="dr-n">17</span><span class="dr-q">Cost has doubled while traffic grew 20%. Where do you look?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>Something is scaling super-linearly, and there is a short list of usual suspects.</strong></p><p>Cross-AZ or cross-region network transfer is the classic invisible one &mdash; a chatty service pair placed in different zones, or a replication topology that fans traffic across zones. Storage that was never expired: logs, metrics at full resolution, orphaned snapshots, soft-deleted rows.</p><p>Then retries and fan-out: a service added to the call path multiplies work by its own fan-out, and a retry policy under mild degradation can double request volume without any traffic change. Finally, cardinality &mdash; observability bills grow with distinct label combinations, not with request rate, so a single new label can double a monitoring bill overnight.</p><span class="dr-key">The principle: cost is a signal about architecture. A super-linear bill means a super-linear dependency.</span></div>
+</details>
+<details class="drill">
+  <summary><span class="dr-n">18</span><span class="dr-q">A synchronous call chain is five services deep. What is your concern?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>Availability multiplies and latency accumulates.</strong> Five services at 99.9% each is 99.5% end to end &mdash; roughly five times the downtime of any single one. Latency is the sum of all five plus five network hops, and the p99 is far worse than the sum of the p99s because a slow call anywhere shows up in every request.</p><p>The questions to ask: do all five need to be synchronous? Anything that does not affect the response should be an event, not a call. Is there a <strong>deadline propagated</strong> from the edge, so no service is computing a reply whose caller has already given up? And is each hop bulkheaded, so one slow service cannot exhaust the thread pools of the ones above it?</p><span class="dr-key">The principle: every synchronous hop is a multiplication of failure probability. Make the chain shallower before you make it faster.</span></div>
+</details>
+</div>
+<div class="dr-cat">Data, consistency &amp; correctness</div>
+<div class="drills">
+<details class="drill">
+  <summary><span class="dr-n">19</span><span class="dr-q">Two users click &ldquo;buy&rdquo; on the last item simultaneously. Walk through preventing a double sale.</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>Put the invariant on one row and let the database settle it.</strong> The claim is a single conditional update &mdash; <code>UPDATE items SET state='held' WHERE id=? AND state='available'</code>. Exactly one writer sees one row affected; the other sees zero and gets a clean rejection. No distributed lock, no consensus, no coordination.</p><p>Add a uniqueness constraint on the confirmed order&rsquo;s item ID as a second line of defence, so even a bug in the hold logic cannot produce two sales.</p><p>Reaching for a distributed lock here is the common mistake: it takes a problem that is naturally local to one row and makes it distributed, adding a failure domain and a liveness problem to solve something the database already does atomically.</p><span class="dr-key">The principle: make the constraint local instead of coordinating. See <a class="qlink" href="#anim-booking">D19</a>.</span></div>
+</details>
+<details class="drill">
+  <summary><span class="dr-n">20</span><span class="dr-q">A user updates their profile and immediately reloads. They see the old data. What is happening and what do you do?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>The write went to the primary and the read went to a replica that has not caught up.</strong> This is replication lag, and it is the single most common consistency complaint in any system with read replicas.</p><p>The cheapest fix is <strong>read-your-writes</strong>: after a user writes, route their reads to the primary for a short window &mdash; or track the write&rsquo;s position and require the replica to have reached it before serving. Sticky routing by user achieves most of this.</p><p>Note what you should <em>not</em> do: making all reads strongly consistent removes the point of having replicas and puts full read load back on the primary. The problem is not that replicas are stale in general &mdash; it is that they are stale <em>for the person who just wrote</em>, and only that case needs fixing.</p><span class="dr-key">The principle: pick the weakest consistency model that makes the observed behaviour correct, not the strongest available.</span></div>
+</details>
+<details class="drill">
+  <summary><span class="dr-n">21</span><span class="dr-q">A payment API call times out. You cannot tell whether the charge happened. What do you do?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>Nothing &mdash; and that is the correct engineering answer, not an evasion.</strong> A timeout tells you the reply did not arrive; it says nothing about whether the work happened. Assuming success risks delivering goods that were never paid for; assuming failure risks charging someone who receives nothing.</p><p>So leave the state as-is, let any hold expire naturally, and <strong>reconcile asynchronously</strong> against the provider&rsquo;s record of truth, which is authoritative. If the charge did land, refund it &mdash; a refund is a recoverable business outcome, whereas a double-sold seat or an unpaid delivery is not.</p><p>The thing that makes this safe is the <strong>idempotency key</strong> sent with the original request: the client can retry the whole flow and the provider will recognise it rather than charging twice.</p><span class="dr-key">The principle: when you cannot know, do not guess &mdash; make the operation safe to repeat and reconcile against the source of truth.</span></div>
+</details>
+<details class="drill">
+  <summary><span class="dr-n">22</span><span class="dr-q">Your event consumer processed 400 messages twice after a restart. What went wrong and what is the fix?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>Nothing malfunctioned.</strong> This is at-least-once delivery behaving exactly as specified: the consumer was restarted before committing its offset for those messages, so on restart it resumed from the last committed position and replayed them.</p><p>The fix is not a broker setting. Make the effect and the <em>record of the effect</em> commit together: write the business row and the processed-message ID in one transaction, with a uniqueness constraint on the message ID. The replay then violates the constraint, is recognised as a duplicate, and is skipped.</p><p>Then decide this <em>per consumer</em>, not per system: a duplicate email is mildly annoying, a duplicate charge is a financial incident. The two deserve different amounts of machinery.</p><span class="dr-key">The principle: the right delivery guarantee is a function of what a duplicate costs, not of what the broker supports.</span></div>
+</details>
+<details class="drill">
+  <summary><span class="dr-n">23</span><span class="dr-q">Someone asks you to explain, in one minute, why your system uses eventual consistency. What do you say?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>Lead with the trade, not the mechanism.</strong> Something like: &ldquo;During a network partition we can either refuse to answer, or answer with data that may be seconds out of date. For a feed, refusing is a visible outage and being seconds stale is invisible &mdash; so we answer. For payments we make the opposite choice, and that path refuses.&rdquo;</p><p>That answer does three things an interviewer is listening for: it names the choice as <em>forced</em> rather than preferred, it ties the decision to <em>user impact</em> rather than to a database feature, and it makes clear the choice is <strong>per operation</strong>, not a property of the whole company.</p><p>What to avoid: &ldquo;we are an AP system.&rdquo; That is a category error, and it tells the listener you learned CAP as a slogan.</p><span class="dr-key">The principle: state the trade in terms of what the user experiences, then name the exception.</span></div>
+</details>
+<details class="drill">
+  <summary><span class="dr-n">24</span><span class="dr-q">An analytics query is locking rows and slowing the transactional path. What are your options?</span><span class="dr-cue">Show answer</span></summary>
+  <div class="dr-a"><p><strong>Recognise the shape first: OLTP and OLAP have fundamentally different access patterns and should not share a store.</strong> Transactional work is many small row-level reads and writes; analytics is a few queries scanning enormous ranges of a few columns.</p><p>Short-term: move the query to a read replica so it cannot block the write path, and check the isolation level &mdash; many analytical queries do not need repeatable reads and are holding locks they do not require.</p><p>Durable fix: replicate into a columnar store via change data capture. Columnar storage reads only the columns needed and compresses far better on homogeneous data, so the same query often runs orders of magnitude faster <em>and</em> stops touching the transactional system at all.</p><span class="dr-key">The principle: when two workloads have opposite access patterns, the answer is usually two stores, not better tuning.</span></div>
+</details>
+</div>
+
+    <div class="takeaway">
+      <div class="label">&#127793; Takeaway &mdash; what these drills are really testing</div>
+      <p><strong>Notice how few of these are answered with a technology.</strong> Almost all are answered with a question, a trade-off, or an ordering.</p>
+      <ul>
+        <li><strong>Disaggregate before theorising.</strong> Per host, per shard, per endpoint, per tenant. Aggregate dashboards hide exactly what you are hunting.</li>
+        <li><strong>Ask what the answer changes.</strong> &ldquo;How many teams do you have?&rdquo; decides the microservices question; &ldquo;what is in those 30 seconds?&rdquo; decides the failover.</li>
+        <li><strong>Say what you would do <em>first</em>.</strong> Isolate, then optimise. Stop the bleeding, then find the cause. Ordering is most of the judgement.</li>
+        <li><strong>Prefer failures you can see.</strong> Visible downtime beats silent data loss; a fast rejection beats a slow timeout.</li>
+        <li><strong>Make the constraint local.</strong> It answers the double-sale, the double-processing, the distributed lock and the rate limiter &mdash; four drills, one idea.</li>
+        <li><strong>Bring the trade-off, not the refusal.</strong> &ldquo;We have burned 80% of the budget; here are three options&rdquo; lands where &ldquo;that is unsafe&rdquo; does not.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
 <div class="content" id="part4-glossary">
   <div class="part-banner">
     <div class="part-tag">Part 4</div>
@@ -14930,6 +15121,7 @@ var GLOSSARY = {
       <a class="sn-link" href="#toolkit-mentalmodel"><span class="sn-b">T5</span>The DDIA Mental Model &amp; Pattern Cheat Sheet</a>
       <a class="sn-link" href="#toolkit-questionbank"><span class="sn-b">T6</span>What Google Actually Asks &mdash; Question Bank</a>
       <a class="sn-link" href="#toolkit-video"><span class="sn-b">T7</span>Further Study &mdash; Video &amp; Lecture References</a>
+      <a class="sn-link" href="#toolkit-drills"><span class="sn-b">T8</span>Scenario Drills</a>
     </div>
     <div class="sn-group">
       <div class="sn-gh">Part 4 &middot; Glossary</div>

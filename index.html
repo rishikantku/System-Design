@@ -1709,7 +1709,7 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
       <div class="h">Conventions &mdash; worth thirty seconds, they make everything faster</div>
       <div class="sc-row"><div class="k">&#9889; Quick reference</div><div class="v">Opens every chapter. A four-column decision table ending in <strong>Used in</strong>, naming the real systems that made each choice.</div></div>
       <div class="sc-row"><div class="k">&#128296; Build it wrong first</div><div class="v">Progressive derivation for the hardest topics: the naive design, the exact failure that breaks it, the fix, repeat. Used for CAP, exactly-once, and cascading failure.</div></div>
-      <div class="sc-row"><div class="k">&#9654; Animated diagrams</div><div class="v">Nine flows show what data is moving, each with a <strong>&ldquo;What goes wrong&rdquo;</strong> toggle that switches to the failure mode and swaps the explanation with it. They sit inside the relevant chapter or design &mdash; jump straight to one:<div class="animindex"><a class="animchip" href="#anim-replication"><b>Ch 4</b> Async replication &mdash; the acknowledged write that vanishes</a><a class="animchip" href="#anim-2pc"><b>Ch 7</b> Two-phase commit &mdash; the coordinator that blocks everyone</a><a class="animchip" href="#anim-metastable"><b>Ch 10</b> Metastable failure &mdash; the loop that outlives its cause</a><a class="animchip" href="#anim-fanout"><b>D2</b> Fan-out on write &mdash; the celebrity that stalls the queue</a><a class="animchip" href="#anim-isr"><b>D7</b> Leader election &mdash; why only the in-sync set may be elected</a><a class="animchip" href="#anim-telemetry"><b>D11</b> Telemetry ingest &mdash; the cardinality bomb</a><a class="animchip" href="#anim-cache"><b>D12</b> Cache read path &mdash; a dead node stampedes the origin</a><a class="animchip" href="#anim-rag"><b>D14</b> Retrieval &mdash; why ACLs cannot be applied at the end</a><a class="animchip" href="#anim-booking"><b>D19</b> Hold, pay, confirm &mdash; the ambiguous payment timeout</a></div></div></div>
+      <div class="sc-row"><div class="k">&#9654; Animated diagrams</div><div class="v">All 26 flows &mdash; every design and three chapters &mdash; show what data is moving, each with a <strong>&ldquo;What goes wrong&rdquo;</strong> toggle that switches to the failure mode and swaps the explanation with it. They sit inside the relevant chapter or design &mdash; jump straight to one:<div class="animindex"><a class="animchip" href="#anim-ch4"><b>Ch4</b> Asynchronous replication</a><a class="animchip" href="#anim-ch7"><b>Ch7</b> Two-phase commit</a><a class="animchip" href="#anim-ch10"><b>Ch10</b> Metastable failure</a><a class="animchip" href="#anim-url"><b>D1</b> Redirect path</a><a class="animchip" href="#anim-twitter"><b>D2</b> Fan-out on write</a><a class="animchip" href="#anim-kv"><b>D3</b> Quorum write</a><a class="animchip" href="#anim-whatsapp"><b>D4</b> Message delivery</a><a class="animchip" href="#anim-youtube"><b>D5</b> Upload and transcode</a><a class="animchip" href="#anim-jobs"><b>D6</b> Lease-based claim</a><a class="animchip" href="#anim-kafka"><b>D7</b> Replication and leader election</a><a class="animchip" href="#anim-drive"><b>D8</b> Chunked sync</a><a class="animchip" href="#anim-uber"><b>D9</b> Geospatial matching</a><a class="animchip" href="#anim-crawler"><b>D10</b> Crawl loop</a><a class="animchip" href="#anim-metrics"><b>D11</b> Telemetry ingest</a><a class="animchip" href="#anim-cache"><b>D12</b> Read path</a><a class="animchip" href="#anim-typeahead"><b>D13</b> Suggestion path</a><a class="animchip" href="#anim-rag"><b>D14</b> Retrieval and generation</a><a class="animchip" href="#anim-ml-inference"><b>D15</b> Inference path</a><a class="animchip" href="#anim-ml-platform"><b>D16</b> Experiment tracking</a><a class="animchip" href="#anim-maps"><b>D17</b> Build and serve the map</a><a class="animchip" href="#anim-fleet-upgrade"><b>D18</b> Staged rollout</a><a class="animchip" href="#anim-booking"><b>D19</b> Hold, pay, confirm</a><a class="animchip" href="#anim-collab"><b>D20</b> Concurrent edits</a><a class="animchip" href="#anim-denylist"><b>D21</b> Denylist distribution</a><a class="animchip" href="#anim-sort"><b>D22</b> External sort</a><a class="animchip" href="#anim-social-graph"><b>D23</b> Degree lookup</a></div></div></div>
       <div class="sc-row"><div class="k">&#10067; Clarify first</div><div class="v">Opens every design &mdash; the questions to ask in the first five minutes, each paired with <em>what the answer changes</em>. Steps then run 1&ndash;9 identically in all 23 designs.</div></div>
       <div class="sc-row"><div class="k">&#9998; Exercises</div><div class="v">Always carry a worked answer behind a toggle, and end on a transferable principle. This guide never asks a question it does not answer.</div></div>
       <div class="sc-row"><div class="k">&#9888; Misconceptions</div><div class="v">Quote the false sentence, then dismantle it. If you believe the quoted line, that block is the most valuable thing on the page.</div></div>
@@ -2668,7 +2668,7 @@ around it is like planning your week around the fire alarm.</div>
   </table></div>
 </div>
 
-<div class="anim" id="anim-replication">
+<div class="anim" id="anim-ch4">
   <div class="an-head">
     <div class="an-title">Asynchronous replication &mdash; and the acknowledged write that disappears</div>
     <div class="an-btns">
@@ -3880,7 +3880,7 @@ around it is like planning your week around the fire alarm.</div>
   </table></div>
 </div>
 
-<div class="anim" id="anim-2pc">
+<div class="anim" id="anim-ch7">
   <div class="an-head">
     <div class="an-title">Two-phase commit &mdash; and the window where the coordinator owns everyone</div>
     <div class="an-btns">
@@ -5563,7 +5563,7 @@ most large outages.</p>
 states &mdash; healthy, and collapsed &mdash; and enough load pushes it across a threshold from
 which it will not return on its own. Capacity planning tells you where the threshold is; load
 shedding is what stops you crossing it.</div>
-<div class="anim" id="anim-metastable">
+<div class="anim" id="anim-ch10">
   <div class="an-head">
     <div class="an-title">Metastable failure &mdash; the loop that outlives its own cause</div>
     <div class="an-btns">
@@ -7189,7 +7189,50 @@ much.</p>
 <span class="kw">KEY</span> click_count:{short_code}  ->  <span class="ty">INTEGER</span></div></div>
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="dc-diagram"><svg width="680" height="220" viewBox="0 0 680 220" xmlns="http://www.w3.org/2000/svg">
+  <div class="ds-body">
+<div class="anim" id="anim-url">
+  <div class="an-head">
+    <div class="an-title">Redirect path &mdash; and the viral link that goes cold</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 232" role="img">
+  <rect x="14" y="92" width="100" height="52" rx="9" class="nd" data-n="c"/>
+  <text x="64" y="122" text-anchor="middle" class="nd-l">Browser</text>
+  <rect x="156" y="92" width="132" height="52" rx="9" class="nd nd-hi" data-n="cdn"/>
+  <text x="222" y="114" text-anchor="middle" class="nd-l">CDN edge</text>
+  <text x="222" y="129" text-anchor="middle" class="nd-s">301 cached</text>
+  <rect x="340" y="92" width="152" height="52" rx="9" class="nd" data-n="app"/>
+  <text x="416" y="122" text-anchor="middle" class="nd-l">Redirect service</text>
+  <rect x="550" y="28" width="118" height="52" rx="9" class="nd" data-n="ca"/>
+  <text x="609" y="50" text-anchor="middle" class="nd-l">Redis</text>
+  <text x="609" y="65" text-anchor="middle" class="nd-s">hot codes</text>
+  <rect x="550" y="152" width="118" height="52" rx="9" class="nd" data-n="kv"/>
+  <text x="609" y="174" text-anchor="middle" class="nd-l">KV store</text>
+  <text x="609" y="189" text-anchor="middle" class="nd-s">10B rows</text>
+  <path d="M 114 118 L 156 118" class="ed"/>
+  <path d="M 288 118 L 340 118" class="ed"/>
+  <path d="M 492 118 L 550 54" class="ed"/>
+  <path d="M 492 118 L 550 178" class="ed"/>
+  <g class="pk pk-w" style="--x1:114px;--y1:110px;--x2:67px;--y2:110px;--delay:0.00s;--dur:2.40s"><rect width="89" height="15"/><text x="44" y="11" text-anchor="middle">GET /abc123</text></g>
+  <g class="pk pk-y" style="--x1:156px;--y1:110px;--x2:18px;--y2:110px;--delay:0.90s;--dur:2.20s"><rect width="96" height="15"/><text x="48" y="11" text-anchor="middle">301 (cached)</text></g>
+  <g class="pk pk-w" style="--x1:288px;--y1:110px;--x2:300px;--y2:110px;--delay:1.20s;--dur:2.60s"><rect width="40" height="15"/><text x="20" y="11" text-anchor="middle">miss</text></g>
+  <g class="pk pk-r" style="--x1:492px;--y1:110px;--x2:496px;--y2:46px;--delay:1.90s;--dur:2.40s"><rect width="54" height="15"/><text x="27" y="11" text-anchor="middle">lookup</text></g>
+  <g class="fail-only"><rect x="156" y="92" width="132" height="52" rx="9" class="deadnode"/><text x="222" y="114" text-anchor="middle" class="nd-l">CDN edge</text><text x="222" y="129" text-anchor="middle" class="nd-s">cold after a purge</text></g>
+  <g class="pk pk-e fail-only" style="--x1:288px;--y1:110px;--x2:300px;--y2:110px;--delay:0.00s;--dur:1.80s"><rect width="40" height="15"/><text x="20" y="11" text-anchor="middle">miss</text></g>
+  <g class="pk pk-e fail-only" style="--x1:288px;--y1:110px;--x2:300px;--y2:110px;--delay:0.30s;--dur:1.80s"><rect width="40" height="15"/><text x="20" y="11" text-anchor="middle">miss</text></g>
+  <g class="pk pk-e fail-only" style="--x1:288px;--y1:110px;--x2:300px;--y2:110px;--delay:0.60s;--dur:1.80s"><rect width="40" height="15"/><text x="20" y="11" text-anchor="middle">miss</text></g>
+  <g class="pk pk-e fail-only" style="--x1:288px;--y1:110px;--x2:300px;--y2:110px;--delay:0.90s;--dur:1.80s"><rect width="40" height="15"/><text x="20" y="11" text-anchor="middle">miss</text></g>
+  <g class="pk pk-e fail-only" style="--x1:288px;--y1:110px;--x2:300px;--y2:110px;--delay:1.20s;--dur:1.80s"><rect width="40" height="15"/><text x="20" y="11" text-anchor="middle">miss</text></g>
+  <g class="fail-only pulse"><rect x="550" y="152" width="118" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="609" y="174" text-anchor="middle" class="nd-l">KV store</text><text x="609" y="189" text-anchor="middle" class="nd-s">every read now reaches it</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">request</span><span class="an-k k-y">301 redirect</span><span class="an-k k-r">lookup</span><span class="an-k k-e">miss</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> a short code out, a <code>301</code> back. Because a 301 is permanent, browsers and the CDN cache it, so a popular link is served almost entirely at the edge and the origin never sees most of its traffic.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> a purge or a TTL expiry empties the edge just as a link goes viral. Every request now misses through to the service and the KV store, which was sized on the assumption that the edge absorbs ~95% of reads. The fix is not a bigger database &mdash; it is <strong>request coalescing</strong> so N simultaneous misses become one lookup (<span class="srcref">Ch 9</span>), plus 301 rather than 302 wherever analytics permits.</div>
+</div>
+<div class="dc-diagram"><svg width="680" height="220" viewBox="0 0 680 220" xmlns="http://www.w3.org/2000/svg">
   <defs><marker id="u1" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
   <text x="10" y="20" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="#636e72">WRITE PATH</text>
   <rect x="10" y="28" width="70" height="32" rx="6" fill="#5c6bc0"/><text x="45" y="48" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Client</text>
@@ -7344,7 +7387,7 @@ much.</p>
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
   <div class="ds-body">
-<div class="anim" id="anim-fanout">
+<div class="anim" id="anim-twitter">
   <div class="an-head">
     <div class="an-title">Fan-out on write &mdash; and the celebrity that stalls it for everybody</div>
     <div class="an-btns">
@@ -7514,7 +7557,47 @@ much.</p>
 <span class="kw">HINTS</span>  ->  { target_node: [(key, value, timestamp)] }</span></div></div>
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="dc-diagram"><svg width="680" height="260" viewBox="0 0 680 260" xmlns="http://www.w3.org/2000/svg">
+  <div class="ds-body">
+<div class="anim" id="anim-kv">
+  <div class="an-head">
+    <div class="an-title">Quorum write &mdash; and the sloppy quorum that trades consistency for uptime</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 238" role="img">
+  <rect x="14" y="96" width="96" height="52" rx="9" class="nd" data-n="c"/>
+  <text x="62" y="126" text-anchor="middle" class="nd-l">Client</text>
+  <rect x="150" y="96" width="132" height="52" rx="9" class="nd nd-hi" data-n="co"/>
+  <text x="216" y="118" text-anchor="middle" class="nd-l">Coordinator</text>
+  <text x="216" y="133" text-anchor="middle" class="nd-s">any node</text>
+  <rect x="420" y="20" width="132" height="52" rx="9" class="nd" data-n="r1"/>
+  <text x="486" y="50" text-anchor="middle" class="nd-l">Replica 1</text>
+  <rect x="420" y="96" width="132" height="52" rx="9" class="nd" data-n="r2"/>
+  <text x="486" y="126" text-anchor="middle" class="nd-l">Replica 2</text>
+  <rect x="420" y="172" width="132" height="52" rx="9" class="nd" data-n="r3"/>
+  <text x="486" y="202" text-anchor="middle" class="nd-l">Replica 3</text>
+  <path d="M 110 122 L 150 122" class="ed"/>
+  <path d="M 282 122 L 420 46" class="ed"/>
+  <path d="M 282 122 L 420 122" class="ed"/>
+  <path d="M 282 122 L 420 198" class="ed"/>
+  <text x="350" y="88" text-anchor="middle" class="ax">W=2 of N=3</text>
+  <g class="pk pk-w" style="--x1:110px;--y1:114px;--x2:89px;--y2:114px;--delay:0.00s;--dur:2.40s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">PUT x=1</text></g>
+  <g class="pk pk-r" style="--x1:282px;--y1:114px;--x2:373px;--y2:38px;--delay:0.70s;--dur:2.40s"><rect width="47" height="15"/><text x="24" y="11" text-anchor="middle">write</text></g>
+  <g class="pk pk-r" style="--x1:282px;--y1:114px;--x2:373px;--y2:114px;--delay:0.80s;--dur:2.40s"><rect width="47" height="15"/><text x="24" y="11" text-anchor="middle">write</text></g>
+  <g class="pk pk-r" style="--x1:282px;--y1:114px;--x2:373px;--y2:190px;--delay:0.90s;--dur:2.40s"><rect width="47" height="15"/><text x="24" y="11" text-anchor="middle">write</text></g>
+  <g class="pk pk-y" style="--x1:150px;--y1:114px;--x2:21px;--y2:114px;--delay:1.80s;--dur:2.40s"><rect width="89" height="15"/><text x="44" y="11" text-anchor="middle">OK (2 of 3)</text></g>
+  <g class="fail-only"><line x1="342" y1="151" x2="360" y2="169" class="xmark"/><line x1="360" y1="151" x2="342" y2="169" class="xmark"/></g>
+  <g class="fail-only"><rect x="420" y="172" width="132" height="52" rx="9" class="deadnode"/><text x="486" y="194" text-anchor="middle" class="nd-l">Replica 3</text><text x="486" y="209" text-anchor="middle" class="nd-s">partitioned away</text></g>
+  <g class="pk pk-e fail-only" style="--x1:282px;--y1:114px;--x2:331px;--y2:190px;--delay:0.20s;--dur:2.00s"><rect width="89" height="15"/><text x="44" y="11" text-anchor="middle">hint stored</text></g>
+  <g class="fail-only pulse"><rect x="420" y="20" width="132" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="486" y="42" text-anchor="middle" class="nd-l">Replica 1</text><text x="486" y="57" text-anchor="middle" class="nd-s">holds a hint for R3</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">client write</span><span class="an-k k-r">replica write</span><span class="an-k k-y">ack</span><span class="an-k k-e">hinted handoff</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> the write goes to any node, which forwards it to all replicas and acknowledges as soon as <strong>W&nbsp;=&nbsp;2</strong> of them confirm. With R&nbsp;+&nbsp;W&nbsp;&gt;&nbsp;N, any later read of 2 replicas is guaranteed to overlap this write.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> replica 3 is unreachable. A <em>sloppy</em> quorum accepts the write anyway and parks a <strong>hint</strong> on a healthy node to be handed off later &mdash; so the system stays available, but the R&nbsp;+&nbsp;W&nbsp;&gt;&nbsp;N overlap guarantee no longer holds and a read can miss this value. Availability was bought with consistency, exactly as <span class="srcref">Ch 3</span> says it must be.</div>
+</div>
+<div class="dc-diagram"><svg width="680" height="260" viewBox="0 0 680 260" xmlns="http://www.w3.org/2000/svg">
   <defs><marker id="kv1" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
   <!-- Client -->
   <rect x="10" y="110" width="70" height="40" rx="7" fill="#5c6bc0"/><text x="45" y="134" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Client</text>
@@ -7654,7 +7737,45 @@ much.</p>
 <span class="kw">KEY</span> inbox:{user_id}  ->  LIST [ message_ids... ]  (max 1000)</div></div>
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="dc-diagram"><svg width="680" height="240" viewBox="0 0 680 240" xmlns="http://www.w3.org/2000/svg">
+  <div class="ds-body">
+<div class="anim" id="anim-whatsapp">
+  <div class="an-head">
+    <div class="an-title">Message delivery &mdash; and the reconnect that can deliver twice</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 244" role="img">
+  <rect x="14" y="100" width="96" height="52" rx="9" class="nd" data-n="s"/>
+  <text x="62" y="130" text-anchor="middle" class="nd-l">Sender</text>
+  <rect x="148" y="100" width="142" height="52" rx="9" class="nd nd-hi" data-n="g"/>
+  <text x="219" y="122" text-anchor="middle" class="nd-l">WS gateway</text>
+  <text x="219" y="137" text-anchor="middle" class="nd-s">holds the socket</text>
+  <rect x="340" y="100" width="190" height="52" rx="9" class="nd" data-n="q"/>
+  <text x="435" y="122" text-anchor="middle" class="nd-l">Per-conversation queue</text>
+  <text x="435" y="137" text-anchor="middle" class="nd-s">ordered by seq</text>
+  <rect x="600" y="100" width="126" height="52" rx="9" class="nd" data-n="r"/>
+  <text x="663" y="122" text-anchor="middle" class="nd-l">Recipient</text>
+  <text x="663" y="137" text-anchor="middle" class="nd-s">online</text>
+  <path d="M 110 126 L 148 126" class="ed"/>
+  <path d="M 290 126 L 340 126" class="ed"/>
+  <path d="M 530 126 L 600 126" class="ed"/>
+  <g class="pk pk-w" style="--x1:110px;--y1:118px;--x2:87px;--y2:118px;--delay:0.00s;--dur:2.40s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">msg #41</text></g>
+  <g class="pk pk-r" style="--x1:290px;--y1:118px;--x2:237px;--y2:118px;--delay:0.70s;--dur:2.40s"><rect width="103" height="15"/><text x="52" y="11" text-anchor="middle">append seq 41</text></g>
+  <g class="pk pk-r" style="--x1:530px;--y1:118px;--x2:539px;--y2:118px;--delay:1.30s;--dur:2.40s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">deliver</text></g>
+  <g class="pk pk-y" style="--x1:600px;--y1:118px;--x2:14px;--y2:118px;--delay:2.00s;--dur:3.00s"><rect width="96" height="15"/><text x="48" y="11" text-anchor="middle">read receipt</text></g>
+  <g class="fail-only"><rect x="600" y="100" width="126" height="52" rx="9" class="deadnode"/><text x="663" y="122" text-anchor="middle" class="nd-l">Recipient OFFLINE</text><text x="663" y="137" text-anchor="middle" class="nd-s">phone in a tunnel</text></g>
+  <g class="pk pk-e fail-only" style="--x1:530px;--y1:118px;--x2:546px;--y2:118px;--delay:0.00s;--dur:1.90s"><rect width="54" height="15"/><text x="27" y="11" text-anchor="middle">queued</text></g>
+  <g class="pk pk-e fail-only" style="--x1:530px;--y1:118px;--x2:546px;--y2:118px;--delay:0.35s;--dur:1.90s"><rect width="54" height="15"/><text x="27" y="11" text-anchor="middle">queued</text></g>
+  <g class="pk pk-e fail-only" style="--x1:530px;--y1:118px;--x2:546px;--y2:118px;--delay:0.70s;--dur:1.90s"><rect width="54" height="15"/><text x="27" y="11" text-anchor="middle">queued</text></g>
+  <g class="fail-only pulse"><rect x="340" y="100" width="190" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="435" y="122" text-anchor="middle" class="nd-l">Queue grows</text><text x="435" y="137" text-anchor="middle" class="nd-s">retained until ack, then replayed</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">send</span><span class="an-k k-r">ordered delivery</span><span class="an-k k-y">receipt</span><span class="an-k k-e">queued while offline</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> a message travels to the gateway holding the sender&rsquo;s socket, is appended to the conversation&rsquo;s ordered log with a sequence number, then pushed to the recipient. Ordering is guaranteed <em>per conversation</em>, which is what lets the system partition by conversation ID and coordinate nowhere.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> the recipient goes offline mid-delivery. Messages queue, and on reconnect the client asks for everything after its last acknowledged sequence. If the client acknowledged but the ack was lost, the server replays messages it already delivered &mdash; a <strong>duplicate</strong>. The fix is the client-supplied message ID: delivery is at-least-once and the client deduplicates on it (<span class="srcref">Ch 11</span>).</div>
+</div>
+<div class="dc-diagram"><svg width="680" height="240" viewBox="0 0 680 240" xmlns="http://www.w3.org/2000/svg">
   <defs><marker id="w1" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
   <rect x="10" y="80" width="70" height="80" rx="7" fill="#5c6bc0"/><text x="45" y="115" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Phone A</text><text x="45" y="130" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">(sender)</text>
   <line x1="80" y1="120" x2="108" y2="120" stroke="#636e72" stroke-width="1.5" marker-end="url(#w1)"/>
@@ -7787,7 +7908,59 @@ much.</p>
 </div>
 <div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="dc-diagram"><svg width="680" height="260" viewBox="0 0 680 260" xmlns="http://www.w3.org/2000/svg">
+  <div class="ds-body">
+<div class="anim" id="anim-youtube">
+  <div class="an-head">
+    <div class="an-title">Upload and transcode &mdash; and the backlog users experience as &ldquo;processing&rdquo;</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 250" role="img">
+  <rect x="14" y="104" width="104" height="52" rx="9" class="nd" data-n="u"/>
+  <text x="66" y="134" text-anchor="middle" class="nd-l">Uploader</text>
+  <rect x="152" y="104" width="134" height="52" rx="9" class="nd" data-n="ob"/>
+  <text x="219" y="126" text-anchor="middle" class="nd-l">Object store</text>
+  <text x="219" y="141" text-anchor="middle" class="nd-s">raw chunks</text>
+  <rect x="320" y="104" width="170" height="52" rx="9" class="nd nd-hi" data-n="dag"/>
+  <text x="405" y="126" text-anchor="middle" class="nd-l">Transcode DAG</text>
+  <text x="405" y="141" text-anchor="middle" class="nd-s">fan-out per rendition</text>
+  <rect x="540" y="32" width="100" height="52" rx="9" class="nd" data-n="r1"/>
+  <text x="590" y="62" text-anchor="middle" class="nd-l">1080p</text>
+  <rect x="540" y="104" width="100" height="52" rx="9" class="nd" data-n="r2"/>
+  <text x="590" y="134" text-anchor="middle" class="nd-l">720p</text>
+  <rect x="540" y="176" width="100" height="52" rx="9" class="nd" data-n="r3"/>
+  <text x="590" y="206" text-anchor="middle" class="nd-l">360p</text>
+  <rect x="672" y="104" width="74" height="52" rx="9" class="nd" data-n="cdn"/>
+  <text x="709" y="134" text-anchor="middle" class="nd-l">CDN</text>
+  <path d="M 118 130 L 152 130" class="ed"/>
+  <path d="M 286 130 L 320 130" class="ed"/>
+  <path d="M 490 130 L 540 58" class="ed"/>
+  <path d="M 640 58 L 672 130" class="ed"/>
+  <path d="M 490 130 L 540 130" class="ed"/>
+  <path d="M 640 130 L 672 130" class="ed"/>
+  <path d="M 490 130 L 540 202" class="ed"/>
+  <path d="M 640 202 L 672 130" class="ed"/>
+  <g class="pk pk-w" style="--x1:118px;--y1:122px;--x2:105px;--y2:122px;--delay:0.00s;--dur:2.40s"><rect width="47" height="15"/><text x="24" y="11" text-anchor="middle">chunk</text></g>
+  <g class="pk pk-w" style="--x1:118px;--y1:122px;--x2:105px;--y2:122px;--delay:0.40s;--dur:2.40s"><rect width="47" height="15"/><text x="24" y="11" text-anchor="middle">chunk</text></g>
+  <g class="pk pk-r" style="--x1:286px;--y1:122px;--x2:286px;--y2:122px;--delay:1.00s;--dur:2.40s"><rect width="34" height="15"/><text x="17" y="11" text-anchor="middle">job</text></g>
+  <g class="pk pk-y" style="--x1:490px;--y1:122px;--x2:465px;--y2:50px;--delay:1.70s;--dur:2.40s"><rect width="75" height="15"/><text x="38" y="11" text-anchor="middle">rendition</text></g>
+  <g class="pk pk-y" style="--x1:490px;--y1:122px;--x2:465px;--y2:122px;--delay:1.82s;--dur:2.40s"><rect width="75" height="15"/><text x="38" y="11" text-anchor="middle">rendition</text></g>
+  <g class="pk pk-y" style="--x1:490px;--y1:122px;--x2:465px;--y2:194px;--delay:1.94s;--dur:2.40s"><rect width="75" height="15"/><text x="38" y="11" text-anchor="middle">rendition</text></g>
+  <g class="fail-only pulse"><rect x="320" y="104" width="170" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="405" y="126" text-anchor="middle" class="nd-l">Transcode BACKLOG</text><text x="405" y="141" text-anchor="middle" class="nd-s">queue depth rising, GPUs saturated</text></g>
+  <g class="pk pk-e fail-only" style="--x1:286px;--y1:122px;--x2:286px;--y2:122px;--delay:0.00s;--dur:1.80s"><rect width="34" height="15"/><text x="17" y="11" text-anchor="middle">job</text></g>
+  <g class="pk pk-e fail-only" style="--x1:286px;--y1:122px;--x2:286px;--y2:122px;--delay:0.25s;--dur:1.80s"><rect width="34" height="15"/><text x="17" y="11" text-anchor="middle">job</text></g>
+  <g class="pk pk-e fail-only" style="--x1:286px;--y1:122px;--x2:286px;--y2:122px;--delay:0.50s;--dur:1.80s"><rect width="34" height="15"/><text x="17" y="11" text-anchor="middle">job</text></g>
+  <g class="pk pk-e fail-only" style="--x1:286px;--y1:122px;--x2:286px;--y2:122px;--delay:0.75s;--dur:1.80s"><rect width="34" height="15"/><text x="17" y="11" text-anchor="middle">job</text></g>
+  <g class="pk pk-e fail-only" style="--x1:286px;--y1:122px;--x2:286px;--y2:122px;--delay:1.00s;--dur:1.80s"><rect width="34" height="15"/><text x="17" y="11" text-anchor="middle">job</text></g>
+  <g class="fail-only"><text x="380" y="232" text-anchor="middle" class="ax" fill="#ff8a80">uploads still succeed &#8212; videos just sit in "processing" for hours</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">upload chunks</span><span class="an-k k-r">transcode job</span><span class="an-k k-y">renditions</span><span class="an-k k-e">queued jobs</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> the client uploads chunks straight into object storage, then a transcode DAG fans each source out into a ladder of renditions, which are pushed to the CDN. Upload and transcode are deliberately decoupled: the upload succeeds long before the video is watchable.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> transcode is throughput-bound and uploads are bursty, so a spike fills the queue and every new video sits in <em>processing</em>. Nothing errors &mdash; which is what makes it insidious. The levers are to transcode <strong>lazily for the long tail</strong> (most uploads are never watched) and eagerly only for the low renditions, and to publish the source rendition immediately so the video is at least playable.</div>
+</div>
+<div class="dc-diagram"><svg width="680" height="260" viewBox="0 0 680 260" xmlns="http://www.w3.org/2000/svg">
   <defs><marker id="yt1" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
   <!-- Upload path -->
   <text x="10" y="20" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="#636e72">UPLOAD PATH</text>
@@ -7917,7 +8090,44 @@ much.</p>
 <span class="cm">-- This index allows efficient polling: 'give me pending jobs due now'</span></div></div>
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="dc-diagram"><svg width="680" height="200" viewBox="0 0 680 200" xmlns="http://www.w3.org/2000/svg">
+  <div class="ds-body">
+<div class="anim" id="anim-jobs">
+  <div class="an-head">
+    <div class="an-title">Lease-based claim &mdash; and the paused worker that wakes up believing it still owns the job</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 240" role="img">
+  <rect x="14" y="96" width="134" height="52" rx="9" class="nd nd-hi" data-n="s"/>
+  <text x="81" y="118" text-anchor="middle" class="nd-l">Scheduler</text>
+  <text x="81" y="133" text-anchor="middle" class="nd-s">SKIP LOCKED</text>
+  <rect x="300" y="24" width="140" height="52" rx="9" class="nd" data-n="w1"/>
+  <text x="370" y="46" text-anchor="middle" class="nd-l">Worker 1</text>
+  <text x="370" y="61" text-anchor="middle" class="nd-s">lease 30 s</text>
+  <rect x="300" y="96" width="140" height="52" rx="9" class="nd" data-n="w2"/>
+  <text x="370" y="118" text-anchor="middle" class="nd-l">Worker 2</text>
+  <text x="370" y="133" text-anchor="middle" class="nd-s">lease 30 s</text>
+  <rect x="560" y="96" width="150" height="52" rx="9" class="nd" data-n="h"/>
+  <text x="635" y="118" text-anchor="middle" class="nd-l">Handler</text>
+  <text x="635" y="133" text-anchor="middle" class="nd-s">the side effect</text>
+  <path d="M 148 122 L 300 50" class="ed"/>
+  <path d="M 148 122 L 300 122" class="ed"/>
+  <path d="M 440 122 L 560 122" class="ed"/>
+  <g class="pk pk-w" style="--x1:148px;--y1:114px;--x2:176px;--y2:42px;--delay:0.00s;--dur:2.60s"><rect width="124" height="15"/><text x="62" y="11" text-anchor="middle">claim + token 41</text></g>
+  <g class="pk pk-w" style="--x1:148px;--y1:114px;--x2:176px;--y2:114px;--delay:0.50s;--dur:2.60s"><rect width="124" height="15"/><text x="62" y="11" text-anchor="middle">claim + token 42</text></g>
+  <g class="pk pk-r" style="--x1:440px;--y1:114px;--x2:499px;--y2:114px;--delay:1.60s;--dur:2.40s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">execute</text></g>
+  <g class="fail-only"><rect x="300" y="24" width="140" height="52" rx="9" class="deadnode"/><text x="370" y="46" text-anchor="middle" class="nd-l">Worker 1 PAUSED</text><text x="370" y="61" text-anchor="middle" class="nd-s">GC pause, lease expired</text></g>
+  <g class="pk pk-e fail-only" style="--x1:440px;--y1:42px;--x2:422px;--y2:114px;--delay:0.30s;--dur:2.20s"><rect width="138" height="15"/><text x="69" y="11" text-anchor="middle">execute (token 41)</text></g>
+  <g class="fail-only pulse"><rect x="560" y="96" width="150" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="635" y="118" text-anchor="middle" class="nd-l">Handler</text><text x="635" y="133" text-anchor="middle" class="nd-s">rejects token 41 < 42</text></g>
+  <g class="fail-only"><text x="380" y="224" text-anchor="middle" class="ax" fill="#ff8a80">the zombie worker still thinks it holds the lease &#8212; the fencing token is what stops it</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">claim + fencing token</span><span class="an-k k-r">execution</span><span class="an-k k-e">stale execution</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> workers claim batches with <code>SELECT &hellip; FOR UPDATE SKIP LOCKED</code> so they never block each other, each claim carries a <strong>monotonically increasing fencing token</strong>, and the worker heartbeats to extend its lease while it runs.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> worker 1 hits a long GC pause. Its lease expires, the scheduler hands the job to worker 2 with a higher token, and then worker 1 <em>wakes up</em> still believing it holds the lease &mdash; it cannot tell that time passed. Without fencing both would execute. The handler rejects <strong>token 41 because it has already seen 42</strong>, which makes the stale actor harmless rather than trying to prevent it. <span class="srcref">Ch 6</span></div>
+</div>
+<div class="dc-diagram"><svg width="680" height="200" viewBox="0 0 680 200" xmlns="http://www.w3.org/2000/svg">
   <defs><marker id="js1" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
   <rect x="10" y="70" width="120" height="60" rx="8" fill="#1a237e"/>
   <text x="70" y="96" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">Scheduler</text>
@@ -8065,7 +8275,7 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
   <div class="ds-body">
-<div class="anim" id="anim-isr">
+<div class="anim" id="anim-kafka">
   <div class="an-head">
     <div class="an-title">Replication and leader election &mdash; why only the in-sync set may be elected</div>
     <div class="an-btns">
@@ -8277,7 +8487,48 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 }</div></div>
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="dc-diagram"><svg width="680" height="230" viewBox="0 0 680 230" xmlns="http://www.w3.org/2000/svg">
+  <div class="ds-body">
+<div class="anim" id="anim-drive">
+  <div class="an-head">
+    <div class="an-title">Chunked sync &mdash; and the offline edit that has no correct automatic answer</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 244" role="img">
+  <rect x="14" y="32" width="118" height="52" rx="9" class="nd" data-n="d1"/>
+  <text x="73" y="54" text-anchor="middle" class="nd-l">Laptop</text>
+  <text x="73" y="69" text-anchor="middle" class="nd-s">offline edit</text>
+  <rect x="14" y="150" width="118" height="52" rx="9" class="nd" data-n="d2"/>
+  <text x="73" y="172" text-anchor="middle" class="nd-l">Phone</text>
+  <text x="73" y="187" text-anchor="middle" class="nd-s">offline edit</text>
+  <rect x="190" y="92" width="150" height="52" rx="9" class="nd nd-hi" data-n="sy"/>
+  <text x="265" y="114" text-anchor="middle" class="nd-l">Sync service</text>
+  <text x="265" y="129" text-anchor="middle" class="nd-s">chunk manifests</text>
+  <rect x="400" y="32" width="166" height="52" rx="9" class="nd" data-n="ob"/>
+  <text x="483" y="54" text-anchor="middle" class="nd-l">Chunk store</text>
+  <text x="483" y="69" text-anchor="middle" class="nd-s">content-addressed</text>
+  <rect x="400" y="150" width="166" height="52" rx="9" class="nd" data-n="md"/>
+  <text x="483" y="172" text-anchor="middle" class="nd-l">Metadata</text>
+  <text x="483" y="187" text-anchor="middle" class="nd-s">versions per file</text>
+  <path d="M 132 58 L 190 118" class="ed"/>
+  <path d="M 132 176 L 190 118" class="ed"/>
+  <path d="M 340 118 L 400 58" class="ed"/>
+  <path d="M 340 118 L 400 176" class="ed"/>
+  <g class="pk pk-w" style="--x1:132px;--y1:50px;--x2:80px;--y2:110px;--delay:0.00s;--dur:2.60s"><rect width="110" height="15"/><text x="55" y="11" text-anchor="middle">changed chunks</text></g>
+  <g class="pk pk-r" style="--x1:340px;--y1:110px;--x2:283px;--y2:50px;--delay:0.90s;--dur:2.40s"><rect width="117" height="15"/><text x="58" y="11" text-anchor="middle">new chunks only</text></g>
+  <g class="pk pk-y" style="--x1:340px;--y1:110px;--x2:304px;--y2:168px;--delay:1.40s;--dur:2.40s"><rect width="96" height="15"/><text x="48" y="11" text-anchor="middle">version bump</text></g>
+  <g class="pk pk-r" style="--x1:340px;--y1:110px;--x2:-68px;--y2:168px;--delay:2.00s;--dur:2.60s"><rect width="82" height="15"/><text x="41" y="11" text-anchor="middle">pull delta</text></g>
+  <g class="pk pk-e fail-only" style="--x1:132px;--y1:168px;--x2:59px;--y2:110px;--delay:0.20s;--dur:2.20s"><rect width="131" height="15"/><text x="66" y="11" text-anchor="middle">same file, edited</text></g>
+  <g class="fail-only pulse"><rect x="400" y="150" width="166" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="483" y="172" text-anchor="middle" class="nd-l">CONFLICT</text><text x="483" y="187" text-anchor="middle" class="nd-s">two versions, neither is an ancestor</text></g>
+  <g class="fail-only"><text x="380" y="228" text-anchor="middle" class="ax" fill="#ff8a80">last-writer-wins would silently destroy one person's work</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">changed chunks</span><span class="an-k k-r">chunk / delta</span><span class="an-k k-y">metadata</span><span class="an-k k-e">conflicting edit</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> only <em>changed chunks</em>. The file is split by content-defined boundaries, each chunk is named by its hash, and the client uploads just the hashes the server has not seen &mdash; which is why a one-line change to a large document costs kilobytes.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> both devices edit the same file while offline. Neither version descends from the other, so the version vectors are <em>concurrent</em> &mdash; there is no correct automatic merge. Last-writer-wins is simple and silently destroys somebody&rsquo;s work. <strong>The honest answer is to keep both</strong> and surface a conflicted copy, which is exactly what production file-sync products do. <span class="srcref">Ch 4</span></div>
+</div>
+<div class="dc-diagram"><svg width="680" height="230" viewBox="0 0 680 230" xmlns="http://www.w3.org/2000/svg">
   <defs><marker id="gdarr" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
   
   <rect x="10" y="80" width="110" height="70" rx="8" fill="#1a237e"/>
@@ -8444,7 +8695,49 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 }</div></div>
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="dc-diagram"><svg width="680" height="230" viewBox="0 0 680 230" xmlns="http://www.w3.org/2000/svg">
+  <div class="ds-body">
+<div class="anim" id="anim-uber">
+  <div class="an-head">
+    <div class="an-title">Geospatial matching &mdash; and the stale index that matches a driver who has gone</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 244" role="img">
+  <rect x="14" y="28" width="142" height="52" rx="9" class="nd" data-n="dr"/>
+  <text x="85" y="50" text-anchor="middle" class="nd-l">Drivers</text>
+  <text x="85" y="65" text-anchor="middle" class="nd-s">location every 4 s</text>
+  <rect x="210" y="96" width="150" height="52" rx="9" class="nd nd-hi" data-n="ix"/>
+  <text x="285" y="118" text-anchor="middle" class="nd-l">H3 cell index</text>
+  <text x="285" y="133" text-anchor="middle" class="nd-s">hot, in memory</text>
+  <rect x="14" y="164" width="142" height="52" rx="9" class="nd" data-n="ri"/>
+  <text x="85" y="186" text-anchor="middle" class="nd-l">Rider</text>
+  <text x="85" y="201" text-anchor="middle" class="nd-s">requests a ride</text>
+  <rect x="420" y="96" width="134" height="52" rx="9" class="nd" data-n="m"/>
+  <text x="487" y="118" text-anchor="middle" class="nd-l">Matcher</text>
+  <text x="487" y="133" text-anchor="middle" class="nd-s">cell + ring</text>
+  <rect x="600" y="96" width="110" height="52" rx="9" class="nd" data-n="t"/>
+  <text x="655" y="126" text-anchor="middle" class="nd-l">Trip</text>
+  <path d="M 156 54 L 210 122" class="ed"/>
+  <path d="M 156 190 L 210 122" class="ed"/>
+  <path d="M 360 122 L 420 122" class="ed"/>
+  <path d="M 554 122 L 600 122" class="ed"/>
+  <g class="pk pk-w" style="--x1:156px;--y1:46px;--x2:149px;--y2:114px;--delay:0.00s;--dur:2.20s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">lat/lng</text></g>
+  <g class="pk pk-w" style="--x1:156px;--y1:46px;--x2:149px;--y2:114px;--delay:0.30s;--dur:2.20s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">lat/lng</text></g>
+  <g class="pk pk-w" style="--x1:156px;--y1:46px;--x2:149px;--y2:114px;--delay:0.60s;--dur:2.20s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">lat/lng</text></g>
+  <g class="pk pk-y" style="--x1:156px;--y1:182px;--x2:149px;--y2:114px;--delay:0.80s;--dur:2.40s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">request</text></g>
+  <g class="pk pk-r" style="--x1:360px;--y1:114px;--x2:282px;--y2:114px;--delay:1.50s;--dur:2.40s"><rect width="138" height="15"/><text x="69" y="11" text-anchor="middle">candidates in cell</text></g>
+  <g class="pk pk-r" style="--x1:554px;--y1:114px;--x2:539px;--y2:114px;--delay:2.10s;--dur:2.20s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">matched</text></g>
+  <g class="fail-only pulse"><rect x="210" y="96" width="150" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="285" y="118" text-anchor="middle" class="nd-l">Index STALE</text><text x="285" y="133" text-anchor="middle" class="nd-s">location writes backed up 40 s</text></g>
+  <g class="pk pk-e fail-only" style="--x1:554px;--y1:114px;--x2:392px;--y2:114px;--delay:0.30s;--dur:2.20s"><rect width="208" height="15"/><text x="104" y="11" text-anchor="middle">matched to a driver who left</text></g>
+  <g class="fail-only"><text x="380" y="228" text-anchor="middle" class="ax" fill="#ff8a80">location writes are the largest stream in the system &#8212; they fail first</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">driver locations</span><span class="an-k k-y">ride request</span><span class="an-k k-r">candidates / match</span><span class="an-k k-e">bad match</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> a continuous stream of driver positions into an in-memory H3 cell index, and &mdash; occasionally &mdash; a rider request that reads one cell plus its ring and greedily matches the best nearby driver. Demand is local, so no query is ever global.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> the location stream is by far the largest write volume in the design, so it is what saturates first. When the index falls behind, matching still <em>works</em> &mdash; it just matches against where drivers were 40 seconds ago, producing long pickups and cancellations. Nothing errors. Watch <strong>index staleness</strong>, not just matcher latency.</div>
+</div>
+<div class="dc-diagram"><svg width="680" height="230" viewBox="0 0 680 230" xmlns="http://www.w3.org/2000/svg">
   <defs><marker id="uarr" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
   
   <rect x="10" y="30" width="100" height="60" rx="7" fill="#1a237e"/>
@@ -8607,7 +8900,51 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 <span class="cm">-- "raft" -> [Doc#12: TF=5, Pos=[12,45,89]], [Doc#99: TF=2, Pos=[3,120]]</span></div></div>
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="dc-diagram"><svg width="680" height="230" viewBox="0 0 680 230" xmlns="http://www.w3.org/2000/svg">
+  <div class="ds-body">
+<div class="anim" id="anim-crawler">
+  <div class="an-head">
+    <div class="an-title">Crawl loop &mdash; and the spider trap that consumes the whole fleet</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 246" role="img">
+  <rect x="14" y="100" width="142" height="52" rx="9" class="nd nd-hi" data-n="f"/>
+  <text x="85" y="122" text-anchor="middle" class="nd-l">Frontier</text>
+  <text x="85" y="137" text-anchor="middle" class="nd-s">per-host queues</text>
+  <rect x="200" y="100" width="140" height="52" rx="9" class="nd" data-n="fe"/>
+  <text x="270" y="122" text-anchor="middle" class="nd-l">Fetchers</text>
+  <text x="270" y="137" text-anchor="middle" class="nd-s">politeness delay</text>
+  <rect x="380" y="100" width="130" height="52" rx="9" class="nd" data-n="pa"/>
+  <text x="445" y="122" text-anchor="middle" class="nd-l">Parser</text>
+  <text x="445" y="137" text-anchor="middle" class="nd-s">extract links</text>
+  <rect x="550" y="32" width="160" height="52" rx="9" class="nd" data-n="dd"/>
+  <text x="630" y="62" text-anchor="middle" class="nd-l">SimHash dedup</text>
+  <rect x="550" y="168" width="160" height="52" rx="9" class="nd" data-n="ix"/>
+  <text x="630" y="198" text-anchor="middle" class="nd-l">Index</text>
+  <path d="M 156 126 L 200 126" class="ed"/>
+  <path d="M 340 126 L 380 126" class="ed"/>
+  <path d="M 510 126 L 550 58" class="ed"/>
+  <path d="M 510 126 L 550 194" class="ed"/>
+  <path d="M 445 100 C 445 220, 85 220, 85 152" class="ed ed-d"/>
+  <text x="265" y="236" text-anchor="middle" class="ax">new URLs back to the frontier</text>
+  <g class="pk pk-w" style="--x1:156px;--y1:118px;--x2:166px;--y2:118px;--delay:0.00s;--dur:2.40s"><rect width="34" height="15"/><text x="17" y="11" text-anchor="middle">URL</text></g>
+  <g class="pk pk-r" style="--x1:340px;--y1:118px;--x2:340px;--y2:118px;--delay:0.80s;--dur:2.40s"><rect width="40" height="15"/><text x="20" y="11" text-anchor="middle">page</text></g>
+  <g class="pk pk-y" style="--x1:510px;--y1:118px;--x2:461px;--y2:50px;--delay:1.50s;--dur:2.20s"><rect width="89" height="15"/><text x="44" y="11" text-anchor="middle">fingerprint</text></g>
+  <g class="pk pk-r" style="--x1:510px;--y1:118px;--x2:489px;--y2:186px;--delay:1.70s;--dur:2.20s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">content</text></g>
+  <g class="fail-only pulse"><rect x="14" y="100" width="142" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="85" y="122" text-anchor="middle" class="nd-l">Frontier EXPLODING</text><text x="85" y="137" text-anchor="middle" class="nd-s">one host emits infinite URLs</text></g>
+  <g class="pk pk-e fail-only" style="--x1:510px;--y1:118px;--x2:433px;--y2:50px;--delay:0.00s;--dur:1.80s"><rect width="117" height="15"/><text x="58" y="11" text-anchor="middle">cal.php?d=99999</text></g>
+  <g class="pk pk-e fail-only" style="--x1:510px;--y1:118px;--x2:433px;--y2:50px;--delay:0.25s;--dur:1.80s"><rect width="117" height="15"/><text x="58" y="11" text-anchor="middle">cal.php?d=99999</text></g>
+  <g class="pk pk-e fail-only" style="--x1:510px;--y1:118px;--x2:433px;--y2:50px;--delay:0.50s;--dur:1.80s"><rect width="117" height="15"/><text x="58" y="11" text-anchor="middle">cal.php?d=99999</text></g>
+  <g class="pk pk-e fail-only" style="--x1:510px;--y1:118px;--x2:433px;--y2:50px;--delay:0.75s;--dur:1.80s"><rect width="117" height="15"/><text x="58" y="11" text-anchor="middle">cal.php?d=99999</text></g>
+  <g class="fail-only"><text x="380" y="230" text-anchor="middle" class="ax" fill="#ff8a80">a spider trap: every page yields new URLs and none of them are new content</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">URL to fetch</span><span class="an-k k-r">page / content</span><span class="an-k k-y">fingerprint</span><span class="an-k k-e">trap URLs</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> URLs out of per-host queues, pages back, and freshly discovered links returning to the frontier. Partitioning by <em>host</em> is the load-bearing decision: it makes the politeness delay a local constraint instead of a distributed rate limiter.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> a calendar page generates a link to the next month, forever. The frontier grows without bound and the fleet spends itself on one domain producing no new content. Defences: a <strong>per-domain crawl budget</strong>, a depth cap, and near-duplicate detection <em>before</em> indexing so the trap is visible as thousands of nearly identical pages rather than as growth.</div>
+</div>
+<div class="dc-diagram"><svg width="680" height="230" viewBox="0 0 680 230" xmlns="http://www.w3.org/2000/svg">
   <defs><marker id="cwarr" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
   
   <rect x="10" y="70" width="120" height="80" rx="8" fill="#1a237e"/>
@@ -8761,7 +9098,7 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
   <div class="ds-body">
-<div class="anim" id="anim-telemetry">
+<div class="anim" id="anim-metrics">
   <div class="an-head">
     <div class="an-title">Telemetry ingest &mdash; and the cardinality bomb the collector has to stop</div>
     <div class="an-btns">
@@ -9144,7 +9481,49 @@ coordinator. Consensus is confined to membership, which changes a few times a we
 }</div></div>
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="flow">  <span class="fl-key">OFFLINE PIPELINE</span> (hourly)                <span class="fl-key">SERVING PATH</span> (per keystroke)
+  <div class="ds-body">
+<div class="anim" id="anim-typeahead">
+  <div class="an-head">
+    <div class="an-title">Suggestion path &mdash; and the bad table that has to be one flip from rollback</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 236" role="img">
+  <rect x="14" y="96" width="134" height="52" rx="9" class="nd" data-n="kb"/>
+  <text x="81" y="118" text-anchor="middle" class="nd-l">Keystroke</text>
+  <text x="81" y="133" text-anchor="middle" class="nd-s">debounced 50 ms</text>
+  <rect x="190" y="96" width="140" height="52" rx="9" class="nd nd-hi" data-n="cdn"/>
+  <text x="260" y="118" text-anchor="middle" class="nd-l">Edge cache</text>
+  <text x="260" y="133" text-anchor="middle" class="nd-s">short prefixes</text>
+  <rect x="370" y="96" width="152" height="52" rx="9" class="nd" data-n="sv"/>
+  <text x="446" y="118" text-anchor="middle" class="nd-l">Suggest service</text>
+  <text x="446" y="133" text-anchor="middle" class="nd-s">hash(prefix)</text>
+  <rect x="560" y="32" width="160" height="52" rx="9" class="nd" data-n="sh"/>
+  <text x="640" y="54" text-anchor="middle" class="nd-l">Prefix table</text>
+  <text x="640" y="69" text-anchor="middle" class="nd-s">150 GB in RAM</text>
+  <rect x="560" y="160" width="160" height="52" rx="9" class="nd" data-n="tr"/>
+  <text x="640" y="182" text-anchor="middle" class="nd-l">Trending overlay</text>
+  <text x="640" y="197" text-anchor="middle" class="nd-s">streaming lane</text>
+  <path d="M 148 122 L 190 122" class="ed"/>
+  <path d="M 330 122 L 370 122" class="ed"/>
+  <path d="M 522 122 L 560 58" class="ed"/>
+  <path d="M 522 122 L 560 186" class="ed"/>
+  <g class="pk pk-w" style="--x1:148px;--y1:114px;--x2:143px;--y2:114px;--delay:0.00s;--dur:2.20s"><rect width="47" height="15"/><text x="24" y="11" text-anchor="middle">"lin"</text></g>
+  <g class="pk pk-y" style="--x1:190px;--y1:114px;--x2:31px;--y2:114px;--delay:0.80s;--dur:2.00s"><rect width="117" height="15"/><text x="58" y="11" text-anchor="middle">top 10 (cached)</text></g>
+  <g class="pk pk-w" style="--x1:330px;--y1:114px;--x2:330px;--y2:114px;--delay:1.20s;--dur:2.40s"><rect width="40" height="15"/><text x="20" y="11" text-anchor="middle">miss</text></g>
+  <g class="pk pk-r" style="--x1:522px;--y1:114px;--x2:443px;--y2:50px;--delay:1.80s;--dur:2.20s"><rect width="117" height="15"/><text x="58" y="11" text-anchor="middle">one hash lookup</text></g>
+  <g class="pk pk-r" style="--x1:522px;--y1:114px;--x2:457px;--y2:178px;--delay:2.00s;--dur:2.20s"><rect width="103" height="15"/><text x="52" y="11" text-anchor="middle">merge overlay</text></g>
+  <g class="fail-only pulse"><rect x="560" y="32" width="160" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="640" y="54" text-anchor="middle" class="nd-l">Bad table published</text><text x="640" y="69" text-anchor="middle" class="nd-s">half the prefixes missing</text></g>
+  <g class="pk pk-e fail-only" style="--x1:370px;--y1:114px;--x2:17px;--y2:114px;--delay:0.30s;--dur:2.00s"><rect width="131" height="15"/><text x="66" y="11" text-anchor="middle">empty suggestions</text></g>
+  <g class="fail-only"><text x="380" y="222" text-anchor="middle" class="ax" fill="#ff8a80">versioned tables + a pointer swap make rollback one flip &#8212; if you gate the swap</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">prefix</span><span class="an-k k-y">cached results</span><span class="an-k k-r">lookup</span><span class="an-k k-e">empty result</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> a prefix out, ten suggestions back &mdash; usually from the edge, because short prefixes are both the hottest and the most stable. On a miss it is a <em>single hash lookup</em> into a precomputed table, plus a small trending overlay merged at read time. No ranking happens on this path.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> a build publishes a partial table. Suggestions silently degrade to nothing &mdash; and because the endpoint returns <code>200</code> with an empty list by design, no error rate moves. That is why the swap must be <strong>gated</strong>: table size within a few per cent of the last build, canary prefixes unchanged, zero safety violations in a sample &mdash; and why versions are immutable so rollback is a pointer flip.</div>
+</div>
+<div class="flow">  <span class="fl-key">OFFLINE PIPELINE</span> (hourly)                <span class="fl-key">SERVING PATH</span> (per keystroke)
 
   query logs (last 7d)                       browser
        |                                       | debounce 50ms,
@@ -9503,7 +9882,53 @@ budget.</p></div>
 </div>
 <div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="flow">  client
+  <div class="ds-body">
+<div class="anim" id="anim-ml-inference">
+  <div class="an-head">
+    <div class="an-title">Inference path &mdash; and why the batcher is the entire economics</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 238" role="img">
+  <rect x="14" y="96" width="104" height="52" rx="9" class="nd" data-n="c"/>
+  <text x="66" y="126" text-anchor="middle" class="nd-l">Requests</text>
+  <rect x="150" y="96" width="126" height="52" rx="9" class="nd" data-n="pp"/>
+  <text x="213" y="118" text-anchor="middle" class="nd-l">Preprocess</text>
+  <text x="213" y="133" text-anchor="middle" class="nd-s">CPU tier</text>
+  <rect x="312" y="96" width="150" height="52" rx="9" class="nd nd-hi" data-n="ba"/>
+  <text x="387" y="118" text-anchor="middle" class="nd-l">Batcher</text>
+  <text x="387" y="133" text-anchor="middle" class="nd-s">waits up to 10 ms</text>
+  <rect x="510" y="96" width="140" height="52" rx="9" class="nd" data-n="gpu"/>
+  <text x="580" y="118" text-anchor="middle" class="nd-l">GPU model</text>
+  <text x="580" y="133" text-anchor="middle" class="nd-s">batch of 32</text>
+  <rect x="672" y="96" width="76" height="52" rx="9" class="nd" data-n="th"/>
+  <text x="710" y="126" text-anchor="middle" class="nd-l">Threshold</text>
+  <path d="M 118 122 L 150 122" class="ed"/>
+  <path d="M 276 122 L 312 122" class="ed"/>
+  <path d="M 462 122 L 510 122" class="ed"/>
+  <path d="M 650 122 L 672 122" class="ed"/>
+  <g class="pk pk-w" style="--x1:118px;--y1:114px;--x2:103px;--y2:114px;--delay:0.00s;--dur:2.20s"><rect width="47" height="15"/><text x="24" y="11" text-anchor="middle">input</text></g>
+  <g class="pk pk-w" style="--x1:118px;--y1:114px;--x2:103px;--y2:114px;--delay:0.20s;--dur:2.20s"><rect width="47" height="15"/><text x="24" y="11" text-anchor="middle">input</text></g>
+  <g class="pk pk-w" style="--x1:118px;--y1:114px;--x2:103px;--y2:114px;--delay:0.40s;--dur:2.20s"><rect width="47" height="15"/><text x="24" y="11" text-anchor="middle">input</text></g>
+  <g class="pk pk-w" style="--x1:118px;--y1:114px;--x2:103px;--y2:114px;--delay:0.60s;--dur:2.20s"><rect width="47" height="15"/><text x="24" y="11" text-anchor="middle">input</text></g>
+  <g class="pk pk-r" style="--x1:276px;--y1:114px;--x2:258px;--y2:114px;--delay:1.00s;--dur:2.20s"><rect width="54" height="15"/><text x="27" y="11" text-anchor="middle">tensor</text></g>
+  <g class="pk pk-y" style="--x1:462px;--y1:114px;--x2:435px;--y2:114px;--delay:1.60s;--dur:2.20s"><rect width="75" height="15"/><text x="38" y="11" text-anchor="middle">BATCH x32</text></g>
+  <g class="pk pk-r" style="--x1:650px;--y1:114px;--x2:534px;--y2:114px;--delay:2.20s;--dur:2.00s"><rect width="138" height="15"/><text x="69" y="11" text-anchor="middle">label + confidence</text></g>
+  <g class="fail-only"><rect x="312" y="96" width="150" height="52" rx="9" class="deadnode"/><text x="387" y="118" text-anchor="middle" class="nd-l">Batcher BYPASSED</text><text x="387" y="133" text-anchor="middle" class="nd-s">one request per GPU call</text></g>
+  <g class="pk pk-e fail-only" style="--x1:276px;--y1:114px;--x2:421px;--y2:114px;--delay:0.00s;--dur:1.80s"><rect width="89" height="15"/><text x="44" y="11" text-anchor="middle">single item</text></g>
+  <g class="pk pk-e fail-only" style="--x1:276px;--y1:114px;--x2:421px;--y2:114px;--delay:0.20s;--dur:1.80s"><rect width="89" height="15"/><text x="44" y="11" text-anchor="middle">single item</text></g>
+  <g class="pk pk-e fail-only" style="--x1:276px;--y1:114px;--x2:421px;--y2:114px;--delay:0.40s;--dur:1.80s"><rect width="89" height="15"/><text x="44" y="11" text-anchor="middle">single item</text></g>
+  <g class="pk pk-e fail-only" style="--x1:276px;--y1:114px;--x2:421px;--y2:114px;--delay:0.60s;--dur:1.80s"><rect width="89" height="15"/><text x="44" y="11" text-anchor="middle">single item</text></g>
+  <g class="pk pk-e fail-only" style="--x1:276px;--y1:114px;--x2:421px;--y2:114px;--delay:0.80s;--dur:1.80s"><rect width="89" height="15"/><text x="44" y="11" text-anchor="middle">single item</text></g>
+  <g class="fail-only pulse"><rect x="510" y="96" width="140" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="580" y="118" text-anchor="middle" class="nd-l">GPU saturated</text><text x="580" y="133" text-anchor="middle" class="nd-s">~10x the hardware for the same load</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">input</span><span class="an-k k-r">tensor / result</span><span class="an-k k-y">batch</span><span class="an-k k-e">unbatched calls</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> raw inputs are decoded and normalised on a cheap CPU tier, then held by the batcher for up to ~10&nbsp;ms or until 32 accumulate, and run through the GPU as one call. Preprocessing is deliberately off the GPU so the expensive resource is never idle waiting on the cheap one.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> take the batcher out and each request occupies the GPU alone. At 350 QPS &times; 40&nbsp;ms that is 14 GPU-seconds per second &mdash; <strong>roughly ten times the hardware</strong> for identical traffic and no better latency. Batching is not an optimisation here; it is the difference between an affordable system and an unaffordable one.</div>
+</div>
+<div class="flow">  client
     |
     v
   <span class="fl-key">API GATEWAY</span>  auth, size cap, rate limit, shed early
@@ -9676,7 +10101,52 @@ more than a novel design.</strong></p></div>
 </div>
 <div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="flow">  <span class="fl-key">TRAINING JOB</span> (thousands, running for hours)
+  <div class="ds-body">
+<div class="anim" id="anim-ml-platform">
+  <div class="an-head">
+    <div class="an-title">Experiment tracking &mdash; and the outage where dropping data is the right answer</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 244" role="img">
+  <rect x="14" y="100" width="134" height="52" rx="9" class="nd" data-n="tr"/>
+  <text x="81" y="122" text-anchor="middle" class="nd-l">Training run</text>
+  <text x="81" y="137" text-anchor="middle" class="nd-s">40 hours</text>
+  <rect x="180" y="100" width="150" height="52" rx="9" class="nd nd-hi" data-n="cl"/>
+  <text x="255" y="122" text-anchor="middle" class="nd-l">Client buffer</text>
+  <text x="255" y="137" text-anchor="middle" class="nd-s">flush every few s</text>
+  <rect x="370" y="100" width="120" height="52" rx="9" class="nd" data-n="in"/>
+  <text x="430" y="130" text-anchor="middle" class="nd-l">Ingest API</text>
+  <rect x="540" y="24" width="130" height="52" rx="9" class="nd" data-n="md"/>
+  <text x="605" y="54" text-anchor="middle" class="nd-l">Metadata</text>
+  <rect x="540" y="100" width="130" height="52" rx="9" class="nd" data-n="ms"/>
+  <text x="605" y="130" text-anchor="middle" class="nd-l">Metrics TSDB</text>
+  <rect x="540" y="176" width="130" height="52" rx="9" class="nd" data-n="ar"/>
+  <text x="605" y="206" text-anchor="middle" class="nd-l">Artifacts</text>
+  <path d="M 148 126 L 180 126" class="ed"/>
+  <path d="M 330 126 L 370 126" class="ed"/>
+  <path d="M 490 126 L 540 50" class="ed"/>
+  <path d="M 490 126 L 540 126" class="ed"/>
+  <path d="M 490 126 L 540 202" class="ed"/>
+  <g class="pk pk-w" style="--x1:148px;--y1:118px;--x2:84px;--y2:118px;--delay:0.00s;--dur:2.20s"><rect width="96" height="15"/><text x="48" y="11" text-anchor="middle">metric point</text></g>
+  <g class="pk pk-w" style="--x1:148px;--y1:118px;--x2:84px;--y2:118px;--delay:0.35s;--dur:2.20s"><rect width="96" height="15"/><text x="48" y="11" text-anchor="middle">metric point</text></g>
+  <g class="pk pk-r" style="--x1:330px;--y1:118px;--x2:267px;--y2:118px;--delay:1.00s;--dur:2.40s"><rect width="103" height="15"/><text x="52" y="11" text-anchor="middle">batched flush</text></g>
+  <g class="pk pk-r" style="--x1:490px;--y1:118px;--x2:486px;--y2:118px;--delay:1.70s;--dur:2.20s"><rect width="54" height="15"/><text x="27" y="11" text-anchor="middle">series</text></g>
+  <g class="pk pk-y" style="--x1:490px;--y1:118px;--x2:423px;--y2:42px;--delay:1.90s;--dur:2.20s"><rect width="117" height="15"/><text x="58" y="11" text-anchor="middle">params + hashes</text></g>
+  <g class="fail-only"><rect x="370" y="100" width="120" height="52" rx="9" class="deadnode"/><text x="430" y="122" text-anchor="middle" class="nd-l">Ingest DOWN</text><text x="430" y="137" text-anchor="middle" class="nd-s"></text></g>
+  <g class="pk pk-e fail-only" style="--x1:330px;--y1:118px;--x2:281px;--y2:118px;--delay:0.00s;--dur:1.80s"><rect width="89" height="15"/><text x="44" y="11" text-anchor="middle">flush fails</text></g>
+  <g class="pk pk-e fail-only" style="--x1:330px;--y1:118px;--x2:281px;--y2:118px;--delay:0.40s;--dur:1.80s"><rect width="89" height="15"/><text x="44" y="11" text-anchor="middle">flush fails</text></g>
+  <g class="pk pk-e fail-only" style="--x1:330px;--y1:118px;--x2:281px;--y2:118px;--delay:0.80s;--dur:1.80s"><rect width="89" height="15"/><text x="44" y="11" text-anchor="middle">flush fails</text></g>
+  <g class="fail-only pulse"><rect x="180" y="100" width="150" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="255" y="122" text-anchor="middle" class="nd-l">Client DROPS the points</text><text x="255" y="137" text-anchor="middle" class="nd-s">and the training run continues</text></g>
+  <g class="fail-only"><text x="380" y="228" text-anchor="middle" class="ax" fill="#80cbc4">this is the CORRECT behaviour &#8212; a gap in a curve beats losing 40 hours of GPU</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">metric points</span><span class="an-k k-r">batched write</span><span class="an-k k-y">metadata</span><span class="an-k k-e">failed flush</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> metric points at up to 100&nbsp;Hz per run, buffered in the client and flushed asynchronously; run metadata and the four reproducibility hashes; and gigabyte checkpoints, which the client uploads <em>directly</em> to object storage rather than through the API.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong &mdash; and why it is fine:</span> the ingest service is down. The client buffers, then <strong>drops the points and keeps training</strong>. A gap in a loss curve costs nothing; killing a 40-hour run on expensive hardware because a metadata service returned 503 is unacceptable. This is the same inversion as <span class="srcref">D11</span>: the observability system must never be able to take down the thing it observes.</div>
+</div>
+<div class="flow">  <span class="fl-key">TRAINING JOB</span> (thousands, running for hours)
       |
       |  client library buffers in memory, flushes every few seconds,
       |  <span class="fl-hi">drops on the floor if the tracker is down</span>
@@ -9849,7 +10319,50 @@ turns an impossible storage bill into a manageable one.</p></div>
 </div>
 <div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="flow">  <span class="fl-key">OFFLINE: BUILD THE MAP</span>              <span class="fl-key">ONLINE: SERVE IT</span>
+  <div class="ds-body">
+<div class="anim" id="anim-maps">
+  <div class="an-head">
+    <div class="an-title">Build and serve the map &mdash; and the cold CDN every new version creates</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 244" role="img">
+  <rect x="14" y="100" width="140" height="52" rx="9" class="nd" data-n="v"/>
+  <text x="84" y="122" text-anchor="middle" class="nd-l">Capture fleet</text>
+  <text x="84" y="137" text-anchor="middle" class="nd-s">1,000 vehicles</text>
+  <rect x="180" y="100" width="156" height="52" rx="9" class="nd nd-hi" data-n="dp"/>
+  <text x="258" y="122" text-anchor="middle" class="nd-l">Depot ingest</text>
+  <text x="258" y="137" text-anchor="middle" class="nd-s">drives, not network</text>
+  <rect x="370" y="100" width="160" height="52" rx="9" class="nd" data-n="cf"/>
+  <text x="450" y="122" text-anchor="middle" class="nd-l">Conflate</text>
+  <text x="450" y="137" text-anchor="middle" class="nd-s">traces -> centrelines</text>
+  <rect x="560" y="32" width="160" height="52" rx="9" class="nd" data-n="tl"/>
+  <text x="640" y="54" text-anchor="middle" class="nd-l">Versioned tiles</text>
+  <text x="640" y="69" text-anchor="middle" class="nd-s">immutable</text>
+  <rect x="560" y="168" width="160" height="52" rx="9" class="nd" data-n="cd"/>
+  <text x="640" y="198" text-anchor="middle" class="nd-l">CDN</text>
+  <path d="M 154 126 L 180 126" class="ed"/>
+  <path d="M 336 126 L 370 126" class="ed"/>
+  <path d="M 530 126 L 560 58" class="ed"/>
+  <path d="M 640 84 L 640 168" class="ed"/>
+  <g class="pk pk-w" style="--x1:154px;--y1:118px;--x2:98px;--y2:118px;--delay:0.00s;--dur:2.60s"><rect width="82" height="15"/><text x="41" y="11" text-anchor="middle">432 TB/day</text></g>
+  <g class="pk pk-r" style="--x1:336px;--y1:118px;--x2:267px;--y2:118px;--delay:0.90s;--dur:2.40s"><rect width="103" height="15"/><text x="52" y="11" text-anchor="middle">GPS + imagery</text></g>
+  <g class="pk pk-y" style="--x1:530px;--y1:118px;--x2:464px;--y2:50px;--delay:1.60s;--dur:2.40s"><rect width="96" height="15"/><text x="48" y="11" text-anchor="middle">map build vN</text></g>
+  <g class="pk pk-r" style="--x1:640px;--y1:76px;--x2:516px;--y2:160px;--delay:2.20s;--dur:2.20s"><rect width="124" height="15"/><text x="62" y="11" text-anchor="middle">tiles (1 yr TTL)</text></g>
+  <g class="fail-only pulse"><rect x="560" y="168" width="160" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="640" y="190" text-anchor="middle" class="nd-l">CDN cold</text><text x="640" y="205" text-anchor="middle" class="nd-s">new version = every tile URL changed</text></g>
+  <g class="pk pk-e fail-only" style="--x1:640px;--y1:160px;--x2:544px;--y2:76px;--delay:0.00s;--dur:1.80s"><rect width="96" height="15"/><text x="48" y="11" text-anchor="middle">origin fetch</text></g>
+  <g class="pk pk-e fail-only" style="--x1:640px;--y1:160px;--x2:544px;--y2:76px;--delay:0.25s;--dur:1.80s"><rect width="96" height="15"/><text x="48" y="11" text-anchor="middle">origin fetch</text></g>
+  <g class="pk pk-e fail-only" style="--x1:640px;--y1:160px;--x2:544px;--y2:76px;--delay:0.50s;--dur:1.80s"><rect width="96" height="15"/><text x="48" y="11" text-anchor="middle">origin fetch</text></g>
+  <g class="pk pk-e fail-only" style="--x1:640px;--y1:160px;--x2:544px;--y2:76px;--delay:0.75s;--dur:1.80s"><rect width="96" height="15"/><text x="48" y="11" text-anchor="middle">origin fetch</text></g>
+  <g class="fail-only"><text x="380" y="228" text-anchor="middle" class="ax" fill="#ff8a80">immutable tiles remove invalidation &#8212; and make every publish a cold-start stampede</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">raw capture</span><span class="an-k k-r">processed data / tiles</span><span class="an-k k-y">map build</span><span class="an-k k-e">origin fetches</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> 432&nbsp;TB/day of imagery arrives on <em>physical drives</em>, because that volume cannot go over the air. Conflation turns noisy GPS traces into centrelines, and a build publishes an immutable, versioned tile set that the CDN can cache for a year with no invalidation logic at all.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> immutability has a sting. Because the version is in the URL path, publishing vN+1 changes <em>every tile URL at once</em> &mdash; so the CDN is instantly cold and the origin takes the full load. Roll out <strong>by region</strong> and pre-warm the low zoom levels, which are the overwhelming majority of requests. <span class="srcref">Ch 9</span></div>
+</div>
+<div class="flow">  <span class="fl-key">OFFLINE: BUILD THE MAP</span>              <span class="fl-key">ONLINE: SERVE IT</span>
 
   capture vehicles                       client
   imagery + GPS + LiDAR                    |
@@ -10015,7 +10528,46 @@ architecture, not the configuration.</em></p></div>
 </div>
 <div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="flow">  <span class="fl-key">ORCHESTRATOR</span>  (stateless; all state is in the table)
+  <div class="ds-body">
+<div class="anim" id="anim-fleet-upgrade">
+  <div class="an-head">
+    <div class="an-title">Staged rollout &mdash; and the halt that stops 10 machines becoming 5,000</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 246" role="img">
+  <rect x="14" y="100" width="134" height="52" rx="9" class="nd nd-hi" data-n="or"/>
+  <text x="81" y="122" text-anchor="middle" class="nd-l">Orchestrator</text>
+  <text x="81" y="137" text-anchor="middle" class="nd-s">stateless</text>
+  <rect x="180" y="100" width="166" height="52" rx="9" class="nd" data-n="ds"/>
+  <text x="263" y="122" text-anchor="middle" class="nd-l">Desired state</text>
+  <text x="263" y="137" text-anchor="middle" class="nd-s">one row per machine</text>
+  <rect x="420" y="24" width="170" height="52" rx="9" class="nd" data-n="a1"/>
+  <text x="505" y="54" text-anchor="middle" class="nd-l">wave 1: 1 machine</text>
+  <rect x="420" y="100" width="170" height="52" rx="9" class="nd" data-n="a2"/>
+  <text x="505" y="130" text-anchor="middle" class="nd-l">wave 2: 10</text>
+  <rect x="420" y="176" width="170" height="52" rx="9" class="nd" data-n="a3"/>
+  <text x="505" y="206" text-anchor="middle" class="nd-l">wave 3: 100</text>
+  <path d="M 148 126 L 180 126" class="ed"/>
+  <path d="M 346 126 L 420 50" class="ed"/>
+  <path d="M 346 126 L 420 126" class="ed"/>
+  <path d="M 346 126 L 420 202" class="ed"/>
+  <text x="620" y="140" text-anchor="middle" class="ax">agents PULL</text>
+  <g class="pk pk-w" style="--x1:148px;--y1:118px;--x2:91px;--y2:118px;--delay:0.00s;--dur:2.40s"><rect width="89" height="15"/><text x="44" y="11" text-anchor="middle">set version</text></g>
+  <g class="pk pk-r" style="--x1:420px;--y1:42px;--x2:222px;--y2:118px;--delay:0.80s;--dur:2.60s"><rect width="124" height="15"/><text x="62" y="11" text-anchor="middle">pull + report OK</text></g>
+  <g class="pk pk-r" style="--x1:420px;--y1:118px;--x2:222px;--y2:118px;--delay:1.50s;--dur:2.60s"><rect width="124" height="15"/><text x="62" y="11" text-anchor="middle">pull + report OK</text></g>
+  <g class="pk pk-y" style="--x1:420px;--y1:194px;--x2:306px;--y2:118px;--delay:2.10s;--dur:2.60s"><rect width="40" height="15"/><text x="20" y="11" text-anchor="middle">pull</text></g>
+  <g class="fail-only pulse"><rect x="420" y="100" width="170" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="505" y="122" text-anchor="middle" class="nd-l">wave 2: REGRESSION</text><text x="505" y="137" text-anchor="middle" class="nd-s">error rate above baseline</text></g>
+  <g class="pk pk-e fail-only" style="--x1:420px;--y1:118px;--x2:243px;--y2:118px;--delay:0.20s;--dur:2.00s"><rect width="103" height="15"/><text x="52" y="11" text-anchor="middle">report FAILED</text></g>
+  <g class="fail-only"><rect x="420" y="176" width="170" height="52" rx="9" fill="#23233d" stroke="rgba(255,255,255,.16)"/><text x="505" y="198" text-anchor="middle" class="nd-l">wave 3: HALTED</text><text x="505" y="213" text-anchor="middle" class="nd-s">never started</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">desired version</span><span class="an-k k-r">agent reports OK</span><span class="an-k k-y">pulling</span><span class="an-k k-e">failure report</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> the orchestrator writes a <em>desired version</em> into a table and agents <strong>pull</strong> it &mdash; nothing is ever pushed. Waves grow exponentially (1, then 10, then 100) with bake time between them, because the first machine buys the cheapest information you will ever get.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong &mdash; and is caught:</span> wave 2 shows an error-rate regression against the <em>concurrently running</em> old version. The rollout halts automatically and rolls back the completed waves; wave 3 never starts. <strong>Ten machines were affected instead of five thousand</strong> &mdash; which is the entire purpose of the design. Note the comparison must be against a live baseline, not yesterday, or a diurnal dip reads as a regression.</div>
+</div>
+<div class="flow">  <span class="fl-key">ORCHESTRATOR</span>  (stateless; all state is in the table)
       |
       |  every tick:
       |    1. count machines not in {done, failed}   <span class="fl-dim">-- the budget</span>
@@ -10402,7 +10954,45 @@ the hard part becomes local to one process.</p></div>
 </div>
 <div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="flow">  client A                                    client B
+  <div class="ds-body">
+<div class="anim" id="anim-collab">
+  <div class="an-head">
+    <div class="an-title">Concurrent edits &mdash; and the split brain that silently forks a document</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 240" role="img">
+  <rect x="14" y="28" width="112" height="52" rx="9" class="nd" data-n="c1"/>
+  <text x="70" y="58" text-anchor="middle" class="nd-l">Client A</text>
+  <rect x="14" y="158" width="112" height="52" rx="9" class="nd" data-n="c2"/>
+  <text x="70" y="188" text-anchor="middle" class="nd-l">Client B</text>
+  <rect x="210" y="96" width="166" height="52" rx="9" class="nd nd-hi" data-n="se"/>
+  <text x="293" y="118" text-anchor="middle" class="nd-l">Session owner</text>
+  <text x="293" y="133" text-anchor="middle" class="nd-s">one per document</text>
+  <rect x="440" y="96" width="160" height="52" rx="9" class="nd" data-n="lg"/>
+  <text x="520" y="118" text-anchor="middle" class="nd-l">Op log</text>
+  <text x="520" y="133" text-anchor="middle" class="nd-s">total order per doc</text>
+  <rect x="640" y="96" width="104" height="52" rx="9" class="nd" data-n="sn"/>
+  <text x="692" y="126" text-anchor="middle" class="nd-l">Snapshot</text>
+  <path d="M 126 54 L 210 122" class="ed"/>
+  <path d="M 126 184 L 210 122" class="ed"/>
+  <path d="M 376 122 L 440 122" class="ed"/>
+  <path d="M 600 122 L 640 122" class="ed"/>
+  <g class="pk pk-w" style="--x1:126px;--y1:46px;--x2:135px;--y2:114px;--delay:0.00s;--dur:2.40s"><rect width="75" height="15"/><text x="38" y="11" text-anchor="middle">insert @5</text></g>
+  <g class="pk pk-w" style="--x1:126px;--y1:176px;--x2:135px;--y2:114px;--delay:0.20s;--dur:2.40s"><rect width="75" height="15"/><text x="38" y="11" text-anchor="middle">insert @5</text></g>
+  <g class="pk pk-r" style="--x1:376px;--y1:114px;--x2:295px;--y2:114px;--delay:1.10s;--dur:2.40s"><rect width="145" height="15"/><text x="72" y="11" text-anchor="middle">transformed, seq 88</text></g>
+  <g class="pk pk-y" style="--x1:210px;--y1:114px;--x2:44px;--y2:176px;--delay:1.70s;--dur:2.40s"><rect width="82" height="15"/><text x="41" y="11" text-anchor="middle">rebased op</text></g>
+  <g class="fail-only"><rect x="210" y="26" width="166" height="52" rx="9" class="deadnode"/><text x="293" y="48" text-anchor="middle" class="nd-l">Session owner 2</text><text x="293" y="63" text-anchor="middle" class="nd-s">also thinks it owns the doc</text></g>
+  <g class="fail-only pulse"><rect x="440" y="96" width="160" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="520" y="118" text-anchor="middle" class="nd-l">TWO orderings</text><text x="520" y="133" text-anchor="middle" class="nd-s">documents silently diverge</text></g>
+  <g class="fail-only"><text x="380" y="226" text-anchor="middle" class="ax" fill="#ff8a80">split brain: a fenced lease is what makes the stale owner's writes get rejected</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">local edits</span><span class="an-k k-r">ordered op</span><span class="an-k k-y">rebased op</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> two edits authored against the <em>same</em> document state. Each applies locally first &mdash; typing never waits for a round trip &mdash; then the session owner assigns a sequence number, transforms the second against the first, and broadcasts the rebased operation. One sequencer per document turns a distributed consensus problem into a single-threaded one.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> a network blip and two nodes both believe they own the document. Now there are <strong>two total orders</strong>, and clients converge to different documents with no error anywhere. This is why ownership needs a <em>fenced lease</em> rather than a best-effort lock: the stale owner&rsquo;s writes must be rejected at the log, not merely discouraged. <span class="srcref">Ch 6</span></div>
+</div>
+<div class="flow">  client A                                    client B
     |  edit applies LOCALLY first (0 ms)         |
     |  and is queued as pending                  |
     v                                            v
@@ -10570,7 +11160,45 @@ dataset is small enough to replicate everywhere is the entire answer.</em></p></
 </div>
 <div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="flow">  third-party feed        internal signals (abuse detection, manual)
+  <div class="ds-body">
+<div class="anim" id="anim-denylist">
+  <div class="an-head">
+    <div class="an-title">Denylist distribution &mdash; and the upstream feed that could ban everyone</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 240" role="img">
+  <rect x="14" y="96" width="150" height="52" rx="9" class="nd" data-n="fe"/>
+  <text x="89" y="118" text-anchor="middle" class="nd-l">Third-party feed</text>
+  <text x="89" y="133" text-anchor="middle" class="nd-s">untrusted</text>
+  <rect x="190" y="96" width="150" height="52" rx="9" class="nd nd-hi" data-n="va"/>
+  <text x="265" y="118" text-anchor="middle" class="nd-l">Validate + diff</text>
+  <text x="265" y="133" text-anchor="middle" class="nd-s">sanity limits</text>
+  <rect x="370" y="96" width="160" height="52" rx="9" class="nd" data-n="sb"/>
+  <text x="450" y="118" text-anchor="middle" class="nd-l">Snapshot build</text>
+  <text x="450" y="133" text-anchor="middle" class="nd-s">signed radix trie</text>
+  <rect x="580" y="96" width="160" height="52" rx="9" class="nd" data-n="ed"/>
+  <text x="660" y="118" text-anchor="middle" class="nd-l">200 edge nodes</text>
+  <text x="660" y="133" text-anchor="middle" class="nd-s">8 MB in process</text>
+  <path d="M 164 122 L 190 122" class="ed"/>
+  <path d="M 340 122 L 370 122" class="ed"/>
+  <path d="M 530 122 L 580 122" class="ed"/>
+  <text x="500" y="86" text-anchor="middle" class="ax">edges PULL every 10 s</text>
+  <g class="pk pk-w" style="--x1:164px;--y1:114px;--x2:122px;--y2:114px;--delay:0.00s;--dur:2.40s"><rect width="68" height="15"/><text x="34" y="11" text-anchor="middle">1M CIDRs</text></g>
+  <g class="pk pk-r" style="--x1:340px;--y1:114px;--x2:260px;--y2:114px;--delay:0.90s;--dur:2.40s"><rect width="110" height="15"/><text x="55" y="11" text-anchor="middle">delta accepted</text></g>
+  <g class="pk pk-y" style="--x1:530px;--y1:114px;--x2:491px;--y2:114px;--delay:1.60s;--dur:2.40s"><rect width="89" height="15"/><text x="44" y="11" text-anchor="middle">snapshot vN</text></g>
+  <g class="fail-only"><line x1="168" y1="113" x2="186" y2="131" class="xmark"/><line x1="186" y1="113" x2="168" y2="131" class="xmark"/></g>
+  <g class="fail-only"><rect x="14" y="96" width="150" height="52" rx="9" class="deadnode"/><text x="89" y="118" text-anchor="middle" class="nd-l">Feed publishes 0.0.0.0/0</text><text x="89" y="133" text-anchor="middle" class="nd-s">would ban the internet</text></g>
+  <g class="pk pk-e fail-only" style="--x1:164px;--y1:114px;--x2:122px;--y2:114px;--delay:0.20s;--dur:2.00s"><rect width="68" height="15"/><text x="34" y="11" text-anchor="middle">REJECTED</text></g>
+  <g class="fail-only pulse"><rect x="580" y="96" width="160" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="660" y="118" text-anchor="middle" class="nd-l">Edges keep serving vN-1</text><text x="660" y="133" text-anchor="middle" class="nd-s">last good snapshot, indefinitely</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">feed data</span><span class="an-k k-r">accepted delta</span><span class="an-k k-y">snapshot</span><span class="an-k k-e">rejected</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> a feed of banned ranges is validated, diffed and compiled into a signed radix trie of about 8&nbsp;MB, which every edge <strong>pulls</strong>. The hot path never appears here at all &mdash; the actual check is a local memory lookup with zero network hops.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> the upstream feed malfunctions and publishes an over-broad range. Applied faithfully, that blocks everyone. <strong>Treat the feed as untrusted input:</strong> reject any delta banning more than a small fraction of address space, or removing most existing rules, and never accept a prefix broader than a configured maximum. Edges keep the last good snapshot indefinitely, so a rejected feed is an alert, not an outage.</div>
+</div>
+<div class="flow">  third-party feed        internal signals (abuse detection, manual)
        |                          |
        v                          v
   <span class="fl-key">FEED INGEST</span> -- validate, diff, SANITY-CHECK ------&gt; <span class="fl-key">RULES DB</span>
@@ -10739,7 +11367,55 @@ job.</strong> Everything else is an optimisation around that floor.</p></div>
 </div>
 <div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="flow">  <span class="fl-key">PHASE 0 -- SAMPLE</span>   read ~0.1% of records at random
+  <div class="ds-body">
+<div class="anim" id="anim-sort">
+  <div class="an-head">
+    <div class="an-title">External sort &mdash; and the key skew that makes one reducer the whole job</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 244" role="img">
+  <rect x="14" y="100" width="150" height="52" rx="9" class="nd nd-hi" data-n="sm"/>
+  <text x="89" y="122" text-anchor="middle" class="nd-l">Sample 0.1%</text>
+  <text x="89" y="137" text-anchor="middle" class="nd-s">choose boundaries</text>
+  <rect x="190" y="100" width="160" height="52" rx="9" class="nd" data-n="mp"/>
+  <text x="270" y="122" text-anchor="middle" class="nd-l">Map + spill</text>
+  <text x="270" y="137" text-anchor="middle" class="nd-s">sorted runs to disk</text>
+  <rect x="420" y="24" width="140" height="52" rx="9" class="nd" data-n="p1"/>
+  <text x="490" y="54" text-anchor="middle" class="nd-l">Reducer 1</text>
+  <rect x="420" y="100" width="140" height="52" rx="9" class="nd" data-n="p2"/>
+  <text x="490" y="130" text-anchor="middle" class="nd-l">Reducer 2</text>
+  <rect x="420" y="176" width="140" height="52" rx="9" class="nd" data-n="p3"/>
+  <text x="490" y="206" text-anchor="middle" class="nd-l">Reducer 3</text>
+  <rect x="620" y="100" width="124" height="52" rx="9" class="nd" data-n="out"/>
+  <text x="682" y="130" text-anchor="middle" class="nd-l">part-00000..</text>
+  <path d="M 164 126 L 190 126" class="ed"/>
+  <path d="M 350 126 L 420 50" class="ed"/>
+  <path d="M 560 50 L 620 126" class="ed"/>
+  <path d="M 350 126 L 420 126" class="ed"/>
+  <path d="M 560 126 L 620 126" class="ed"/>
+  <path d="M 350 126 L 420 202" class="ed"/>
+  <path d="M 560 202 L 620 126" class="ed"/>
+  <text x="330" y="232" text-anchor="middle" class="ax">shuffle: 10 TB crosses the network once</text>
+  <g class="pk pk-w" style="--x1:164px;--y1:118px;--x2:108px;--y2:118px;--delay:0.00s;--dur:2.40s"><rect width="82" height="15"/><text x="41" y="11" text-anchor="middle">boundaries</text></g>
+  <g class="pk pk-r" style="--x1:350px;--y1:118px;--x2:359px;--y2:42px;--delay:0.90s;--dur:2.40s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">~3.3 TB</text></g>
+  <g class="pk pk-y" style="--x1:560px;--y1:42px;--x2:538px;--y2:118px;--delay:2.00s;--dur:2.20s"><rect width="82" height="15"/><text x="41" y="11" text-anchor="middle">merged run</text></g>
+  <g class="pk pk-r" style="--x1:350px;--y1:118px;--x2:359px;--y2:118px;--delay:1.05s;--dur:2.40s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">~3.3 TB</text></g>
+  <g class="pk pk-y" style="--x1:560px;--y1:118px;--x2:538px;--y2:118px;--delay:2.10s;--dur:2.20s"><rect width="82" height="15"/><text x="41" y="11" text-anchor="middle">merged run</text></g>
+  <g class="pk pk-r" style="--x1:350px;--y1:118px;--x2:359px;--y2:194px;--delay:1.20s;--dur:2.40s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">~3.3 TB</text></g>
+  <g class="pk pk-y" style="--x1:560px;--y1:194px;--x2:538px;--y2:118px;--delay:2.20s;--dur:2.20s"><rect width="82" height="15"/><text x="41" y="11" text-anchor="middle">merged run</text></g>
+  <g class="fail-only pulse"><rect x="420" y="100" width="140" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="490" y="122" text-anchor="middle" class="nd-l">Reducer 2: 80% of rows</text><text x="490" y="137" text-anchor="middle" class="nd-s">one key exceeds a partition</text></g>
+  <g class="pk pk-e fail-only" style="--x1:350px;--y1:118px;--x2:324px;--y2:118px;--delay:0.20s;--dur:1.80s"><rect width="96" height="15"/><text x="48" y="11" text-anchor="middle">skewed shard</text></g>
+  <g class="pk pk-e fail-only" style="--x1:350px;--y1:118px;--x2:324px;--y2:118px;--delay:0.60s;--dur:1.80s"><rect width="96" height="15"/><text x="48" y="11" text-anchor="middle">skewed shard</text></g>
+  <g class="fail-only"><text x="380" y="228" text-anchor="middle" class="ax" fill="#ff8a80">the job now takes as long as its slowest reducer &#8212; sampling minutes would have shown this</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">boundaries</span><span class="an-k k-r">shuffled data</span><span class="an-k k-y">merged output</span><span class="an-k k-e">skewed partition</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> a small random sample first, to choose partition boundaries with roughly <em>equal bytes</em> per range; then the data itself, sorted in memory, spilled as runs, and shuffled to the reducer that owns its range. Ordering falls out of the boundaries &mdash; no reducer ever compares against another.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> skip the sample and split the key space evenly, and a skewed distribution sends most rows to one reducer. The job&rsquo;s runtime becomes that single worker&rsquo;s runtime. Worse, if a <em>single key value</em> exceeds a partition&rsquo;s budget, no boundary choice helps &mdash; it cannot be split without breaking the sort, and needs special handling or an accepted straggler.</div>
+</div>
+<div class="flow">  <span class="fl-key">PHASE 0 -- SAMPLE</span>   read ~0.1% of records at random
       |            build the partition map so each range holds
       |            roughly EQUAL BYTES, not equal key width
       v            <span class="fl-note">this phase costs minutes and saves hours</span>
@@ -10901,7 +11577,46 @@ by materialising anything.</p></div>
 </div>
 <div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="flow">  search results page: viewer V, 25 targets
+  <div class="ds-body">
+<div class="anim" id="anim-social-graph">
+  <div class="an-head">
+    <div class="an-title">Degree lookup &mdash; and the high-degree member who breaks the arithmetic</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 238" role="img">
+  <rect x="14" y="96" width="104" height="52" rx="9" class="nd" data-n="v"/>
+  <text x="66" y="126" text-anchor="middle" class="nd-l">Viewer</text>
+  <rect x="170" y="96" width="176" height="52" rx="9" class="nd nd-hi" data-n="b2"/>
+  <text x="258" y="118" text-anchor="middle" class="nd-l">2nd-degree bitmap</text>
+  <text x="258" y="133" text-anchor="middle" class="nd-s">~250K IDs, cached</text>
+  <rect x="400" y="32" width="176" height="52" rx="9" class="nd" data-n="tg"/>
+  <text x="488" y="54" text-anchor="middle" class="nd-l">Target's 1st degree</text>
+  <text x="488" y="69" text-anchor="middle" class="nd-s">~500 IDs</text>
+  <rect x="400" y="160" width="176" height="52" rx="9" class="nd" data-n="ix"/>
+  <text x="488" y="182" text-anchor="middle" class="nd-l">Intersect</text>
+  <text x="488" y="197" text-anchor="middle" class="nd-s">bitwise AND</text>
+  <rect x="620" y="96" width="124" height="52" rx="9" class="nd" data-n="rs"/>
+  <text x="682" y="126" text-anchor="middle" class="nd-l">1 / 2 / 3 / none</text>
+  <path d="M 118 122 L 170 122" class="ed"/>
+  <path d="M 346 122 L 400 58" class="ed"/>
+  <path d="M 346 122 L 400 186" class="ed"/>
+  <path d="M 576 186 L 620 122" class="ed"/>
+  <g class="pk pk-w" style="--x1:118px;--y1:114px;--x2:81px;--y2:114px;--delay:0.00s;--dur:2.40s"><rect width="89" height="15"/><text x="44" y="11" text-anchor="middle">25 profiles</text></g>
+  <g class="pk pk-r" style="--x1:346px;--y1:114px;--x2:276px;--y2:50px;--delay:0.80s;--dur:2.40s"><rect width="124" height="15"/><text x="62" y="11" text-anchor="middle">fetch 1st degree</text></g>
+  <g class="pk pk-y" style="--x1:346px;--y1:114px;--x2:325px;--y2:178px;--delay:1.40s;--dur:2.40s"><rect width="75" height="15"/><text x="38" y="11" text-anchor="middle">2-hop set</text></g>
+  <g class="pk pk-r" style="--x1:576px;--y1:178px;--x2:566px;--y2:114px;--delay:2.00s;--dur:2.20s"><rect width="54" height="15"/><text x="27" y="11" text-anchor="middle">degree</text></g>
+  <g class="fail-only pulse"><rect x="170" y="96" width="176" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="258" y="118" text-anchor="middle" class="nd-l">Viewer has 30K connections</text><text x="258" y="133" text-anchor="middle" class="nd-s">2nd degree is tens of millions</text></g>
+  <g class="pk pk-e fail-only" style="--x1:118px;--y1:114px;--x2:39px;--y2:114px;--delay:0.20s;--dur:1.90s"><rect width="131" height="15"/><text x="66" y="11" text-anchor="middle">cannot cache this</text></g>
+  <g class="fail-only"><text x="380" y="224" text-anchor="middle" class="ax" fill="#ff8a80">flip it: the relation is symmetric, so expand from the TARGET side instead</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">batch of profiles</span><span class="an-k k-r">adjacency / result</span><span class="an-k k-y">cached 2-hop set</span><span class="an-k k-e">uncacheable</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> the viewer&rsquo;s cached second-degree set &mdash; ~250K IDs as a compressed bitmap, a few hundred kilobytes &mdash; intersected against each target&rsquo;s ~500 first-degree connections. Third degree is 2&nbsp;+&nbsp;1, computed by <em>meeting in the middle</em> rather than by expanding three hops to 125 million members.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> a viewer with 30,000 connections has a second-degree neighbourhood in the tens of millions &mdash; too large to cache and constantly invalidated. Because the relation is symmetric, the fix is to <strong>expand from whichever side is smaller</strong>: compute from the target instead. Without that check, a handful of users dominate the cluster&rsquo;s load.</div>
+</div>
+<div class="flow">  search results page: viewer V, 25 targets
       |
       v
   <span class="fl-key">DEGREE SERVICE</span>  (batch of 25 resolved together)

@@ -8,6 +8,7 @@ relative to that folder unless stated otherwise.
 
 **Companion files in this folder:**
 - `index.html` — the artifact (renamed from Distributed_Systems_Deep_Guide.html for Vercel)
+- `questions-google.html` — **one question-bank page per company.** See §2b before adding another.
 - `Distributed_Systems_Deep_Guide.backup.html` — pre-enrichment original
 - `DDIA_REFERENCE.md` — source-book structural index + synthesis notes
 - `Designing Data Intensive Applications by Martin Kleppmann.pdf` — the source book
@@ -95,6 +96,41 @@ distributed systems concepts from first principles.
 | `ch15` | Security & API Design (+ encoding/evolution) | ✅ |
 
 ---
+
+## 2b. The question-bank pages — one file per company
+
+`questions-google.html` is a standalone, self-contained page holding **78 Google-tagged**
+system design questions. It is deliberately *not* part of `index.html`: the guide teaches
+concepts, the bank lists questions, and mixing them made T6 unreadable.
+
+**To add a company, copy the file — do not add a company filter.** The pattern is one page
+per company (`questions-meta.html`, `questions-amazon.html`, …). Each page:
+
+1. Holds its questions in a single `var Q = [...]` array at the bottom. Fields:
+   `q` (text), `mo` (months ago, for sorting), `age` (display label), `ans` (answer count or
+   `null`), `kind` (`eng` | `pm` | `fermi`), `cl` (topic cluster), `ref` (anchor in
+   `index.html`, or `null` for a gap), `lab` (badge shown on the cross-link).
+2. Carries a **company strip** (`.cos`) at the top. Adding a company means adding one
+   `<a class="co-tab">` to that strip **on every existing page** — that is the only
+   cross-file edit, and it is why the strip is markup rather than generated.
+3. Defaults the Type facet to `eng`. This matters: the upstream bank filters by "system
+   design" across *every* role, so 18 of the Google 78 are product-manager questions
+   ("Design the US flag", "How would you price the Amazon Kindle?") and 5 are Fermi
+   estimation. Only **55 are engineering questions**. Do not present the raw list unfiltered.
+4. Sorts by recency, never by popularity — answer counts grow with age, so a popularity
+   sort just surfaces the oldest questions.
+
+**Every `ref` must be a real id in `index.html`.** Nothing checks this automatically; the
+guide's broken-anchor sweep only looks at `href^="#"` within itself. Verify with:
+
+```python
+ids = set(re.findall(r'id="([\w-]+)"', open('index.html').read()))
+# assert every ref in the Q array is in ids
+```
+
+`index.html` links to the bank from six places: the cover CTA, the master TOC, the sidebar,
+and three points inside T6. T6 keeps only the *analysis* — the two-round finding, the
+clusters, the rubric ladder — and hands the list itself to the page.
 
 ## 3. Source material
 
@@ -267,6 +303,7 @@ Reuse these. Do not invent new block types without a reason.
 | `.takeaway` | Green chapter closer | `.label`, `<p>`, `<ul>` |
 | `.recall` | "Before this chapter, remember X" | `.rc-icon` + a `<div>` |
 | `.srcref` | Small inline chapter chip | `<span class="srcref">Ch 4, 12</span>` |
+| `.clarify` | The clarifying questions to ask in the first five minutes, one per design, inside step 1 | `.label`, then `.cq-row` > `.cq-q` (the question) + `.cq-w` (**what the answer changes** — not what the answer is), closing `.cq-note`. The rationale column is the point: a list of questions without consequences teaches nothing |
 | `.vidref` | Video/lecture references, red left border | `.label`, then `<ul><li>` with `<a target="_blank" rel="noopener">` + `.vr-meta` runtime span + one sentence on *why that video*. Optional closing `.vr-none` for "no good video exists, read this instead" |
 
 ### Chapter section shape that works
@@ -346,9 +383,10 @@ though they exist. Drive the page by clicking real elements, not by calling its 
 **Baseline to regress against** (current, after the Google-question-bank work):
 
 ```
-totalWords 71258 · designs 14 · toolkitCards 7 · designSteps 105 · flows 45
+totalWords 73523 · designs 14 · toolkitCards 7 · clarifyBlocks 14 (71 questions) · designSteps 105 · flows 45
 vidrefs 22 · externalLinks 63 (all target=_blank rel=noopener, all verified 200)
 flowsScrollingOnDesktop 0 (was 9; Fit is on by default) · gtInCtl 0
+questions-google.html: 78 questions · 55 eng · 39 cross-linked · 22 clusters
 at 145% scale: 0 overflowing elements at 1440/430/390/360/320, navHeight unchanged
 exercises 14 · teachingQs 61 · misconceptions 21 · takeaways 14 · usecaseTables 8
 recalls 7 · glossaryTerms 199 · inlineLinks 1178 · tables 42 (all wrapped in .tw)

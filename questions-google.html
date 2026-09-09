@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Google System Design Questions &mdash; 78 tagged interview questions</title>
+<meta name="description" content="Company-tagged system design interview questions, filterable by company, type and topic, each mapped to the chapter or design that answers it.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --ink:#1a1a2e; --soft:#4a4a6a; --muted:#7a7a9a; --bg:#fefefe; --bgwarm:#faf9f6;
+  --bgcool:#f0f2f8; --line:#e4e4ee; --accent:#5c6bc0; --accent2:#26a69a;
+  --accent3:#ef6c00; --accent4:#c62828; --green:#2e7d32;
+}
+html { scroll-padding-top: 20px; }
+html, body { max-width:100%; overflow-x:hidden; }
+body { font-family:'Inter',sans-serif; color:var(--ink); background:var(--bg); line-height:1.7; }
+
+.qb-nav {
+  position:sticky; top:0; z-index:50; background:rgba(26,26,46,.96);
+  backdrop-filter:blur(12px); border-bottom:1px solid rgba(255,255,255,.12);
+  color:#fff; padding:11px 0;
+}
+.qb-nav .in { max-width:1080px; margin:0 auto; padding:0 22px; display:flex; align-items:center; gap:14px; }
+.qb-nav a.home { color:#80cbc4; text-decoration:none; font-weight:700; font-size:13.5px; white-space:nowrap; }
+.qb-nav a.home:hover { color:#fff; }
+.qb-nav .ttl { font-weight:800; font-size:14px; letter-spacing:-.3px; margin-left:auto; color:rgba(255,255,255,.72); }
+
+.wrap { max-width:1080px; margin:0 auto; padding:34px 22px 80px; }
+h1 { font-family:'Lora',serif; font-size:34px; line-height:1.2; margin-bottom:10px; }
+.lede { font-size:16px; color:var(--soft); max-width:760px; margin-bottom:20px; }
+.lede strong { color:var(--ink); }
+
+.cos { display:flex; align-items:center; flex-wrap:wrap; gap:9px; margin-bottom:18px; }
+.cos-l { font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.9px; color:var(--muted); }
+.co-tab {
+  font-size:13px; font-weight:700; text-decoration:none; padding:6px 14px; border-radius:20px;
+  border:1px solid var(--line); color:var(--soft); background:#fff;
+}
+.co-tab.on { background:var(--accent); border-color:var(--accent); color:#fff; }
+.co-tab b { font-weight:800; opacity:.75; margin-left:3px; }
+.co-soon { font-size:12.4px; color:var(--muted); font-style:italic; }
+
+.stats { display:flex; flex-wrap:wrap; gap:10px; margin:22px 0 26px; }
+.stat { background:var(--bgwarm); border:1px solid var(--line); border-radius:10px; padding:11px 15px; }
+.stat b { display:block; font-size:21px; font-weight:800; color:var(--accent); line-height:1.2; }
+.stat span { font-size:11.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.7px; font-weight:700; }
+
+.caveat { background:#fffde7; border-left:4px solid #f9a825; border-radius:0 10px 10px 0; padding:15px 18px; margin:0 0 26px; font-size:14.2px; color:var(--soft); }
+.caveat b { color:var(--ink); }
+
+.controls { position:sticky; top:47px; z-index:40; background:var(--bg); padding:12px 0 10px; border-bottom:1px solid var(--line); margin-bottom:6px; }
+#q { width:100%; font-family:inherit; font-size:15px; padding:11px 14px; border:1px solid var(--line); border-radius:10px; outline:none; background:#fff; color:var(--ink); }
+#q:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(92,107,192,.13); }
+.facets { display:flex; flex-wrap:wrap; gap:16px; margin-top:11px; align-items:flex-start; }
+.facet { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.facet > .fl { font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.9px; color:var(--muted); margin-right:2px; }
+.chip {
+  font-size:12px; font-weight:700; padding:5px 12px; border-radius:18px;
+  border:1px solid var(--line); background:#fff; color:var(--soft); cursor:pointer;
+  font-family:inherit; transition:all .14s;
+}
+.chip:hover { border-color:var(--accent); color:var(--accent); }
+.chip.on { background:var(--accent); border-color:var(--accent); color:#fff; }
+.chip.on.k-pm { background:var(--accent4); border-color:var(--accent4); }
+.chip.on.k-fermi { background:var(--accent3); border-color:var(--accent3); }
+#count { font-size:13px; color:var(--muted); font-weight:600; padding:10px 2px 0; }
+
+.row {
+  display:grid; grid-template-columns:1fr auto; gap:6px 16px;
+  padding:14px 4px; border-bottom:1px solid var(--line); align-items:start;
+}
+.row:hover { background:var(--bgwarm); }
+.qt { font-size:15.2px; color:var(--ink); font-weight:600; line-height:1.5; }
+.meta { display:flex; flex-wrap:wrap; gap:7px; align-items:center; grid-column:1; }
+.tag { font-size:10.6px; font-weight:800; text-transform:uppercase; letter-spacing:.6px; padding:2px 8px; border-radius:5px; border:1px solid var(--line); color:var(--muted); background:var(--bgwarm); }
+.tag.co { background:#e8eaf6; border-color:#c5cae9; color:#3949ab; }
+.tag.k-eng { background:#e0f2f1; border-color:#b2dfdb; color:#00695c; }
+.tag.k-pm { background:#ffebee; border-color:#ffcdd2; color:#b71c1c; }
+.tag.k-fermi { background:#fff3e0; border-color:#ffe0b2; color:#e65100; }
+.tag.age { background:#fff; }
+.right { grid-column:2; grid-row:1 / span 2; text-align:right; }
+.ref {
+  display:inline-block; font-size:12.4px; font-weight:700; text-decoration:none;
+  color:var(--accent); border:1px solid rgba(92,107,192,.35); border-radius:8px;
+  padding:5px 11px; white-space:nowrap; background:#fff;
+}
+.ref:hover { background:var(--accent); color:#fff; border-color:var(--accent); }
+.nogap { font-size:12.2px; color:var(--accent4); font-weight:700; white-space:nowrap; }
+.empty { padding:44px 10px; text-align:center; color:var(--muted); font-style:italic; }
+
+.foot { margin-top:44px; padding-top:22px; border-top:1px solid var(--line); font-size:13.4px; color:var(--muted); }
+.foot a { color:var(--accent); }
+
+@media (max-width:700px) {
+  .wrap { padding:24px 15px 60px; }
+  h1 { font-size:26px; }
+  .controls { top:45px; }
+  .row { grid-template-columns:1fr; }
+  .right { grid-column:1; grid-row:auto; text-align:left; margin-top:2px; }
+  .qb-nav .ttl { display:none; }
+}
+</style>
+</head>
+<body>
+
+<div class="qb-nav"><div class="in">
+  <a class="home" href="index.html">&larr; Back to the Deep Guide</a>
+  <span class="ttl">Question Bank</span>
+</div></div>
+
+<div class="wrap">
+  <div class="cos">
+    <span class="cos-l">Company</span>
+    <a class="co-tab on" href="questions-google.html" aria-current="page">Google <b>78</b></a>
+    <span class="co-soon">More companies get their own page here as they are added</span>
+  </div>
+
+  <h1>Google &mdash; System Design Questions</h1>
+  <p class="lede">Every question on this page is tagged <strong>Google</strong>, and each is mapped to
+  the chapter or design in the <a href="index.html">Deep Guide</a> that answers it. Filter by type or
+  by topic; sorted <strong>newest first</strong>, because recency is the only ordering here that is
+  not a popularity artefact.</p>
+
+  <div class="stats">
+    <div class="stat"><b id="s-total">78</b><span>questions</span></div>
+    <div class="stat"><b id="s-eng">55</b><span>engineering</span></div>
+    <div class="stat"><b id="s-cov">39</b><span>mapped to the guide</span></div>
+    <div class="stat"><b id="s-cl">21</b><span>topic clusters</span></div>
+  </div>
+
+  <div class="caveat">
+    <b>Read the type filter before the list.</b> The source bank filters by &ldquo;system
+    design&rdquo; across <em>every</em> role, so 18 of these 78 are product-manager questions
+    (&ldquo;Design the US flag&rdquo;, &ldquo;How would you price the Amazon Kindle?&rdquo;) and 5
+    are Fermi estimation. If you are preparing for an L6 software engineering loop, filter to
+    <b>Engineering</b> &mdash; that is the 55 that matter. None of this is confirmed by Google; it
+    is self-reported candidate data.
+  </div>
+
+  <div class="controls">
+    <input id="q" type="search" placeholder="Search questions&hellip;" autocomplete="off" aria-label="Search questions">
+    <div class="facets" id="facets"></div>
+    <div id="count"></div>
+  </div>
+
+  <div id="list"></div>
+
+  <div class="foot">
+    Cross-referenced with seven other public question banks in
+    <a href="index.html#toolkit-questionbank">T6 of the Deep Guide</a>, which carries the analysis:
+    why L6 gets two design rounds, what the infrastructure round looks like, and the L4/L5/L6 rubric.
+    &nbsp;&middot;&nbsp; Counts are appearances in this sample, not measured interview frequency.
+  </div>
+</div>
+
+<script>
+var Q = [{"q":"Design an LLM-based Q&A System","mo":5,"age":"5 months","ans":5,"kind":"eng","cl":"AI / ML","ref":"design-rag","lab":"D14","co":"Google"},{"q":"Design a system to log messages in order","mo":12,"age":"1 year","ans":15,"kind":"eng","cl":"Messaging & ordering","ref":"design-kafka","lab":"D7","co":"Google"},{"q":"Design an ML experiment tracking and analysis platform","mo":7,"age":"7 months","ans":4,"kind":"eng","cl":"AI / ML","ref":null,"lab":null,"co":"Google"},{"q":"Design a retrieval-augmented generation system over a customer's private data","mo":4,"age":"4 months","ans":null,"kind":"eng","cl":"AI / ML","ref":"design-rag","lab":"D14","co":"Google"},{"q":"How would you increase the number of users on YouTube?","mo":60,"age":"5 years","ans":59,"kind":"pm","cl":"Product sense","ref":null,"lab":null,"co":"Google"},{"q":"Design a system to deny services to requests from banned IPs","mo":12,"age":"1 year","ans":14,"kind":"eng","cl":"Admission control","ref":null,"lab":null,"co":"Google"},{"q":"Design a Distributed LRU Cache","mo":3,"age":"3 months","ans":10,"kind":"eng","cl":"Caching","ref":"design-cache","lab":"D12","co":"Google"},{"q":"How would you upgrade 5000 servers?","mo":12,"age":"1 year","ans":4,"kind":"eng","cl":"Fleet & operations","ref":null,"lab":null,"co":"Google"},{"q":"Design an ad aggregation system","mo":1,"age":"1 month","ans":null,"kind":"eng","cl":"Streaming & aggregation","ref":"ch11","lab":"Ch 11","co":"Google"},{"q":"Design TikTok","mo":1,"age":"1 month","ans":23,"kind":"eng","cl":"Feeds & media","ref":"design-youtube","lab":"D5","co":"Google"},{"q":"How would you build TinyURL?","mo":12,"age":"1 year","ans":12,"kind":"eng","cl":"Core product","ref":"design-url","lab":"D1","co":"Google"},{"q":"What metrics would you track to evaluate ML pipeline performance?","mo":0.3,"age":"9 days","ans":6,"kind":"eng","cl":"AI / ML","ref":null,"lab":null,"co":"Google"},{"q":"Design a reservation and payment system for a parking garage","mo":12,"age":"1 year","ans":15,"kind":"eng","cl":"Reservation & payment","ref":null,"lab":null,"co":"Google"},{"q":"Design a denoising system for sounds","mo":12,"age":"1 year","ans":3,"kind":"eng","cl":"AI / ML","ref":null,"lab":null,"co":"Google"},{"q":"Design a system to upgrade hundreds of thousands of machines on the Moon","mo":24,"age":"2 years","ans":4,"kind":"eng","cl":"Fleet & operations","ref":null,"lab":null,"co":"Google"},{"q":"Design a rate limiter","mo":0.7,"age":"22 days","ans":13,"kind":"eng","cl":"Admission control","ref":"ch10","lab":"Ch 10","co":"Google"},{"q":"Design a web crawler","mo":2,"age":"2 months","ans":10,"kind":"eng","cl":"Crawling & indexing","ref":"design-crawler","lab":"D10","co":"Google"},{"q":"Design a language detection system","mo":24,"age":"2 years","ans":null,"kind":"eng","cl":"AI / ML","ref":null,"lab":null,"co":"Google"},{"q":"Design a metrics and logging service","mo":1,"age":"1 month","ans":8,"kind":"eng","cl":"Fleet & operations","ref":"design-metrics","lab":"D11","co":"Google"},{"q":"What should be the north star metric for Google Photos?","mo":48,"age":"4 years","ans":10,"kind":"pm","cl":"Product sense","ref":null,"lab":null,"co":"Google"},{"q":"Design a distributed file system","mo":24,"age":"2 years","ans":1,"kind":"eng","cl":"Storage & KV","ref":"design-drive","lab":"D8","co":"Google"},{"q":"Estimate the storage needs for Google Photos on Pixel phones","mo":60,"age":"5 years","ans":6,"kind":"fermi","cl":"Estimation","ref":"toolkit-numbers","lab":"T2","co":"Google"},{"q":"Design a key-value store","mo":72,"age":"6+ years","ans":2,"kind":"eng","cl":"Storage & KV","ref":"design-kv","lab":"D3","co":"Google"},{"q":"If you had unlimited resources at Google, what would you build and why?","mo":36,"age":"3 years","ans":2,"kind":"pm","cl":"Product sense","ref":null,"lab":null,"co":"Google"},{"q":"Design a timer system","mo":25,"age":"25 months","ans":4,"kind":"eng","cl":"Scheduling","ref":"design-jobs","lab":"D6","co":"Google"},{"q":"Design a solution to move the data from Cassandra in System X to system Y","mo":24,"age":"2 years","ans":1,"kind":"eng","cl":"Storage & KV","ref":"ch4","lab":"Ch 4","co":"Google"},{"q":"A production service started showing errors and timeouts after a deployment. How would you troubleshoot it?","mo":9,"age":"9 months","ans":1,"kind":"eng","cl":"Fleet & operations","ref":"ch14","lab":"Ch 14","co":"Google"},{"q":"Design YouTube","mo":3,"age":"3 months","ans":31,"kind":"eng","cl":"Feeds & media","ref":"design-youtube","lab":"D5","co":"Google"},{"q":"Design a payment system","mo":1,"age":"1 month","ans":null,"kind":"eng","cl":"Reservation & payment","ref":"ch7","lab":"Ch 7","co":"Google"},{"q":"Should Facebook consolidate its messaging applications?","mo":60,"age":"5 years","ans":3,"kind":"pm","cl":"Product sense","ref":null,"lab":null,"co":"Google"},{"q":"Estimate the number of trains operating in the NYC subway","mo":60,"age":"5 years","ans":7,"kind":"fermi","cl":"Estimation","ref":"toolkit-numbers","lab":"T2","co":"Google"},{"q":"Estimate the amount of storage needed for Google Photos","mo":60,"age":"5 years","ans":5,"kind":"fermi","cl":"Estimation","ref":"toolkit-numbers","lab":"T2","co":"Google"},{"q":"Design a group chat application","mo":1,"age":"1 month","ans":null,"kind":"eng","cl":"Core product","ref":"design-whatsapp","lab":"D4","co":"Google"},{"q":"Design a high-level system for Gemini responding to a user query","mo":12,"age":"1 year","ans":null,"kind":"eng","cl":"AI / ML","ref":"design-rag","lab":"D14","co":"Google"},{"q":"Design Google Street View using 1000 cars to map every address and image worldwide","mo":48,"age":"4 years","ans":5,"kind":"eng","cl":"Geospatial","ref":null,"lab":null,"co":"Google"},{"q":"Design a visual landmark recognition system","mo":60,"age":"5 years","ans":6,"kind":"eng","cl":"AI / ML","ref":null,"lab":null,"co":"Google"},{"q":"Design a system to map IP address ranges to geographic region labels","mo":12,"age":"1 year","ans":1,"kind":"eng","cl":"Geospatial","ref":null,"lab":null,"co":"Google"},{"q":"Design an algorithm to predict the next word or phrase one is typing on a phone","mo":12,"age":"1 year","ans":null,"kind":"eng","cl":"Typeahead & prediction","ref":"design-typeahead","lab":"D13","co":"Google"},{"q":"Design a cache controller","mo":0.1,"age":"3 days","ans":1,"kind":"eng","cl":"Caching","ref":"design-cache","lab":"D12","co":"Google"},{"q":"How would you handle Gmail accounts when two users create the same username from different countries?","mo":60,"age":"5 years","ans":1,"kind":"eng","cl":"Consistency & uniqueness","ref":"ch7","lab":"Ch 7","co":"Google"},{"q":"Design a monitoring system for 1000 web servers","mo":24,"age":"2 years","ans":1,"kind":"eng","cl":"Fleet & operations","ref":"design-metrics","lab":"D11","co":"Google"},{"q":"Google wants to award its 5 trillionth query with a prize. How would you design this solution?","mo":60,"age":"5 years","ans":null,"kind":"eng","cl":"Consistency & uniqueness","ref":"ch6","lab":"Ch 6","co":"Google"},{"q":"Design a service for uploading and tagging images on a travel site","mo":60,"age":"5 years","ans":null,"kind":"eng","cl":"Storage & KV","ref":"design-drive","lab":"D8","co":"Google"},{"q":"How would you monetize Google Assistant?","mo":60,"age":"5 years","ans":3,"kind":"pm","cl":"Product sense","ref":null,"lab":null,"co":"Google"},{"q":"Design a load balancer","mo":24,"age":"2 years","ans":1,"kind":"eng","cl":"Admission control","ref":"ch10","lab":"Ch 10","co":"Google"},{"q":"What does MTBF mean and why is it necessary?","mo":60,"age":"5 years","ans":4,"kind":"eng","cl":"Reliability","ref":"ch1","lab":"Ch 1","co":"Google"},{"q":"If the data set is too large to fit in memory on one machine and you have multiple workers, how would you sort it?","mo":5,"age":"5 months","ans":null,"kind":"eng","cl":"Batch processing","ref":null,"lab":null,"co":"Google"},{"q":"Design a sentence autocomplete suggestion system","mo":48,"age":"4 years","ans":1,"kind":"eng","cl":"Typeahead & prediction","ref":"design-typeahead","lab":"D13","co":"Google"},{"q":"Imagine there's a remote part of Earth where Google Maps doesn't exist. How would you design Google Maps for that area?","mo":9,"age":"9 months","ans":null,"kind":"eng","cl":"Geospatial","ref":null,"lab":null,"co":"Google"},{"q":"How would you price a self-driving car?","mo":1,"age":"1 month","ans":2,"kind":"pm","cl":"Product sense","ref":null,"lab":null,"co":"Google"},{"q":"How would you design a LinkedIn-like system that instantly shows whether a profile is a first-, second- or third-level connection?","mo":5,"age":"5 months","ans":null,"kind":"eng","cl":"Graph traversal","ref":null,"lab":null,"co":"Google"},{"q":"Design a system that collects logs and metrics from many source systems","mo":5,"age":"5 months","ans":null,"kind":"eng","cl":"Fleet & operations","ref":"design-metrics","lab":"D11","co":"Google"},{"q":"How would Google enter the food delivery space?","mo":24,"age":"2 years","ans":2,"kind":"pm","cl":"Product sense","ref":null,"lab":null,"co":"Google"},{"q":"Improve a given system with your specialization","mo":36,"age":"3 years","ans":null,"kind":"eng","cl":"Open-ended","ref":null,"lab":null,"co":"Google"},{"q":"How do concurrent user flows work in Google Docs?","mo":60,"age":"5 years","ans":1,"kind":"eng","cl":"Collaborative editing","ref":"ch4","lab":"Ch 4","co":"Google"},{"q":"How would you improve Google Translate?","mo":60,"age":"5 years","ans":3,"kind":"pm","cl":"Product sense","ref":null,"lab":null,"co":"Google"},{"q":"How would you design a Gemini AI email summarizer?","mo":9,"age":"9 months","ans":null,"kind":"eng","cl":"AI / ML","ref":"design-rag","lab":"D14","co":"Google"},{"q":"Design a product similar to Google Docs for photo editing collaboration","mo":60,"age":"5 years","ans":2,"kind":"eng","cl":"Collaborative editing","ref":null,"lab":null,"co":"Google"},{"q":"Design an airline booking system","mo":12,"age":"1 year","ans":null,"kind":"eng","cl":"Reservation & payment","ref":null,"lab":null,"co":"Google"},{"q":"How would you price the Amazon Kindle at launch?","mo":48,"age":"4 years","ans":1,"kind":"pm","cl":"Product sense","ref":null,"lab":null,"co":"Google"},{"q":"You received user feedback that Yelp's restaurant recommendation is not personal enough. What would you do?","mo":48,"age":"4 years","ans":1,"kind":"pm","cl":"Product sense","ref":null,"lab":null,"co":"Google"},{"q":"Design a smart refrigerator","mo":36,"age":"3 years","ans":3,"kind":"pm","cl":"Product sense","ref":null,"lab":null,"co":"Google"},{"q":"Design a bookshelf for elderly people","mo":60,"age":"5 years","ans":2,"kind":"pm","cl":"Product sense","ref":null,"lab":null,"co":"Google"},{"q":"Design a system for doctors to upload X-rays and get ML results for preliminary diagnosis","mo":48,"age":"4 years","ans":null,"kind":"eng","cl":"AI / ML","ref":null,"lab":null,"co":"Google"},{"q":"Pick an airport and estimate the number of people going through the security scan every day","mo":48,"age":"4 years","ans":1,"kind":"fermi","cl":"Estimation","ref":"toolkit-numbers","lab":"T2","co":"Google"},{"q":"How would you design an autocomplete search results page?","mo":60,"age":"5 years","ans":1,"kind":"eng","cl":"Typeahead & prediction","ref":"design-typeahead","lab":"D13","co":"Google"},{"q":"Estimate the storage needed for a day's worth of information from your brain","mo":60,"age":"5 years","ans":2,"kind":"fermi","cl":"Estimation","ref":"toolkit-numbers","lab":"T2","co":"Google"},{"q":"How does an Android app work?","mo":60,"age":"5 years","ans":null,"kind":"eng","cl":"Open-ended","ref":null,"lab":null,"co":"Google"},{"q":"Design an app like Uber for Google's driverless cars targeted at children under 16 years old","mo":48,"age":"4 years","ans":null,"kind":"eng","cl":"Feeds & media","ref":"design-uber","lab":"D9","co":"Google"},{"q":"Explain the architecture of a project/platform you're working on or have worked on","mo":4,"age":"4 months","ans":null,"kind":"eng","cl":"Open-ended","ref":"toolkit-behavioral","lab":"T4","co":"Google"},{"q":"Design a smart robotic vacuum","mo":60,"age":"5 years","ans":null,"kind":"pm","cl":"Product sense","ref":null,"lab":null,"co":"Google"},{"q":"Design a studio apartment for 3 people","mo":48,"age":"4 years","ans":null,"kind":"pm","cl":"Product sense","ref":null,"lab":null,"co":"Google"},{"q":"Design an app that helps a museum generate revenue","mo":60,"age":"5 years","ans":1,"kind":"pm","cl":"Product sense","ref":null,"lab":null,"co":"Google"},{"q":"Design a product to track animals","mo":48,"age":"4 years","ans":null,"kind":"pm","cl":"Product sense","ref":null,"lab":null,"co":"Google"},{"q":"Explain how to design a system that identifies images of bald eagles taken in national parks","mo":60,"age":"5 years","ans":null,"kind":"eng","cl":"AI / ML","ref":null,"lab":null,"co":"Google"},{"q":"How does a Google Doc product with MS Paint feature work technically?","mo":60,"age":"5 years","ans":null,"kind":"eng","cl":"Collaborative editing","ref":null,"lab":null,"co":"Google"},{"q":"Design the US flag","mo":60,"age":"5 years","ans":null,"kind":"pm","cl":"Product sense","ref":null,"lab":null,"co":"Google"},{"q":"Design a cell phone for families living in cities","mo":60,"age":"5 years","ans":null,"kind":"pm","cl":"Product sense","ref":null,"lab":null,"co":"Google"}];
+
+var state = { co:'all', kind:'eng', cl:'all', cov:'all', q:'' };
+
+function uniq(f){ var s={},o=[]; Q.forEach(function(r){ if(!s[f(r)]){s[f(r)]=1;o.push(f(r));} }); return o; }
+
+function facetHtml(){
+  var kinds=[['all','All types'],['eng','Engineering'],['pm','Product sense'],['fermi','Estimation']];
+  var h='';
+  h+='<div class="facet"><span class="fl">Type</span>';
+  kinds.forEach(function(k){
+    h+='<button class="chip k-'+k[0]+(state.kind===k[0]?' on':'')+'" data-f="kind" data-v="'+k[0]+'">'+k[1]+'</button>'; });
+  h+='</div>';
+  h+='<div class="facet"><span class="fl">Coverage</span>';
+  [['all','All'],['yes','In the guide'],['no','Gaps']].forEach(function(c){
+    h+='<button class="chip'+(state.cov===c[0]?' on':'')+'" data-f="cov" data-v="'+c[0]+'">'+c[1]+'</button>'; });
+  h+='</div>';
+  var cls=uniq(function(r){return r.cl;}).sort();
+  h+='<div class="facet"><span class="fl">Topic</span>';
+  h+='<button class="chip'+(state.cl==='all'?' on':'')+'" data-f="cl" data-v="all">All</button>';
+  cls.forEach(function(c){
+    var n=Q.filter(function(r){return r.cl===c;}).length;
+    h+='<button class="chip'+(state.cl===c?' on':'')+'" data-f="cl" data-v="'+c+'">'+c+' <span style="opacity:.6">'+n+'</span></button>'; });
+  h+='</div>';
+  return h;
+}
+
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+function render(){
+  document.getElementById('facets').innerHTML = facetHtml();
+  var q = state.q.trim().toLowerCase();
+  var hits = Q.filter(function(r){
+    if (state.co!=='all' && r.co!==state.co) return false;
+    if (state.kind!=='all' && r.kind!==state.kind) return false;
+    if (state.cl!=='all' && r.cl!==state.cl) return false;
+    if (state.cov==='yes' && !r.ref) return false;
+    if (state.cov==='no' && r.ref) return false;
+    if (q && (r.q+' '+r.cl).toLowerCase().indexOf(q)===-1) return false;
+    return true;
+  }).sort(function(a,b){ return a.mo-b.mo; });
+
+  document.getElementById('count').textContent =
+    hits.length + (hits.length===1?' question':' questions') +
+    (hits.length<Q.length ? ' of ' + Q.length : '');
+
+  document.getElementById('list').innerHTML = hits.length ? hits.map(function(r){
+    var kn = r.kind==='eng'?'Engineering':(r.kind==='pm'?'Product sense':'Estimation');
+    return '<div class="row">' +
+      '<div class="qt">' + esc(r.q) + '</div>' +
+      '<div class="meta">' +
+        '<span class="tag k-' + r.kind + '">' + kn + '</span>' +
+        (r.cl === kn ? '' : '<span class="tag">' + esc(r.cl) + '</span>') +
+        '<span class="tag age">' + esc(r.age) + ' ago</span>' +
+        (r.ans ? '<span class="tag age">' + r.ans + (r.ans === 1 ? ' answer' : ' answers') + '</span>' : '') +
+      '</div>' +
+      '<div class="right">' + (r.ref
+        ? '<a class="ref" href="index.html#' + r.ref + '">' + esc(r.lab) + ' &rarr;</a>'
+        : '<span class="nogap">not covered yet</span>') + '</div>' +
+    '</div>';
+  }).join('') : '<div class="empty">No question matches those filters.</div>';
+}
+
+document.getElementById('facets').addEventListener('click', function(e){
+  var b = e.target.closest('.chip'); if(!b) return;
+  state[b.dataset.f] = b.dataset.v; render();
+});
+document.getElementById('q').addEventListener('input', function(e){ state.q = e.target.value; render(); });
+
+document.getElementById('s-total').textContent = Q.length;
+document.getElementById('s-eng').textContent = Q.filter(function(r){return r.kind==='eng';}).length;
+document.getElementById('s-cov').textContent = Q.filter(function(r){return r.ref;}).length;
+document.getElementById('s-cl').textContent = uniq(function(r){return r.cl;}).length;
+render();
+</script>
+</body>
+</html>

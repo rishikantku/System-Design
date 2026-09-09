@@ -1128,6 +1128,25 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
 
 
 
+/* Clarifying questions — the first five minutes of any design round */
+.clarify {
+  background: var(--purple-bg);
+  border-left: 4px solid var(--purple-border);
+  border-radius: 0 10px 10px 0;
+  padding: 16px 20px; margin: 0 0 20px;
+}
+.clarify .label {
+  font-size: calc(11px * var(--fscale, 1)); font-weight: 800; text-transform: uppercase;
+  letter-spacing: 1.2px; color: var(--accent5); margin-bottom: 11px;
+}
+.cq-row { display: flex; gap: 14px; padding: 7px 0; border-top: 1px solid rgba(106,27,154,.14); }
+.cq-row:first-of-type { border-top: 0; padding-top: 0; }
+.cq-q { flex: 0 0 42%; font-size: calc(14px * var(--fscale, 1)); font-weight: 700; color: var(--ink); line-height: 1.5; }
+.cq-w { flex: 1; font-size: calc(13.8px * var(--fscale, 1)); color: var(--soft); line-height: 1.6; }
+.cq-w strong { color: var(--accent5); }
+.clarify .cq-note { font-size: calc(13px * var(--fscale, 1)); color: var(--muted); font-style: italic; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(106,27,154,.18); }
+@media (max-width: 680px) { .cq-row { flex-direction: column; gap: 3px; } .cq-q { flex: none; } }
+
 /* ============================================================
    SEARCH PALETTE  (Cmd/Ctrl-F, Cmd/Ctrl-K, or /)
    ============================================================ */
@@ -1406,6 +1425,9 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
       Master foundational distributed systems principles, trade-offs, internal architectures,
       and 10 complete real-world system designs with capacity estimations, schemas, and fault tolerance models.
     </div>
+    <div style="margin: 0 auto 26px;">
+      <a href="questions-google.html" style="display:inline-block; background:rgba(38,166,154,.22); border:1px solid rgba(38,166,154,.5); color:#80cbc4; text-decoration:none; font-weight:700; font-size:calc(14px * var(--fscale, 1)); padding:10px 22px; border-radius:30px;">&#9906; Question Bank &mdash; 78 Google-tagged system design questions &rarr;</a>
+    </div>
     <div class="topics" style="justify-content: center; max-width: 850px; margin: 0 auto 20px;">
       <span class="pill">Linearizability</span>
       <span class="pill">CAP & PACELC</span>
@@ -1476,6 +1498,7 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
         <a href="#toolkit-mentalmodel" class="toc-card toolkit-toc"><div class="toc-badge">T5</div><div class="toc-info"><div class="toc-title">The DDIA Mental Model &amp; Pattern Cheat Sheet</div><div class="toc-sub">How all 15 chapters connect, 18 problem&#8594;concept mappings, 20 classic mistakes</div></div></a>
         <a href="#toolkit-questionbank" class="toc-card toolkit-toc"><div class="toc-badge">T6</div><div class="toc-info"><div class="toc-title">What Google Actually Asks &mdash; Question Bank</div><div class="toc-sub">Two rounds not one, tiered question list, the L4/L5/L6 rubric ladder</div></div></a>
         <a href="#toolkit-video" class="toc-card toolkit-toc"><div class="toc-badge">T7</div><div class="toc-info"><div class="toc-title">Further Study &mdash; Video &amp; Lecture References</div><div class="toc-sub">MIT 6.824, Kleppmann, CMU 15-445, channels ranked, and where video runs out</div></div></a>
+        <a href="questions-google.html" class="toc-card toolkit-toc"><div class="toc-badge">Q</div><div class="toc-info"><div class="toc-title">Question Bank &mdash; 78 Google-Tagged Questions <span style="font-weight:600;color:var(--accent)">(separate page &rarr;)</span></div><div class="toc-sub">Filter by company, type and topic; each mapped to the section that answers it</div></div></a>
       </div>
     </div>
   </div>
@@ -5838,7 +5861,12 @@ shedding is what stops you crossing it.</div>
   </div>
   <div class="dc-body"><div class="design-step req">
   <div class="ds-header">[list] 1. Requirements</div>
-  <div class="ds-body">
+  <div class="ds-body"><div class="clarify">
+  <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
+  <div class="cq-row"><div class="cq-q">What is the read-to-write ratio?</div><div class="cq-w">At 100:1 or higher this stops being a database problem and becomes a <strong>caching and CDN problem</strong> &mdash; which changes the entire design.</div></div><div class="cq-row"><div class="cq-q">Are custom aliases allowed?</div><div class="cq-w">A yes introduces a global <strong>uniqueness constraint</strong> and a collision path that a pure counter design does not have.</div></div><div class="cq-row"><div class="cq-q">Do links expire?</div><div class="cq-w">Decides whether you need TTL, garbage collection, and whether short codes can be safely reused.</div></div><div class="cq-row"><div class="cq-q">Do we need per-click analytics?</div><div class="cq-w">This is what forces <strong>302 over 301</strong>. A 301 lets browsers and the CDN absorb the redirect and you never see the hit.</div></div><div class="cq-row"><div class="cq-q">Is it acceptable for codes to be guessable?</div><div class="cq-w">A sequential counter in base62 leaks your creation volume and lets anyone enumerate every link ever made.</div></div>
+  <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
+</div>
+
 <p><strong>Functional Requirements:</strong></p>
 <ul>
   <li>Given a long URL, generate a unique 7-character short code</li>
@@ -5961,7 +5989,12 @@ shedding is what stops you crossing it.</div>
   </div>
   <div class="dc-body"><div class="design-step req">
   <div class="ds-header">[list] 1. Requirements</div>
-  <div class="ds-body"><p><strong>Functional:</strong></p>
+  <div class="ds-body"><div class="clarify">
+  <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
+  <div class="cq-row"><div class="cq-q">What is the follower count at the 99th percentile?</div><div class="cq-w">This is the dominant constraint. A few accounts with tens of millions of followers is what breaks fan-out-on-write and forces a hybrid.</div></div><div class="cq-row"><div class="cq-q">Is the timeline chronological or ranked?</div><div class="cq-w">Ranked puts a <strong>scoring service on the read path</strong>, which changes the latency budget and makes precomputation much harder.</div></div><div class="cq-row"><div class="cq-q">How stale may a new post be before it appears?</div><div class="cq-w">Seconds allows fan-out-on-write; instant forces pull. This single number decides push versus pull.</div></div><div class="cq-row"><div class="cq-q">Do we support edits and deletes?</div><div class="cq-w">Fan-out-on-write copies a post into millions of timelines, so retraction becomes an expensive distributed cleanup.</div></div><div class="cq-row"><div class="cq-q">What is the read-to-write ratio?</div><div class="cq-w">Fan-out-on-write only pays off when reads dominate. If they do not, you have pre-computed work nobody reads.</div></div>
+  <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
+</div>
+<p><strong>Functional:</strong></p>
 <ul>
   <li>Post tweets (text <= 280 chars, optional media)</li>
   <li>Follow / Unfollow users</li>
@@ -6072,7 +6105,12 @@ shedding is what stops you crossing it.</div>
   </div>
   <div class="dc-body"><div class="design-step req">
   <div class="ds-header">[list] 1. Requirements</div>
-  <div class="ds-body"><p><strong>Build your own distributed KV store supporting:</strong></p>
+  <div class="ds-body"><div class="clarify">
+  <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
+  <div class="cq-row"><div class="cq-q">Strong or eventual consistency?</div><div class="cq-w">The single biggest fork in the design. Strong means consensus on the write path and cross-region latency; eventual means quorums and conflict resolution.</div></div><div class="cq-row"><div class="cq-q">Point lookups only, or range scans?</div><div class="cq-w">Decides <strong>hash versus range partitioning</strong>, and range partitioning brings hot-shard problems that hashing does not.</div></div><div class="cq-row"><div class="cq-q">What is the value size distribution?</div><div class="cq-w">Multi-megabyte values need a different storage path from 200-byte ones, and change the memory overhead arithmetic entirely.</div></div><div class="cq-row"><div class="cq-q">Single region or multi-region?</div><div class="cq-w">Determines whether an acknowledged write has to cross an ocean, which is a floor on write latency you cannot engineer away.</div></div><div class="cq-row"><div class="cq-q">What must be durable when we acknowledge?</div><div class="cq-w">fsync-before-ack versus page-cache-and-hope is a correctness decision, not a tuning knob.</div></div>
+  <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
+</div>
+<p><strong>Build your own distributed KV store supporting:</strong></p>
 <ul>
   <li>get(key) -> value | null</li>
   <li>put(key, value) -> OK</li>
@@ -6161,7 +6199,12 @@ shedding is what stops you crossing it.</div>
   </div>
   <div class="dc-body"><div class="design-step req">
   <div class="ds-header">[list] 1. Requirements</div>
-  <div class="ds-body"><p><strong>Functional:</strong></p>
+  <div class="ds-body"><div class="clarify">
+  <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
+  <div class="cq-row"><div class="cq-q">1:1 only, or groups &mdash; and how large?</div><div class="cq-w">Group size drives fan-out cost. A 100,000-member group is a completely different write amplification problem from a 1:1 chat.</div></div><div class="cq-row"><div class="cq-q">Is ordering required per conversation or globally?</div><div class="cq-w">Per-conversation ordering lets you <strong>partition by conversation</strong> and avoid coordination. Global ordering does not.</div></div><div class="cq-row"><div class="cq-q">Do we store history server-side?</div><div class="cq-w">Decides whether end-to-end encryption is possible, and whether server-side search can exist at all.</div></div><div class="cq-row"><div class="cq-q">Is presence (online / typing) in scope?</div><div class="cq-w">Presence has a far higher write rate than messaging and is usually a separate system. Saying so is a scoping signal.</div></div><div class="cq-row"><div class="cq-q">Multi-device per account?</div><div class="cq-w">Changes key management, read-state synchronisation and delivery semantics all at once.</div></div>
+  <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
+</div>
+<p><strong>Functional:</strong></p>
 <ul>
   <li>1-to-1 and group messaging (max 256 members)</li>
   <li>Message delivery: sent -> delivered -> read receipts</li>
@@ -6259,7 +6302,12 @@ shedding is what stops you crossing it.</div>
   </div>
   <div class="dc-body"><div class="design-step req">
   <div class="ds-header">[list] 1. Requirements</div>
-  <div class="ds-body"><p><strong>Functional:</strong></p>
+  <div class="ds-body"><div class="clarify">
+  <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
+  <div class="cq-row"><div class="cq-q">Upload rate versus watch rate?</div><div class="cq-w">These size two completely different systems: transcoding capacity and CDN egress. They are rarely the same order of magnitude.</div></div><div class="cq-row"><div class="cq-q">Live streaming, or video-on-demand only?</div><div class="cq-w">Live removes the batch transcode window and turns this into a latency problem instead of a throughput problem.</div></div><div class="cq-row"><div class="cq-q">How many output renditions per video?</div><div class="cq-w">The transcode matrix &mdash; resolutions &times; codecs &times; bitrates &mdash; is the multiplier on your entire compute bill.</div></div><div class="cq-row"><div class="cq-q">Must view counts be real-time and exact?</div><div class="cq-w">Counting at this scale is its own distributed problem. Approximate-and-eventually-correct is dramatically cheaper.</div></div><div class="cq-row"><div class="cq-q">Is DRM or geo-restriction required?</div><div class="cq-w">Changes the delivery path and rules out simple CDN caching of a single artefact.</div></div>
+  <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
+</div>
+<p><strong>Functional:</strong></p>
 <ul>
   <li>Upload video (up to 10GB)</li>
   <li>Transcode to multiple resolutions (360p, 720p, 1080p, 4K)</li>
@@ -6333,7 +6381,12 @@ shedding is what stops you crossing it.</div>
   </div>
   <div class="dc-body"><div class="design-step req">
   <div class="ds-header">[list] 1. Requirements</div>
-  <div class="ds-body"><p><strong>Functional:</strong></p>
+  <div class="ds-body"><div class="clarify">
+  <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
+  <div class="cq-row"><div class="cq-q">Exactly-once, or at-least-once with idempotent handlers?</div><div class="cq-w">Exactly-once execution is not achievable across a network, so the honest question is who absorbs the duplicate &mdash; you, or the handler.</div></div><div class="cq-row"><div class="cq-q">What scheduling precision is required?</div><div class="cq-w">One second versus one minute changes the polling architecture completely, and precision is far more expensive than it sounds.</div></div><div class="cq-row"><div class="cq-q">How long can a job run?</div><div class="cq-w">Long jobs need leases and heartbeats, and a lease that expires mid-run is the classic <strong>fencing</strong> problem.</div></div><div class="cq-row"><div class="cq-q">Do jobs have dependencies on each other?</div><div class="cq-w">A DAG scheduler is a different system from a cron scheduler. This is worth scoping out loud.</div></div><div class="cq-row"><div class="cq-q">What happens to a window missed during an outage?</div><div class="cq-w">Skip, or catch up? Catch-up creates a thundering backlog exactly when the system is already unhealthy.</div></div>
+  <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
+</div>
+<p><strong>Functional:</strong></p>
 <ul>
   <li>Schedule jobs: run at specific time (one-shot) or cron expression (recurring)</li>
   <li>Each job has a handler (function/URL to call)</li>
@@ -6427,7 +6480,12 @@ This SQL atomically locks selected rows. A second scheduler running the same que
   </div>
   <div class="dc-body"><div class="design-step req">
   <div class="ds-header">[list] 1. Requirements</div>
-  <div class="ds-body"><p><strong>Functional Requirements:</strong></p>
+  <div class="ds-body"><div class="clarify">
+  <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
+  <div class="cq-row"><div class="cq-q">Ordering: per partition, or global?</div><div class="cq-w">Global ordering means a single partition, which caps your throughput at one machine. Almost nobody actually needs it.</div></div><div class="cq-row"><div class="cq-q">At-least-once or exactly-once delivery?</div><div class="cq-w">Exactly-once needs idempotent producers plus transactions, and costs throughput. Most consumers are cheaper to make idempotent.</div></div><div class="cq-row"><div class="cq-q">Retention: how long, and is replay required?</div><div class="cq-w">Replay turns the queue into a <strong>durable log</strong> and changes storage sizing by orders of magnitude.</div></div><div class="cq-row"><div class="cq-q">How many consumer groups, and what lag is tolerable?</div><div class="cq-w">Decides fan-out cost and whether slow consumers can be isolated from fast ones.</div></div><div class="cq-row"><div class="cq-q">What is the maximum message size?</div><div class="cq-w">Large payloads need a claim-check pattern &mdash; put the blob in object storage and send the pointer.</div></div>
+  <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
+</div>
+<p><strong>Functional Requirements:</strong></p>
 <ul>
   <li>Producers publish messages to named topics with optional partition keys.</li>
   <li>Consumers subscribe to topics as part of Consumer Groups and consume sequentially.</li>
@@ -6562,7 +6620,12 @@ This SQL atomically locks selected rows. A second scheduler running the same que
   </div>
   <div class="dc-body"><div class="design-step req">
   <div class="ds-header">[list] 1. Requirements</div>
-  <div class="ds-body"><p><strong>Functional Requirements:</strong></p>
+  <div class="ds-body"><div class="clarify">
+  <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
+  <div class="cq-row"><div class="cq-q">Sync only, or real-time collaborative editing?</div><div class="cq-w">These are different systems. Collaborative editing needs CRDTs or OT; file sync needs chunking and version vectors. Get this wrong and everything after it is wrong.</div></div><div class="cq-row"><div class="cq-q">What is the largest file we must support?</div><div class="cq-w">Decides chunk size, resumable upload design, and whether a single file can exceed one machine.</div></div><div class="cq-row"><div class="cq-q">Must offline edits merge, or is last-writer-wins acceptable?</div><div class="cq-w">Merging offline divergence is the hardest requirement in the design, and it is often not actually needed.</div></div><div class="cq-row"><div class="cq-q">What is the sharing granularity &mdash; file, folder, or link?</div><div class="cq-w">Determines the ACL model and whether permission checks can be cached.</div></div><div class="cq-row"><div class="cq-q">Do we deduplicate across users?</div><div class="cq-w">Cross-user dedup is a large storage win and a <strong>privacy leak</strong>: it lets someone test whether a file already exists.</div></div>
+  <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
+</div>
+<p><strong>Functional Requirements:</strong></p>
 <ul>
   <li>Users can upload, download, search, and delete files/folders across devices.</li>
   <li>Automatic real-time file synchronization across desktop, mobile, and web.</li>
@@ -6715,7 +6778,12 @@ This SQL atomically locks selected rows. A second scheduler running the same que
   </div>
   <div class="dc-body"><div class="design-step req">
   <div class="ds-header">[list] 1. Requirements</div>
-  <div class="ds-body"><p><strong>Functional Requirements:</strong></p>
+  <div class="ds-body"><div class="clarify">
+  <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
+  <div class="cq-row"><div class="cq-q">What is the matching latency budget?</div><div class="cq-w">A few seconds allows a global optimisation over a batch; sub-second forces greedy local matching and a worse allocation.</div></div><div class="cq-row"><div class="cq-q">How often do drivers report location?</div><div class="cq-w">This dominates total write volume &mdash; it is usually the largest number in the whole design.</div></div><div class="cq-row"><div class="cq-q">Is pricing dynamic?</div><div class="cq-w">Surge is a separate feedback system with its own stability problems, and it interacts with matching.</div></div><div class="cq-row"><div class="cq-q">One city or global?</div><div class="cq-w">Geo-sharding is natural here because demand is local; saying so early earns the partitioning discussion.</div></div><div class="cq-row"><div class="cq-q">Are shared or pooled rides in scope?</div><div class="cq-w">Pooling turns matching into a routing optimisation that is NP-hard. Worth scoping out explicitly.</div></div>
+  <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
+</div>
+<p><strong>Functional Requirements:</strong></p>
 <ul>
   <li>Drivers broadcast their GPS location every 4 seconds when active.</li>
   <li>Riders view real-time moving nearby drivers on the map (within 5km radius).</li>
@@ -6872,7 +6940,12 @@ This SQL atomically locks selected rows. A second scheduler running the same que
   </div>
   <div class="dc-body"><div class="design-step req">
   <div class="ds-header">[list] 1. Requirements</div>
-  <div class="ds-body"><p><strong>Functional Requirements:</strong></p>
+  <div class="ds-body"><div class="clarify">
+  <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
+  <div class="cq-row"><div class="cq-q">What politeness constraints must we honour?</div><div class="cq-w">This is the constraint that shapes the architecture: it forces <strong>partitioning by host</strong> so the rate limit becomes local instead of coordinated.</div></div><div class="cq-row"><div class="cq-q">Freshness or coverage &mdash; which are we optimising?</div><div class="cq-w">Recrawling news hourly and archives yearly is a scheduling policy, and you cannot maximise both under a fixed budget.</div></div><div class="cq-row"><div class="cq-q">Do we need to render JavaScript?</div><div class="cq-w">Headless rendering costs 10&ndash;100&times; more per page than fetching HTML, and changes your fleet size accordingly.</div></div><div class="cq-row"><div class="cq-q">Exact duplicates only, or near-duplicates?</div><div class="cq-w">Exact is a hash. Near-duplicate needs SimHash or MinHash and a similarity threshold someone has to choose.</div></div><div class="cq-row"><div class="cq-q">What is the crawl budget per domain?</div><div class="cq-w">Bounds both politeness and the risk of a spider trap consuming the entire fleet.</div></div>
+  <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
+</div>
+<p><strong>Functional Requirements:</strong></p>
 <ul>
   <li>Given a list of seed URLs, crawl billions of web pages across the public Internet.</li>
   <li>Extract text content and outgoing hyperlinks to discover new URLs recursively.</li>
@@ -7007,7 +7080,12 @@ This SQL atomically locks selected rows. A second scheduler running the same que
   </div>
   <div class="dc-body"><div class="design-step req">
   <div class="ds-header">[list] 1. Requirements</div>
-  <div class="ds-body"><p><strong>Functional:</strong></p>
+  <div class="ds-body"><div class="clarify">
+  <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
+  <div class="cq-row"><div class="cq-q">Are metrics and logs one system or two?</div><div class="cq-w"><strong>Ask this first.</strong> They have opposite cost curves, and building them as one prices metrics like logs. This question is most of the design.</div></div><div class="cq-row"><div class="cq-q">What is the retention per tier?</div><div class="cq-w">Raw for days, rollups for months, is what makes 13-month retention affordable. It is a lossy decision someone must approve.</div></div><div class="cq-row"><div class="cq-q">What query latency do alerting, dashboards and forensics each need?</div><div class="cq-w">Three very different budgets. Alerting needs seconds on recent data; forensics can take minutes over cold storage.</div></div><div class="cq-row"><div class="cq-q">Push or pull ingest?</div><div class="cq-w">Pull gives free liveness detection but cannot reach short-lived jobs or cross NAT.</div></div><div class="cq-row"><div class="cq-q">Is this multi-tenant, and do we need per-tenant limits?</div><div class="cq-w">Without a per-tenant series budget, one team&rsquo;s cardinality bomb takes down everyone&rsquo;s monitoring.</div></div>
+  <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
+</div>
+<p><strong>Functional:</strong></p>
 <ul>
   <li>Ingest from 100,000 hosts emitting two different kinds of telemetry: <strong>metrics</strong> (numeric time series) and <strong>logs</strong> (semi-structured events)</li>
   <li>Data queryable within <strong>60 seconds</strong> of being emitted</li>
@@ -7135,7 +7213,12 @@ temporarily out of capacity without loss.</div></div>
   </div>
   <div class="dc-body"><div class="design-step req">
   <div class="ds-header">[list] 1. Requirements</div>
-  <div class="ds-body"><p><strong>Functional:</strong></p>
+  <div class="ds-body"><div class="clarify">
+  <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
+  <div class="cq-row"><div class="cq-q">Is this a cache or a low-latency store?</div><div class="cq-w"><strong>The highest-value question in the round.</strong> If we may lose the data freely it is about locality and eviction; if not, you are designing something two orders of magnitude more expensive.</div></div><div class="cq-row"><div class="cq-q">What is the value size distribution?</div><div class="cq-w">At 100-byte values, per-entry overhead is more than half your RAM. The fix is to change the workload, not to buy nodes.</div></div><div class="cq-row"><div class="cq-q">How stale may a read be?</div><div class="cq-w">Determines whether TTL alone is sufficient or you need an explicit invalidation channel.</div></div><div class="cq-row"><div class="cq-q">What happens if the whole tier restarts?</div><div class="cq-w">Forces the conversation about whether the origin survives a 0% hit rate &mdash; which is the failure that actually takes systems down.</div></div><div class="cq-row"><div class="cq-q">Single region, or replicated?</div><div class="cq-w">Replicating a reconstructible cache doubles cost; that memory usually buys a better hit rate instead.</div></div>
+  <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
+</div>
+<p><strong>Functional:</strong></p>
 <ul>
   <li><code>GET</code>, <code>SET</code> with TTL, <code>DELETE</code>, atomic <code>INCR</code></li>
   <li>10 TB working set across the cluster; values from 100 B to 1 MB</li>
@@ -7261,7 +7344,12 @@ coordinator. Consensus is confined to membership, which changes a few times a we
   </div>
   <div class="dc-body"><div class="design-step req">
   <div class="ds-header">[list] 1. Requirements</div>
-  <div class="ds-body"><p><strong>Functional:</strong></p>
+  <div class="ds-body"><div class="clarify">
+  <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
+  <div class="cq-row"><div class="cq-q">Are suggestions personalised or global?</div><div class="cq-w">Personalisation breaks the single precomputed table, because there is no longer one answer per prefix. This changes everything downstream.</div></div><div class="cq-row"><div class="cq-q">What is the latency budget?</div><div class="cq-w">Above roughly 100&nbsp;ms the suggestion arrives after the next keystroke and the feature stops feeling live. That number decides precompute versus live search.</div></div><div class="cq-row"><div class="cq-q">How fresh must trending terms be?</div><div class="cq-w">Minutes forces a second, streaming lane on top of the batch table. Days does not.</div></div><div class="cq-row"><div class="cq-q">How many languages and locales?</div><div class="cq-w">Each locale multiplies the size of the precomputed table and the safety review surface.</div></div><div class="cq-row"><div class="cq-q">What are the safety and filtering requirements?</div><div class="cq-w">Suggestions are published editorial content. An offensive completion is a public incident, not a relevance bug.</div></div>
+  <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
+</div>
+<p><strong>Functional:</strong></p>
 <ul>
   <li>Given a prefix, return the top 10 completions ranked by likelihood</li>
   <li>Fire on every keystroke; a 20-character query means up to 20 requests</li>
@@ -7384,7 +7472,12 @@ cheaper than rebuilding 150 GB every minute.</div></div>
   </div>
   <div class="dc-body"><div class="design-step req">
   <div class="ds-header">[list] 1. Requirements</div>
-  <div class="ds-body"><p><strong>Functional:</strong></p>
+  <div class="ds-body"><div class="clarify">
+  <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
+  <div class="cq-row"><div class="cq-q">Whose data is it, and what is the access-control model?</div><div class="cq-w"><strong>Ask this before anything else.</strong> It forces ACL filtering <em>inside</em> retrieval; post-filtering the answer is not a security control once a restricted passage is in the prompt.</div></div><div class="cq-row"><div class="cq-q">How large is the corpus and how often does it change?</div><div class="cq-w">Decides index architecture and whether re-indexing can be incremental or must be a full rebuild.</div></div><div class="cq-row"><div class="cq-q">Must answers carry citations?</div><div class="cq-w">Citation changes the whole pipeline &mdash; you must track provenance per chunk and validate that emitted citations point at retrieved text.</div></div><div class="cq-row"><div class="cq-q">What is the latency budget, and can we stream?</div><div class="cq-w">Streaming makes time-to-first-token the number the user feels, rather than total generation time.</div></div><div class="cq-row"><div class="cq-q">What should happen when nothing relevant is found?</div><div class="cq-w">&ldquo;I don&rsquo;t know&rdquo; must be an acceptable answer, or the system will confidently invent one and nobody will be able to tell.</div></div><div class="cq-row"><div class="cq-q">Is there a cost ceiling per query?</div><div class="cq-w">Token spend dominates everything else here, and it is the constraint most candidates never mention.</div></div>
+  <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
+</div>
+<p><strong>Functional:</strong></p>
 <ul>
   <li>Answer natural-language questions over a customer's private document corpus (10M documents, ~50 GB of text)</li>
   <li>Every answer carries <strong>citations</strong> to the source passages it used</li>
@@ -7833,9 +7926,11 @@ cost 10&times; as much and answer worse.</div></div>
 
     <p>Every other section of this guide teaches mechanisms. This one is about <em>targeting</em>:
     which mechanisms you are most likely to be asked to assemble under time pressure, and where in
-    this document the answer already lives. It is built from cross-referencing eight public
-    question banks and candidate reports &mdash; read the provenance note at the end before you
-    treat any of it as gospel.</p>
+    this document the answer already lives. It is built from a <strong>78-question sample</strong>
+    of Google system-design reports, cross-checked against seven other public question banks. The
+    questions themselves live on their own page &mdash;
+    <a class="qlink" href="questions-google.html">the Question Bank</a> &mdash; and this card is the
+    analysis of them. Read the provenance note at the end before you treat any of it as gospel.</p>
 
     <div class="insight">
       <div class="label">&#128161; The single fact that should reshape your preparation</div>
@@ -7850,85 +7945,25 @@ cost 10&times; as much and answer worse.</div></div>
       videos.</p>
     </div>
 
-    <h4>What the infrastructure round actually looks like</h4>
-
-    <p>These are real reported prompts, and they are the reason &ldquo;I have practised Design
-    Twitter&rdquo; is not sufficient preparation at this level:</p>
-
-    <ul>
-      <li>&ldquo;How would you upgrade 5,000 servers?&rdquo;</li>
-      <li>&ldquo;Design a system to log messages in order.&rdquo;</li>
-      <li>&ldquo;Design a metrics and logging service.&rdquo;</li>
-      <li>&ldquo;Design a distributed LRU cache.&rdquo;</li>
-      <li>&ldquo;Design a system to deny service to requests from banned IPs, from a list published by a third party.&rdquo;</li>
-      <li>&ldquo;Design a function that schedules jobs on a rack of machines, where each job needs a certain amount of CPU and RAM and each machine has different amounts of both.&rdquo;</li>
-      <li>&ldquo;Design a system to upgrade hundreds of thousands of machines on the Moon.&rdquo;</li>
-    </ul>
-
-    <p>Notice what these have in common. There is no user-facing product, no feed, no timeline.
-    They are <strong>fleet management, observability and admission control</strong> &mdash; the
-    problems a company that runs its own planet-scale infrastructure actually has. The last one is
-    not a joke question: it is a latency-constraint question wearing a costume. A 1.3-second
-    one-way light delay makes every synchronous protocol you know unusable, and the interviewer
-    wants to watch you notice that.</p>
-
-    <h4>Tier 1 &mdash; the highest-probability questions</h4>
-
-    <p>Ranked by how many independent sources report them. The last column is the honest state of
-    <em>this</em> guide.</p>
-
-    <div class="tw"><table class="to">
-      <thead><tr><th style="width:38%">Question</th><th style="width:12%">Sources</th><th style="width:50%">Where it is in this guide</th></tr></thead>
-      <tbody>
-        <tr><td><strong>Web crawler / search indexer</strong></td><td>4</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-crawler">D10</a></td></tr>
-        <tr><td><strong>Distributed job scheduler</strong> (variable CPU/RAM per machine)</td><td>4</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-jobs">D6</a></td></tr>
-        <tr><td><strong>Rate limiter</strong> at millions of req/sec</td><td>3</td><td class="chosen">Ch 10 now enriched to full depth &mdash; <a class="qlink" href="#ch10">Ch 10</a></td></tr>
-        <tr><td><strong>Real-time chat / messaging</strong></td><td>3</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-whatsapp">D4</a></td></tr>
-        <tr><td><strong>Distributed queue / pub-sub</strong></td><td>3</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-kafka">D7</a></td></tr>
-        <tr><td><strong>Metrics &amp; logging pipeline</strong> (sub-minute, serve downstream)</td><td>3</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-metrics">D11</a></td></tr>
-        <tr><td><strong>Video streaming / YouTube</strong></td><td>2</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-youtube">D5</a></td></tr>
-        <tr><td><strong>Google Maps</strong></td><td>2</td><td class="rej">Gap. Geospatial indexing appears in <a class="qlink" href="#design-uber">D9</a> only.</td></tr>
-        <tr><td><strong>Distributed cache / LRU</strong></td><td>2</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-cache">D12</a>, theory in <a class="qlink" href="#ch9">Ch 9</a></td></tr>
-        <tr><td><strong>Collaborative editing</strong> (offline edits, merge conflicts)</td><td>2</td><td class="rej">CRDT theory in <a class="qlink" href="#ch4">Ch 4</a>; no end-to-end design.</td></tr>
-        <tr><td><strong>Denylist / banned-IP blocking</strong></td><td>2</td><td class="rej">Gap.</td></tr>
-        <tr><td><strong>Notification fan-out</strong> (push / email / SMS)</td><td>2</td><td class="rej">Gap.</td></tr>
-        <tr><td><strong>URL shortener</strong></td><td>2</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-url">D1</a></td></tr>
-        <tr><td><strong>Ticket booking</strong> (inventory under contention)</td><td>2</td><td class="rej">Gap. The invariant-on-one-row idea is in <a class="qlink" href="#ch7">Ch 7</a>.</td></tr>
-        <tr><td><strong>Typeahead / autocomplete</strong> &mdash; named a top-5 Google question</td><td>1</td><td class="chosen">Full design &mdash; <a class="qlink" href="#design-typeahead">D13</a></td></tr>
-      </tbody>
-    </table></div>
-    <div class="qb-note">&ldquo;Sources&rdquo; means how many of the eight banks consulted listed it &mdash;
-    not measured interview frequency. Treat multi-source rows as solid and single-source rows as weak signal.</div>
-
-    <h4>Tier 2 &mdash; reported, plausible, worth a mental rehearsal</h4>
-
-    <p>Distributed counter at Google scale &middot; global config / feature-flag service &middot;
-    API gateway at 10M+ rps with throttling and auth &middot; trending hashtags &middot; global ID
-    generation &middot; ad aggregation &middot; real-time leaderboard at Pok&eacute;mon Go scale
-    &middot; near-duplicate video detection &middot; Street View image ingestion &middot;
-    Drive-style usage quota limiter &middot; calendar event conflict handling &middot; online
-    coding judge &middot; the Glassdoor classic: &ldquo;a page showing the status of 10M+ users
-    &mdash; name, photo, badge, points.&rdquo;</p>
-
-    <p>Most of these are recombinations of things you already have. A distributed counter is
-    <a class="qlink" href="#ch5">partitioning</a> plus the decision to give up read-your-writes.
-    A leaderboard is a counter plus a top-<em>k</em> problem. Trending hashtags is a leaderboard
-    over a sliding window. If you can derive them at the table you do not need to memorise them.</p>
-
-    <h4>Tier 3 &mdash; the 2026 shift</h4>
-
-    <p>Multiple sources report Google now weaving AI/ML system design into the loop, and the
-    question banks confirm it with live prompts: <em>design an LLM-based Q&amp;A system</em>,
-    <em>design a retrieval-augmented generation system over a customer&rsquo;s private data</em>,
-    <em>design an ML experiment tracking platform</em>, <em>design serving infrastructure for an
-    LLM under low-latency, high-throughput requirements</em>, <em>design a task scheduler for
-    opaque long-running GPU jobs</em>, <em>design a billing-token rate limiter for AI agents</em>.</p>
-
-    <p>This is the fastest-moving part of the loop and the part where the classic canon helps you
-    least. The reassuring half of that: an inference-serving system is a queueing and batching
-    problem, and a RAG pipeline is an indexing and retrieval problem. Both are made of parts this
-    guide already teaches. The unfamiliar half is the vocabulary and the failure modes, which is
-    what <a class="qlink" href="#design-rag">D14</a> is for.</p>
+    <div class="vidref" style="border-left-color:var(--accent)">
+      <div class="label" style="color:var(--accent)">&#128279; The full question bank is a separate page</div>
+      <ul>
+        <li><strong><a href="questions-google.html">Open the System Design Question Bank &rarr;</a></strong>
+        &mdash; all <strong>78 Google-tagged questions</strong>, filterable by company, by type and by
+        topic, sorted newest first, with each one linked to the chapter or design here that answers it.</li>
+        <li><strong>Filter to &ldquo;Engineering&rdquo; before you read it.</strong> The source bank
+        filters by &ldquo;system design&rdquo; across <em>every</em> role, so 18 of the 78 are
+        product-manager questions (&ldquo;Design the US flag&rdquo;, &ldquo;How would you price the
+        Amazon Kindle?&rdquo;) and 5 are Fermi estimation. <strong>55 are engineering questions</strong>
+        &mdash; that is the set that matters for an L6 software loop.</li>
+        <li><strong>39 of the 78 map to a section of this guide.</strong> The
+        <a href="questions-google.html">Gaps</a> filter shows the 21 engineering questions that do not,
+        which is the honest picture of what is still missing here.</li>
+      </ul>
+      <div class="vr-none">Sorted by recency deliberately: it is the only ordering in the data that is
+      not shaped by how long a question has been sitting there collecting answers &mdash; and it
+      filters most of the product-sense questions out for free.</div>
+    </div>
 
     <div class="misconception">
       <div class="label">&#9888; Common misconception</div>
@@ -7939,12 +7974,42 @@ cost 10&times; as much and answer worse.</div></div>
         content. Google&rsquo;s reported pool leans much harder toward infrastructure and
         operations, because that is the problem domain of a company that runs its own fleet,
         its own storage layer and its own network.</p>
-        <p>There is also a selection bias worth naming: preparation vendors publish the questions
-        they already have content for. A question that appears on five prep sites is evidence about
-        <em>the prep market</em>, and only indirectly about Google. Weight candidate reports above
-        vendor lists wherever the two disagree.</p>
+        <p>The 78-question sample makes this concrete. Alongside the familiar prompts sit
+        <em>&ldquo;How would you upgrade 5,000 servers?&rdquo;</em>, <em>&ldquo;Design a system to
+        log messages in order&rdquo;</em>, <em>&ldquo;Design a monitoring system for 1,000 web
+        servers&rdquo;</em>, <em>&ldquo;Design a cache controller&rdquo;</em>, <em>&ldquo;Design a
+        system to deny service to requests from banned IPs&rdquo;</em> and <em>&ldquo;Design a
+        system to upgrade hundreds of thousands of machines on the Moon.&rdquo;</em> That last one
+        is not a joke: it is a latency-constraint question wearing a costume. A 1.3-second one-way
+        light delay makes every synchronous protocol you know unusable, and the interviewer wants
+        to watch you notice.</p>
       </div>
     </div>
+
+    <h4>Clusters &mdash; where the same problem keeps reappearing in different clothes</h4>
+
+    <p>Individual questions are weak evidence. A <em>cluster</em> of near-duplicates asked over
+    several years is much stronger, and it tells you what to be able to derive rather than recall.</p>
+
+    <div class="tw"><table class="to">
+      <thead><tr><th style="width:26%">Cluster</th><th style="width:10%">Count</th><th style="width:40%">The variants asked</th><th style="width:24%">Coverage</th></tr></thead>
+      <tbody>
+        <tr><td><strong>AI / ML systems</strong></td><td>11</td><td>LLM Q&amp;A &middot; RAG over private data &middot; Gemini query serving &middot; Gemini email summariser &middot; ML experiment tracking &middot; ML pipeline metrics &middot; language detection &middot; sound denoising &middot; landmark recognition &middot; X-ray triage &middot; image classification</td><td class="chosen">Partly &mdash; <a class="qlink" href="#design-rag">D14</a> covers the LLM/RAG half; the classic-ML half is a gap</td></tr>
+        <tr><td><strong>Fleet &amp; operations</strong></td><td>6</td><td>Upgrade 5,000 servers &middot; upgrade machines on the Moon &middot; monitor 1,000 web servers &middot; metrics and logging service &middot; collect logs from many sources &middot; troubleshoot after a deploy</td><td class="chosen"><a class="qlink" href="#design-metrics">D11</a> &middot; <a class="qlink" href="#ch14">Ch 14</a></td></tr>
+        <tr><td><strong>Caching</strong></td><td>3</td><td>Distributed LRU cache &middot; cache controller &middot; cache consistency</td><td class="chosen"><a class="qlink" href="#design-cache">D12</a> &middot; <a class="qlink" href="#ch9">Ch 9</a></td></tr>
+        <tr><td><strong>Typeahead / prediction</strong></td><td>3</td><td>Sentence autocomplete suggestions &middot; predict the next word being typed on a phone &middot; autocomplete search results page</td><td class="chosen"><a class="qlink" href="#design-typeahead">D13</a></td></tr>
+        <tr><td><strong>Collaborative editing</strong></td><td>3</td><td>Concurrent user flows in Google Docs &middot; Docs-like photo-editing collaboration &middot; a Doc with an MS-Paint surface</td><td class="rej">Gap &mdash; CRDT theory in <a class="qlink" href="#ch4">Ch 4</a>, no design</td></tr>
+        <tr><td><strong>Reservation &amp; payment</strong></td><td>3</td><td>Airline booking &middot; payment system &middot; parking-garage reservation and payment</td><td class="rej">Gap &mdash; the invariant-on-one-row idea is in <a class="qlink" href="#ch7">Ch 7</a></td></tr>
+        <tr><td><strong>Geospatial</strong></td><td>3</td><td>Google Maps for an uncovered area &middot; Street View capture with 1,000 cars &middot; map IP ranges to regions</td><td class="rej">Gap &mdash; H3 indexing appears in <a class="qlink" href="#design-uber">D9</a> only</td></tr>
+        <tr><td><strong>Storage &amp; KV</strong></td><td>4</td><td>Key-value store &middot; distributed file system &middot; move data between Cassandra clusters &middot; external sort across workers</td><td class="chosen"><a class="qlink" href="#design-kv">D3</a> &middot; <a class="qlink" href="#design-drive">D8</a> &middot; <a class="qlink" href="#ch12">Ch 12</a></td></tr>
+      </tbody>
+    </table></div>
+
+    <p>The derivation chains matter more than the list. <em>Counter &rarr; leaderboard &rarr;
+    trending topics</em> is one problem with three coats of paint. So is <em>crawler &rarr; indexer
+    &rarr; typeahead</em>. A distributed counter is <a class="qlink" href="#ch5">partitioning</a>
+    plus a decision to give up read-your-writes. If you can derive them at the table, you do not
+    need to memorise them.</p>
 
     <h4>The rubric &mdash; the same prompt, three different bars</h4>
 
@@ -7980,23 +8045,28 @@ cost 10&times; as much and answer worse.</div></div>
 
     <div class="warning">
       <div class="label">&#9888; Where this list comes from, and how much to trust it</div>
-      <p>None of this is confirmed by Google. It is aggregated from public preparation vendors and
-      crowd-reported candidate experiences, both of which have known biases: vendors list what they
-      sell content for, and candidates disproportionately report the questions they found
-      memorable or difficult. Two sources I wanted were unreachable, so the first-hand candidate
-      layer here is thinner than the vendor layer.</p>
-      <p>Use it to allocate study time, not to predict your loop. The value of the tiering is that
+      <p>None of this is confirmed by Google. The 78-question sample is a public bank of
+      self-reported candidate questions, cross-checked against seven preparation vendors. Both have
+      known biases: candidates disproportionately report what they found memorable or difficult,
+      vendors list what they already sell content for, and &mdash; as the composition table above
+      shows &mdash; the bank mixes product-manager questions into the same filter.</p>
+      <p>Counts here are <em>how many times a thing appears in this sample</em>, not measured
+      interview frequency. Treat the clusters as solid, single questions as weak signal, and the
+      recency ordering as the most reliable cut, since it is the only column that is not a
+      popularity artefact.</p>
+      <p>Use it to allocate study time, not to predict your loop. The value of the analysis is that
       it tells you where the <em>infrastructure</em> round lives &mdash; and that finding is robust
       across every source, even where individual questions are not.</p>
     </div>
 
     <div class="takeaway">
       <div class="label">&#127793; Takeaway &mdash; how to use this bank</div>
-      <p><strong>Do not grind the list.</strong> Fifteen memorised designs lose to four derivable ones.</p>
+      <p><strong>Do not grind the list.</strong> Seventy-eight memorised designs lose to six derivable ones.</p>
       <ul>
         <li><strong>Prepare two rounds, split by kind.</strong> One product, one infrastructure. If your practice is all product designs, half your loop is unrehearsed.</li>
+        <li><strong>Sort by recency, not popularity.</strong> It is the only ordering in the data that is not shaped by how long a question has been sitting there collecting answers &mdash; and it filters out the product-sense questions for free.</li>
         <li><strong>The infra round is fleet, observability and admission control.</strong> Upgrading a fleet, ordering a log, capping a caller, caching at scale &mdash; not feeds.</li>
-        <li><strong>Derive rather than memorise.</strong> Counter &rarr; leaderboard &rarr; trending topics is one problem with three coats of paint. So is crawler &rarr; indexer &rarr; typeahead.</li>
+        <li><strong>Trust clusters over questions.</strong> Three ways of asking about collaborative editing is a signal. One question about a smart refrigerator is not.</li>
         <li><strong>Say the dominant constraint out loud in the first five minutes.</strong> It is the cheapest available L6 signal and most candidates never spend it.</li>
         <li><strong>Volunteer the failure modes.</strong> If the interviewer has to ask &ldquo;what happens when that node dies&rdquo;, you have already handed away the point.</li>
         <li><strong>Budget time for the end.</strong> The highest-signal discussion is late-round trade-offs and failure analysis. Candidates who over-invest in the first architecture diagram never reach it.</li>
@@ -10714,6 +10784,7 @@ var GLOSSARY = {
   </div>
   <div class="sn-scroll" id="sn-scroll">
     <a class="sn-link sn-top-link" href="#master-toc"><span class="sn-b">&#9776;</span>Complete Table of Contents</a>
+    <a class="sn-link sn-top-link" href="questions-google.html"><span class="sn-b">Q</span>Question Bank &mdash; 78 tagged questions</a>
     <div class="sn-group">
       <div class="sn-gh">Part 1 &middot; Theory</div>
       <a class="sn-link" href="#ch1"><span class="sn-b">1</span>Why Distributed Systems are Hard</a>

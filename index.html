@@ -1129,6 +1129,24 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
 
 
 
+/* Orientation card — how this document is organised and how to read it */
+.startcard { background: var(--bgwarm); border: 1px solid var(--line); border-radius: 14px; padding: 30px 34px; margin: 40px 0; }
+.startcard h2 { font-family: 'Lora', serif; font-size: calc(26px * var(--fscale, 1)); color: var(--ink); margin-bottom: 6px; }
+.startcard > p.sc-lede { font-size: calc(16px * var(--fscale, 1)); color: var(--soft); line-height: 1.75; margin-bottom: 22px; max-width: 760px; }
+.sc-paths { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 26px; }
+.sc-path { background: #fff; border: 1px solid var(--line); border-radius: 11px; padding: 16px 18px; }
+.sc-path .h { font-size: calc(10.5px * var(--fscale, 1)); font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--accent); margin-bottom: 7px; }
+.sc-path .t { font-size: calc(15px * var(--fscale, 1)); font-weight: 700; color: var(--ink); margin-bottom: 7px; }
+.sc-path p { font-size: calc(13.6px * var(--fscale, 1)); color: var(--soft); line-height: 1.6; }
+.sc-path a { color: var(--accent); font-weight: 700; text-decoration: none; border-bottom: 1px solid rgba(92,107,192,.35); }
+.sc-conv { border-top: 1px solid var(--line); padding-top: 20px; }
+.sc-conv .h { font-size: calc(11px * var(--fscale, 1)); font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin-bottom: 12px; }
+.sc-row { display: flex; gap: 14px; padding: 7px 0; font-size: calc(14px * var(--fscale, 1)); line-height: 1.6; }
+.sc-row .k { flex: 0 0 190px; font-weight: 700; color: var(--ink); }
+.sc-row .v { flex: 1; color: var(--soft); }
+@media (max-width: 900px) { .sc-paths { grid-template-columns: 1fr; } }
+@media (max-width: 680px) { .startcard { padding: 20px 16px; } .sc-row { flex-direction: column; gap: 2px; } .sc-row .k { flex: none; } }
+
 /* ============================================================
    ANIMATED FLOW DIAGRAMS
    Inline SVG + CSS keyframes. No GIFs: the file must stay self-contained and
@@ -1643,7 +1661,56 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
 
 
 <div class="content" style="padding-top: 30px;">
-  <div class="toc-section" id="master-toc">
+  <div class="content">
+  <div class="startcard" id="start-here">
+    <h2>Start here &mdash; how this guide is organised</h2>
+    <p class="sc-lede">This is a reference, not a novel. It is <strong>~104,000 words</strong> across
+    15 theory chapters, 23 full system designs, 7 toolkit sections and a 199-term searchable
+    glossary &mdash; far more than anyone should read front to back. Pick a path.</p>
+
+    <div class="sc-paths">
+      <div class="sc-path">
+        <div class="h">Interview in a few days</div>
+        <div class="t">Toolkit first, then gaps</div>
+        <p>Read <a href="#toolkit-questionbank">T6</a> (what Google actually asks, and the L4/L5/L6
+        rubric), then <a href="#toolkit-framework">T1</a> pacing and <a href="#toolkit-numbers">T2</a>
+        numbers. Then two designs from
+        <a href="questions-google.html">the question bank</a>&rsquo;s most-recent list. Skim each
+        chapter&rsquo;s <strong>Quick reference</strong> only.</p>
+      </div>
+      <div class="sc-path">
+        <div class="h">Studying over weeks</div>
+        <div class="t">Part 1 in order, then designs</div>
+        <p>Chapters 1&ndash;15 build on each other deliberately &mdash; each opens with a
+        <em>&ldquo;before this, recall&hellip;&rdquo;</em> pointing back. Do the exercises before
+        revealing the answers; that is where most of the value is. Then work through Part 2, drawing
+        each design on a blank page <em>before</em> reading it.</p>
+      </div>
+      <div class="sc-path">
+        <div class="h">Using it at work</div>
+        <div class="t">Search, do not browse</div>
+        <p>Press <strong>&#8984;F</strong> (or <strong>/</strong>) to search all 23 designs and 199
+        concepts at once. Every chapter opens with a <strong>Quick reference</strong> table &mdash;
+        <em>if you need X, reach for Y, because Z, used in&hellip;</em> &mdash; which is usually the
+        whole answer.</p>
+      </div>
+    </div>
+
+    <div class="sc-conv">
+      <div class="h">Conventions &mdash; worth thirty seconds, they make everything faster</div>
+      <div class="sc-row"><div class="k">&#9889; Quick reference</div><div class="v">Opens every chapter. A four-column decision table ending in <strong>Used in</strong>, naming the real systems that made each choice.</div></div>
+      <div class="sc-row"><div class="k">&#128296; Build it wrong first</div><div class="v">Progressive derivation for the hardest topics: the naive design, the exact failure that breaks it, the fix, repeat. Used for CAP, exactly-once, and cascading failure.</div></div>
+      <div class="sc-row"><div class="k">&#9654; Animated diagrams</div><div class="v">Show what data is moving. Every one has a <strong>&ldquo;What goes wrong&rdquo;</strong> toggle that switches to the failure mode and swaps the explanation with it.</div></div>
+      <div class="sc-row"><div class="k">&#10067; Clarify first</div><div class="v">Opens every design &mdash; the questions to ask in the first five minutes, each paired with <em>what the answer changes</em>. Steps then run 1&ndash;9 identically in all 23 designs.</div></div>
+      <div class="sc-row"><div class="k">&#9998; Exercises</div><div class="v">Always carry a worked answer behind a toggle, and end on a transferable principle. This guide never asks a question it does not answer.</div></div>
+      <div class="sc-row"><div class="k">&#9888; Misconceptions</div><div class="v">Quote the false sentence, then dismantle it. If you believe the quoted line, that block is the most valuable thing on the page.</div></div>
+      <div class="sc-row"><div class="k">Underlined terms</div><div class="v">Any <span class="gt" data-gl="quorum">quorum</span>-style underlined term opens the glossary panel with a definition, a worked example, the gotcha, and what an interviewer probes.</div></div>
+      <div class="sc-row"><div class="k">Reading size</div><div class="v">The control at the bottom-right scales the whole document, and <strong>Fit</strong> shrinks diagrams to fit rather than scroll.</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="toc-section" id="master-toc">
     <div class="toc-head">Complete Table of Contents</div>
     
     <div style="margin-bottom: 24px;">
@@ -1733,6 +1800,22 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   <div class="ch-sub">Before diving into solutions, let's understand the problem deeply.</div>
 </div>
 <div class="content">
+<div class="quickref">
+  <div class="label">&#9889; Quick reference</div>
+  <div class="qr-sub">The failures that actually happen, and the property that makes each survivable.</div>
+  <div class="tw"><table>
+    <thead><tr><th>If you need&hellip;</th><th>Reach for</th><th>Because</th><th>Used in</th></tr></thead>
+    <tbody>
+      <tr><td>To survive a machine dying</td><td class="qr-pick">Redundancy + failover</td><td>Hardware faults are independent and random, so a second copy is genuinely uncorrelated insurance.</td><td class="qr-seen">Every replicated database, RAID, multi-AZ</td></tr>
+      <tr><td>To survive a <em>software</em> fault</td><td class="qr-pick">Process isolation + gradual rollout</td><td>Software faults are correlated: every replica runs the same bug, so redundancy does nothing.</td><td class="qr-seen">Canary deploys, <span class="srcref">D18</span>, cell architectures</td></tr>
+      <tr><td>To act safely on an ambiguous timeout</td><td class="qr-pick">Idempotency</td><td>A timeout tells you nothing about whether the work happened, so make repeating it harmless.</td><td class="qr-seen">Stripe keys, <span class="srcref">Ch 7</span>, <span class="srcref">D19</span></td></tr>
+      <tr><td>To stop a paused process doing damage</td><td class="qr-pick">Fencing token</td><td>A GC pause can outlive a lease; the token makes the stale actor&rsquo;s write get rejected.</td><td class="qr-seen">GFS, ZooKeeper, <span class="srcref">Ch 6</span></td></tr>
+      <tr><td>To reason about a user&rsquo;s experience</td><td class="qr-pick">Percentiles, never averages</td><td>One slow dependency in a 100-call page hits most pages; the mean hides it entirely.</td><td class="qr-seen">SLOs, <span class="srcref">Ch 14</span>, Google SRE</td></tr>
+      <tr><td>To know whether a node is dead</td><td class="qr-pick">Accept that you cannot</td><td>Only timeouts, which are a guess. Every design here is a way of being correct without that knowledge.</td><td class="qr-seen">Failure detectors, <span class="srcref">Ch 6</span></td></tr>
+    </tbody>
+  </table></div>
+</div>
+
 
 <p>Let's start with a deceptively simple question: <em>why don't we just use one really powerful server?</em></p>
 
@@ -2576,6 +2659,45 @@ around it is like planning your week around the fire alarm.</div>
   </table></div>
 </div>
 
+<div class="anim">
+  <div class="an-head">
+    <div class="an-title">Asynchronous replication &mdash; and the acknowledged write that disappears</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 232" role="img">
+  <rect x="14" y="92" width="100" height="52" rx="9" class="nd" data-n="cl"/>
+  <text x="64" y="122" text-anchor="middle" class="nd-l">Client</text>
+  <rect x="170" y="92" width="142" height="52" rx="9" class="nd nd-hi" data-n="L"/>
+  <text x="241" y="114" text-anchor="middle" class="nd-l">Leader</text>
+  <text x="241" y="129" text-anchor="middle" class="nd-s">acks immediately</text>
+  <rect x="470" y="28" width="150" height="52" rx="9" class="nd" data-n="f1"/>
+  <text x="545" y="50" text-anchor="middle" class="nd-l">Follower 1</text>
+  <text x="545" y="65" text-anchor="middle" class="nd-s">lag ~40 ms</text>
+  <rect x="470" y="148" width="150" height="52" rx="9" class="nd" data-n="f2"/>
+  <text x="545" y="170" text-anchor="middle" class="nd-l">Follower 2</text>
+  <text x="545" y="185" text-anchor="middle" class="nd-s">lag ~40 ms</text>
+  <path d="M 114 118 L 170 118" class="ed"/>
+  <path d="M 312 118 L 470 54" class="ed ed-d"/>
+  <path d="M 312 118 L 470 174" class="ed ed-d"/>
+  <text x="400" y="86" text-anchor="middle" class="ax">async: leader does not wait</text>
+  <g class="pk pk-w" style="--x1:114px;--y1:110px;--x2:95px;--y2:110px;--delay:0.00s;--dur:2.40s"><rect width="75" height="15"/><text x="38" y="11" text-anchor="middle">write x=1</text></g>
+  <g class="pk pk-y" style="--x1:170px;--y1:110px;--x2:4px;--y2:110px;--delay:0.80s;--dur:2.40s"><rect width="110" height="15"/><text x="55" y="11" text-anchor="middle">ACK (already!)</text></g>
+  <g class="pk pk-r" style="--x1:312px;--y1:110px;--x2:395px;--y2:46px;--delay:1.30s;--dur:2.60s"><rect width="75" height="15"/><text x="38" y="11" text-anchor="middle">replicate</text></g>
+  <g class="pk pk-r" style="--x1:312px;--y1:110px;--x2:395px;--y2:166px;--delay:1.45s;--dur:2.60s"><rect width="75" height="15"/><text x="38" y="11" text-anchor="middle">replicate</text></g>
+  <g class="fail-only"><rect x="170" y="92" width="142" height="52" rx="9" class="deadnode"/><text x="241" y="114" text-anchor="middle" class="nd-l">Leader DEAD</text><text x="241" y="129" text-anchor="middle" class="nd-s">before replicating</text></g>
+  <g class="pk pk-e fail-only" style="--x1:114px;--y1:110px;--x2:95px;--y2:110px;--delay:0.00s;--dur:1.80s"><rect width="75" height="15"/><text x="38" y="11" text-anchor="middle">write x=1</text></g>
+  <g class="pk pk-e fail-only" style="--x1:170px;--y1:110px;--x2:80px;--y2:110px;--delay:0.70s;--dur:1.80s"><rect width="34" height="15"/><text x="17" y="11" text-anchor="middle">ACK</text></g>
+  <g class="fail-only pulse"><rect x="470" y="28" width="150" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="545" y="50" text-anchor="middle" class="nd-l">Follower 1 promoted</text><text x="545" y="65" text-anchor="middle" class="nd-s">never saw x=1</text></g>
+  <g class="fail-only"><text x="380" y="216" text-anchor="middle" class="ax" fill="#ff8a80">the client was told the write succeeded. It did not.</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">client write</span><span class="an-k k-y">acknowledgement</span><span class="an-k k-r">replication</span><span class="an-k k-e">lost</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> the write reaches the leader, which appends it locally and <em>acknowledges immediately</em>. Replication to followers happens afterwards, in the background. This is why async replication is fast &mdash; the client never waits for a second machine.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> the leader dies in the gap between acknowledging and replicating. A follower is promoted, and it has never seen <code>x&nbsp;=&nbsp;1</code>. <strong>The client was told the write succeeded and it is gone</strong> &mdash; no error, no retry, no trace. This is the precise cost of async replication, and it is why anything money-shaped needs <em>synchronous</em> replication to at least one follower, paying a round trip on every write.</div>
+</div>
+
 
 <p>Replication means keeping the same data on multiple machines. You do this for two reasons:</p>
 <ol>
@@ -3058,6 +3180,22 @@ around it is like planning your week around the fire alarm.</div>
   <div class="ch-sub">How to split your data across machines — and why it's harder than it looks.</div>
 </div>
 <div class="content">
+<div class="quickref">
+  <div class="label">&#9889; Quick reference</div>
+  <div class="qr-sub">Partitioning distributes keys. It does not distribute load &mdash; that is the whole difficulty.</div>
+  <div class="tw"><table>
+    <thead><tr><th>If you need&hellip;</th><th>Reach for</th><th>Because</th><th>Used in</th></tr></thead>
+    <tbody>
+      <tr><td>Even distribution, point lookups only</td><td class="qr-pick">Hash partitioning</td><td>Spreads keys uniformly, at the cost of destroying any ordering, so range scans must hit every shard.</td><td class="qr-seen">Cassandra, DynamoDB, <span class="srcref">D3</span></td></tr>
+      <tr><td>Range scans and ordered access</td><td class="qr-pick">Range partitioning</td><td>Keeps ordering so a scan touches few shards &mdash; and creates hot spots when writes are sequential.</td><td class="qr-seen">HBase, Bigtable, Spanner</td></tr>
+      <tr><td>To add or remove nodes cheaply</td><td class="qr-pick">Consistent hashing + virtual nodes</td><td><code>hash mod N</code> remaps ~99.5% of keys when N changes; a ring remaps ~1/N.</td><td class="qr-seen"><span class="srcref">D12</span>, Dynamo, Envoy ring hash</td></tr>
+      <tr><td>To survive one enormous key</td><td class="qr-pick">Salt / replicate the hot key</td><td>No partition scheme helps when one key exceeds a shard&rsquo;s budget &mdash; you must split it explicitly.</td><td class="qr-seen"><span class="srcref">D12</span> hot keys, <span class="srcref">D22</span></td></tr>
+      <tr><td>To avoid coordination entirely</td><td class="qr-pick">Choose the partition key so the constraint is local</td><td>Partition by conversation, by host, by tenant &mdash; then the invariant lives on one shard.</td><td class="qr-seen"><span class="srcref">D4</span>, <span class="srcref">D10</span>, <span class="srcref">D19</span></td></tr>
+      <tr><td>Secondary-index queries</td><td class="qr-pick">Local index, or global with a write cost</td><td>Local indexes need a scatter-gather read; global ones make every write a distributed write.</td><td class="qr-seen">Elasticsearch routing, DynamoDB GSI</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
 
 <p>At some point, your data grows beyond what fits on one machine. Even with the fastest SSDs and the most RAM, there's a physical limit. Partitioning is the answer: split your dataset into chunks, each chunk on a different machine. When done right, you get linear scale — 10 machines handle 10× the data at 10× the throughput. When done wrong, you get hot spots, rebalancing nightmares, and queries that have to scatter-gather across every node.</p>
 
@@ -3733,6 +3871,51 @@ around it is like planning your week around the fire alarm.</div>
   </table></div>
 </div>
 
+<div class="anim">
+  <div class="an-head">
+    <div class="an-title">Two-phase commit &mdash; and the window where the coordinator owns everyone</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 238" role="img">
+  <rect x="16" y="92" width="136" height="52" rx="9" class="nd nd-hi" data-n="c"/>
+  <text x="84" y="114" text-anchor="middle" class="nd-l">Coordinator</text>
+  <text x="84" y="129" text-anchor="middle" class="nd-s">owns the outcome</text>
+  <rect x="420" y="20" width="148" height="52" rx="9" class="nd" data-n="p1"/>
+  <text x="494" y="42" text-anchor="middle" class="nd-l">Participant A</text>
+  <text x="494" y="57" text-anchor="middle" class="nd-s">holds row locks</text>
+  <rect x="420" y="92" width="148" height="52" rx="9" class="nd" data-n="p2"/>
+  <text x="494" y="114" text-anchor="middle" class="nd-l">Participant B</text>
+  <text x="494" y="129" text-anchor="middle" class="nd-s">holds row locks</text>
+  <rect x="420" y="164" width="148" height="52" rx="9" class="nd" data-n="p3"/>
+  <text x="494" y="186" text-anchor="middle" class="nd-l">Participant C</text>
+  <text x="494" y="201" text-anchor="middle" class="nd-s">holds row locks</text>
+  <path d="M 152 118 L 420 46" class="ed"/>
+  <path d="M 152 118 L 420 118" class="ed"/>
+  <path d="M 152 118 L 420 190" class="ed"/>
+  <text x="300" y="84" text-anchor="middle" class="ax">prepare / commit</text>
+  <g class="pk pk-w" style="--x1:152px;--y1:110px;--x2:359px;--y2:38px;--delay:0.00s;--dur:2.60s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">PREPARE</text></g>
+  <g class="pk pk-r" style="--x1:420px;--y1:38px;--x2:118px;--y2:110px;--delay:1.00s;--dur:2.60s"><rect width="34" height="15"/><text x="17" y="11" text-anchor="middle">YES</text></g>
+  <g class="pk pk-y" style="--x1:152px;--y1:110px;--x2:366px;--y2:38px;--delay:1.90s;--dur:2.60s"><rect width="54" height="15"/><text x="27" y="11" text-anchor="middle">COMMIT</text></g>
+  <g class="pk pk-w" style="--x1:152px;--y1:110px;--x2:359px;--y2:110px;--delay:0.10s;--dur:2.60s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">PREPARE</text></g>
+  <g class="pk pk-r" style="--x1:420px;--y1:110px;--x2:118px;--y2:110px;--delay:1.10s;--dur:2.60s"><rect width="34" height="15"/><text x="17" y="11" text-anchor="middle">YES</text></g>
+  <g class="pk pk-y" style="--x1:152px;--y1:110px;--x2:366px;--y2:110px;--delay:2.00s;--dur:2.60s"><rect width="54" height="15"/><text x="27" y="11" text-anchor="middle">COMMIT</text></g>
+  <g class="pk pk-w" style="--x1:152px;--y1:110px;--x2:359px;--y2:182px;--delay:0.20s;--dur:2.60s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">PREPARE</text></g>
+  <g class="pk pk-r" style="--x1:420px;--y1:182px;--x2:118px;--y2:110px;--delay:1.20s;--dur:2.60s"><rect width="34" height="15"/><text x="17" y="11" text-anchor="middle">YES</text></g>
+  <g class="pk pk-y" style="--x1:152px;--y1:110px;--x2:366px;--y2:182px;--delay:2.10s;--dur:2.60s"><rect width="54" height="15"/><text x="27" y="11" text-anchor="middle">COMMIT</text></g>
+  <g class="fail-only"><rect x="16" y="92" width="136" height="52" rx="9" class="deadnode"/><text x="84" y="114" text-anchor="middle" class="nd-l">Coordinator DEAD</text><text x="84" y="129" text-anchor="middle" class="nd-s">died after PREPARE</text></g>
+  <g class="fail-only pulse"><rect x="420" y="20" width="148" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="494" y="42" text-anchor="middle" class="nd-l">BLOCKED</text><text x="494" y="57" text-anchor="middle" class="nd-s">locks held, cannot decide</text></g>
+  <g class="fail-only pulse"><rect x="420" y="92" width="148" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="494" y="114" text-anchor="middle" class="nd-l">BLOCKED</text><text x="494" y="129" text-anchor="middle" class="nd-s">locks held, cannot decide</text></g>
+  <g class="fail-only pulse"><rect x="420" y="164" width="148" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="494" y="186" text-anchor="middle" class="nd-l">BLOCKED</text><text x="494" y="201" text-anchor="middle" class="nd-s">locks held, cannot decide</text></g>
+  <g class="fail-only"><text x="300" y="214" text-anchor="middle" class="ax" fill="#ff8a80">participants cannot commit and cannot abort &#8212; they must wait</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">prepare</span><span class="an-k k-r">vote</span><span class="an-k k-y">commit</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> the coordinator asks every participant to <em>prepare</em> &mdash; do the work, take the locks, promise you can commit &mdash; collects the votes, and only then broadcasts the decision. Between the vote and the decision, each participant is holding locks and has given up its right to decide alone.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> the coordinator dies after collecting votes. Every participant has promised to commit and none of them knows the outcome &mdash; they cannot commit (the decision may have been abort) and cannot abort (they promised). They hold their locks and <strong>block</strong>, and any transaction touching those rows blocks behind them. This is why 2PC is a <em>blocking</em> protocol and why the coordinator is a genuine single point of failure, not a theoretical one.</div>
+</div>
+
 
 <p>A transaction is a set of operations that either all succeed or all fail together. In a single database, this is straightforward — the database manages it. But what happens when your "transaction" involves multiple services, multiple databases, or multiple rows on different machines?</p>
 
@@ -4305,6 +4488,22 @@ around it is like planning your week around the fire alarm.</div>
   <div class="ch-sub">Clocks lie in distributed systems. Here's what to do about it.</div>
 </div>
 <div class="content">
+<div class="quickref">
+  <div class="label">&#9889; Quick reference</div>
+  <div class="qr-sub">Clocks lie. Pick the kind of time that matches the question you are asking.</div>
+  <div class="tw"><table>
+    <thead><tr><th>If you need&hellip;</th><th>Reach for</th><th>Because</th><th>Used in</th></tr></thead>
+    <tbody>
+      <tr><td>To order events in one process</td><td class="qr-pick">A monotonic clock</td><td>Never jumps backwards, unlike wall-clock time under NTP correction. Use it for every duration measurement.</td><td class="qr-seen"><code>CLOCK_MONOTONIC</code>, <code>System.nanoTime</code></td></tr>
+      <tr><td>To order events across processes</td><td class="qr-pick">Lamport clocks</td><td>Gives a total order consistent with causality &mdash; but cannot tell you whether two events were concurrent.</td><td class="qr-seen">Kafka offsets, many replicated logs</td></tr>
+      <tr><td>To detect concurrent writes</td><td class="qr-pick">Vector clocks / version vectors</td><td>The only mechanism that distinguishes &ldquo;happened before&rdquo; from &ldquo;concurrent&rdquo;, which is what conflict detection needs.</td><td class="qr-seen">Dynamo, Riak, <span class="srcref">D3</span></td></tr>
+      <tr><td>Externally consistent transactions</td><td class="qr-pick">Bounded uncertainty + commit-wait</td><td>Wait out the clock error so no transaction can commit before one that preceded it in real time.</td><td class="qr-seen">Spanner TrueTime &mdash; atomic clocks and GPS</td></tr>
+      <tr><td>Roughly-ordered IDs, cheaply</td><td class="qr-pick">Snowflake-style IDs</td><td>Timestamp + machine + sequence, sortable and generated without coordination.</td><td class="qr-seen">Twitter, Instagram, most ID services</td></tr>
+      <tr><td>To never trust a timestamp for safety</td><td class="qr-pick">Fencing tokens instead</td><td>A lease can expire during a GC pause, so use a monotonic counter, not a clock reading.</td><td class="qr-seen"><span class="srcref">Ch 6</span>, <span class="srcref">D6</span></td></tr>
+    </tbody>
+  </table></div>
+</div>
+
 
 <p>In a single-machine system, time is simple: <code>System.currentTimeMillis()</code> gives you a number that increases monotonically. Call it twice — the second call is always larger than the first. You can use timestamps to order events.</p>
 
@@ -6491,6 +6690,23 @@ much.</p>
   <div class="ch-sub">If you can't measure it, you can't fix it — and you can't be on-call for it.</div>
 </div>
 <div class="content">
+<div class="quickref">
+  <div class="label">&#9889; Quick reference</div>
+  <div class="qr-sub">Measure what users feel, alert on what you would wake someone for.</div>
+  <div class="tw"><table>
+    <thead><tr><th>If you need&hellip;</th><th>Reach for</th><th>Because</th><th>Used in</th></tr></thead>
+    <tbody>
+      <tr><td>To know if users are having a bad time</td><td class="qr-pick">SLIs on the four golden signals</td><td>Latency, traffic, errors, saturation &mdash; measured at the edge, where the user is.</td><td class="qr-seen">Google SRE, every mature on-call rota</td></tr>
+      <tr><td>To decide when to stop shipping features</td><td class="qr-pick">Error budget</td><td>Turns reliability from an argument into arithmetic: budget spent means reliability work, budget left means ship.</td><td class="qr-seen">Google SRE, SLO-driven teams</td></tr>
+      <tr><td>Latency you can act on</td><td class="qr-pick">p99 and p99.9, never the mean</td><td>One slow dependency in a 100-call page affects most pages; averages hide exactly the tail that matters.</td><td class="qr-seen"><span class="srcref">Ch 1</span>, <span class="srcref">D11</span></td></tr>
+      <tr><td>To find where a request went wrong</td><td class="qr-pick">Distributed tracing</td><td>Per-request spans across services turn &ldquo;the site is slow&rdquo; into a specific call.</td><td class="qr-seen">OpenTelemetry, Jaeger, <span class="srcref">Ch 13</span></td></tr>
+      <tr><td>Cheap, high-volume numeric signals</td><td class="qr-pick">Metrics, not logs</td><td>~1.4 bytes per compressed datapoint against ~300 bytes per log line, for the same period.</td><td class="qr-seen">Prometheus, <span class="srcref">D11</span></td></tr>
+      <tr><td>To debug something you did not anticipate</td><td class="qr-pick">Structured logs + exemplars</td><td>Metrics answer questions you thought of in advance; logs answer the ones you did not.</td><td class="qr-seen"><span class="srcref">D11</span>, Loki, Elasticsearch</td></tr>
+      <tr><td>Alerts people do not ignore</td><td class="qr-pick">Page on symptoms, not causes</td><td>&ldquo;Error rate above SLO&rdquo; is actionable; &ldquo;CPU above 80%&rdquo; is usually noise.</td><td class="qr-seen">Google SRE alerting philosophy</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
 <p>Observability is the ability to understand what your system is doing from the outside, by examining its outputs. The three pillars are logs, metrics, and traces. At Google, this is formalized into the SRE (Site Reliability Engineering) discipline.</p><h3>SLI, SLO, SLA — The Language of Reliability</h3><p>These three terms define how you measure and commit to reliability:</p><ul><li><strong>SLI (Service Level Indicator):</strong> A specific measurement. Examples: request success rate, p99 latency, error rate.</li><li><strong>SLO (Service Level Objective):</strong> A target for an SLI. Examples: 'success rate ≥ 99.9% over 30 days', 'p99 latency ≤ 200ms'.</li><li><strong>SLA (Service Level Agreement):</strong> A legal contract with customers — SLO with consequences (usually credits/refunds if breached). Always weaker than your internal SLO — never set your SLA equal to your SLO.</li></ul><h4>Error Budgets — Making Reliability a Business Decision</h4><p>Error budget = 1 - SLO. If SLO = 99.9%, error budget = 0.1% = <strong>43.2 minutes/month</strong> of allowed downtime.</p><p>Error budgets make reliability a shared responsibility between SREs and developers: if the budget is full, no new risky features get deployed. If budget is healthy, the team can move fast. This removes the adversarial relationship between 'dev wants to ship' and 'SRE wants stability.'</p><h3>The Three Pillars</h3>
 <div class="tw"><table>
 <thead><tr><th>Pillar</th><th>What</th><th>Best For</th><th>Tools</th></tr></thead>
@@ -6648,6 +6864,22 @@ much.</p>
   <div class="ch-sub">Protecting your system and making it a pleasure to use.</div>
 </div>
 <div class="content">
+<div class="quickref">
+  <div class="label">&#9889; Quick reference</div>
+  <div class="qr-sub">Push validation to the edge, and make every interface survive being versioned.</div>
+  <div class="tw"><table>
+    <thead><tr><th>If you need&hellip;</th><th>Reach for</th><th>Because</th><th>Used in</th></tr></thead>
+    <tbody>
+      <tr><td>To prove who a caller is</td><td class="qr-pick">OAuth 2.0 / OIDC + short-lived tokens</td><td>Short expiry bounds the damage of a leak; revocation lists are the fallback, not the mechanism.</td><td class="qr-seen">Google Sign-In, Auth0, every modern API</td></tr>
+      <tr><td>Service-to-service identity</td><td class="qr-pick">mTLS</td><td>Both ends present certificates, so identity does not depend on network position.</td><td class="qr-seen">Istio, SPIFFE, Google ALTS</td></tr>
+      <tr><td>Schema evolution without a coordinated deploy</td><td class="qr-pick">Backward + forward compatible encoding</td><td>Old readers must skip new fields and new readers must tolerate missing ones &mdash; you can never deploy everything at once.</td><td class="qr-seen">Protobuf, Avro, Thrift</td></tr>
+      <tr><td>To evolve a public API</td><td class="qr-pick">Additive change + versioned URL</td><td>Adding is safe; removing or retyping a field is not. Version only when you must break something.</td><td class="qr-seen">Stripe, Google APIs</td></tr>
+      <tr><td>To stop injection of every kind</td><td class="qr-pick">Validate and parameterise at the boundary</td><td>Untrusted input includes upstream feeds and retrieved documents, not just user forms.</td><td class="qr-seen"><span class="srcref">D21</span> feeds, <span class="srcref">D14</span> prompt injection</td></tr>
+      <tr><td>Secrets that do not leak</td><td class="qr-pick">Short-lived credentials from a broker</td><td>A rotated secret in a config file is still a secret in a config file.</td><td class="qr-seen">Vault, KMS, workload identity</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
 <h3>Authentication vs Authorization</h3><p><strong>Authentication (AuthN):</strong> Who are you? Verify identity. Username + password, OAuth token, certificate.</p><p><strong>Authorization (AuthZ):</strong> What can you do? Once identity is confirmed, check permissions. RBAC (Role-Based), ABAC (Attribute-Based), or ACL.</p><p><strong>The Rule:</strong> Never conflate them. Authenticate at the gateway. Authorize at every service (zero trust — just because the request came through the gateway doesn't mean it's authorized for this specific resource).</p><h3>JWT — Inside the Token</h3><div class="diagram">
 <svg width="680" height="140" viewBox="0 0 680 140" xmlns="http://www.w3.org/2000/svg">
   <!-- Header -->
@@ -7823,7 +8055,49 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 <span class="kw">VALUE:</span> (offset: int64, commit_timestamp: int64, metadata: string)</div></div>
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="dc-diagram"><svg width="680" height="220" viewBox="0 0 680 220" xmlns="http://www.w3.org/2000/svg">
+  <div class="ds-body">
+<div class="anim">
+  <div class="an-head">
+    <div class="an-title">Replication and leader election &mdash; why only the in-sync set may be elected</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 236" role="img">
+  <rect x="14" y="96" width="110" height="52" rx="9" class="nd" data-n="p"/>
+  <text x="69" y="118" text-anchor="middle" class="nd-l">Producer</text>
+  <text x="69" y="133" text-anchor="middle" class="nd-s">acks=all</text>
+  <rect x="180" y="96" width="140" height="52" rx="9" class="nd nd-hi" data-n="l"/>
+  <text x="250" y="126" text-anchor="middle" class="nd-l">Leader (P0)</text>
+  <rect x="420" y="24" width="150" height="52" rx="9" class="nd" data-n="r1"/>
+  <text x="495" y="46" text-anchor="middle" class="nd-l">Replica (ISR)</text>
+  <text x="495" y="61" text-anchor="middle" class="nd-s">caught up</text>
+  <rect x="420" y="96" width="150" height="52" rx="9" class="nd" data-n="r2"/>
+  <text x="495" y="118" text-anchor="middle" class="nd-l">Replica (ISR)</text>
+  <text x="495" y="133" text-anchor="middle" class="nd-s">caught up</text>
+  <rect x="420" y="168" width="150" height="52" rx="9" class="nd" data-n="r3"/>
+  <text x="495" y="190" text-anchor="middle" class="nd-l">Replica (lagging)</text>
+  <text x="495" y="205" text-anchor="middle" class="nd-s">OUT of ISR</text>
+  <rect x="640" y="96" width="100" height="52" rx="9" class="nd" data-n="c"/>
+  <text x="690" y="126" text-anchor="middle" class="nd-l">Consumer</text>
+  <path d="M 124 122 L 180 122" class="ed"/>
+  <path d="M 320 122 L 420 50" class="ed"/>
+  <path d="M 320 122 L 420 122" class="ed"/>
+  <path d="M 320 122 L 420 194" class="ed ed-d"/>
+  <g class="pk pk-w" style="--x1:124px;--y1:114px;--x2:126px;--y2:114px;--delay:0.00s;--dur:2.40s"><rect width="54" height="15"/><text x="27" y="11" text-anchor="middle">record</text></g>
+  <g class="pk pk-r" style="--x1:320px;--y1:114px;--x2:345px;--y2:42px;--delay:0.70s;--dur:2.40s"><rect width="75" height="15"/><text x="38" y="11" text-anchor="middle">replicate</text></g>
+  <g class="pk pk-r" style="--x1:320px;--y1:114px;--x2:345px;--y2:114px;--delay:0.80s;--dur:2.40s"><rect width="75" height="15"/><text x="38" y="11" text-anchor="middle">replicate</text></g>
+  <g class="pk pk-y" style="--x1:180px;--y1:114px;--x2:-14px;--y2:114px;--delay:1.60s;--dur:2.40s"><rect width="138" height="15"/><text x="69" y="11" text-anchor="middle">ack (ISR wrote it)</text></g>
+  <g class="fail-only"><rect x="180" y="96" width="140" height="52" rx="9" class="deadnode"/><text x="250" y="118" text-anchor="middle" class="nd-l">Leader DEAD</text><text x="250" y="133" text-anchor="middle" class="nd-s"></text></g>
+  <g class="fail-only pulse"><rect x="420" y="24" width="150" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="495" y="46" text-anchor="middle" class="nd-l">NEW LEADER</text><text x="495" y="61" text-anchor="middle" class="nd-s">elected from the ISR only</text></g>
+  <g class="fail-only"><text x="380" y="216" text-anchor="middle" class="ax" fill="#ff8a80">electing the lagging replica would silently lose acknowledged records</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">produced record</span><span class="an-k k-r">replication</span><span class="an-k k-y">acknowledgement</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> a record is appended to the partition leader, replicated to the followers, and acknowledged to the producer only once every replica in the <em>in-sync set</em> has written it. The lagging replica is deliberately excluded from that set &mdash; it is allowed to fall behind without slowing anybody down.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> the leader dies. Election must choose <strong>only from the in-sync set</strong>, because those replicas provably hold every acknowledged record. Electing the lagging replica &mdash; which some systems will do to stay available, called unclean election &mdash; means records the producer was told were durable simply vanish. That is the availability-versus-durability choice from <span class="srcref">Ch 3</span>, made concrete in one config flag.</div>
+</div>
+<div class="dc-diagram"><svg width="680" height="220" viewBox="0 0 680 220" xmlns="http://www.w3.org/2000/svg">
   <defs><marker id="arr" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
   
   <rect x="10" y="75" width="110" height="70" rx="8" fill="#1a237e"/>
@@ -9009,7 +9283,48 @@ cheaper than rebuilding 150 GB every minute.</div></div>
 <span class="cm">--   BM25 inverted over text  (lexical / exact terms, IDs, error codes)</span></div></div>
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="flow">  <span class="fl-key">OFFLINE: INDEXING</span>                    <span class="fl-key">ONLINE: SERVING</span>
+  <div class="ds-body">
+<div class="anim">
+  <div class="an-head">
+    <div class="an-title">Retrieval and generation &mdash; and why access control cannot be applied at the end</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 250" role="img">
+  <rect x="14" y="100" width="104" height="52" rx="9" class="nd" data-n="u"/>
+  <text x="66" y="122" text-anchor="middle" class="nd-l">User</text>
+  <text x="66" y="137" text-anchor="middle" class="nd-s">asks a question</text>
+  <rect x="166" y="100" width="136" height="52" rx="9" class="nd nd-hi" data-n="r"/>
+  <text x="234" y="122" text-anchor="middle" class="nd-l">Retriever</text>
+  <text x="234" y="137" text-anchor="middle" class="nd-s">ANN + BM25</text>
+  <rect x="352" y="24" width="156" height="52" rx="9" class="nd" data-n="idx"/>
+  <text x="430" y="46" text-anchor="middle" class="nd-l">Index</text>
+  <text x="430" y="61" text-anchor="middle" class="nd-s">all tenants' chunks</text>
+  <rect x="352" y="168" width="156" height="52" rx="9" class="nd" data-n="llm"/>
+  <text x="430" y="190" text-anchor="middle" class="nd-l">LLM</text>
+  <text x="430" y="205" text-anchor="middle" class="nd-s">builds the answer</text>
+  <rect x="580" y="100" width="140" height="52" rx="9" class="nd" data-n="out"/>
+  <text x="650" y="122" text-anchor="middle" class="nd-l">Answer</text>
+  <text x="650" y="137" text-anchor="middle" class="nd-s">with citations</text>
+  <path d="M 118 126 L 166 126" class="ed"/>
+  <path d="M 302 126 L 352 50" class="ed"/>
+  <path d="M 430 76 L 430 168" class="ed"/>
+  <path d="M 508 194 L 580 126" class="ed"/>
+  <g class="pk pk-w" style="--x1:118px;--y1:118px;--x2:98px;--y2:118px;--delay:0.00s;--dur:2.40s"><rect width="68" height="15"/><text x="34" y="11" text-anchor="middle">question</text></g>
+  <g class="pk pk-r" style="--x1:302px;--y1:118px;--x2:207px;--y2:42px;--delay:0.70s;--dur:2.40s"><rect width="145" height="15"/><text x="72" y="11" text-anchor="middle">ACL-filtered search</text></g>
+  <g class="pk pk-r" style="--x1:430px;--y1:68px;--x2:292px;--y2:160px;--delay:1.40s;--dur:2.20s"><rect width="138" height="15"/><text x="69" y="11" text-anchor="middle">5 permitted chunks</text></g>
+  <g class="pk pk-y" style="--x1:508px;--y1:186px;--x2:463px;--y2:118px;--delay:2.00s;--dur:2.40s"><rect width="117" height="15"/><text x="58" y="11" text-anchor="middle">grounded answer</text></g>
+  <g class="pk pk-e fail-only" style="--x1:430px;--y1:68px;--x2:306px;--y2:160px;--delay:0.20s;--dur:2.00s"><rect width="124" height="15"/><text x="62" y="11" text-anchor="middle">RESTRICTED chunk</text></g>
+  <g class="fail-only pulse"><rect x="352" y="168" width="156" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="430" y="190" text-anchor="middle" class="nd-l">LLM</text><text x="430" y="205" text-anchor="middle" class="nd-s">paraphrases what it was given</text></g>
+  <g class="fail-only"><text x="380" y="232" text-anchor="middle" class="ax" fill="#ff8a80">filtering the ANSWER cannot undo this &#8212; the model can reword the passage past any filter</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">question</span><span class="an-k k-r">retrieved chunks</span><span class="an-k k-y">answer</span><span class="an-k k-e">restricted content</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> the question is embedded and searched against a vector index and a lexical index together, the ACL predicate is evaluated <em>during</em> the graph walk so only permitted chunks are ever returned, and those chunks are assembled into a prompt with citations.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> if you filter <em>after</em> retrieval &mdash; or worse, filter the generated answer &mdash; a restricted passage has already entered the prompt. <strong>The model can paraphrase it, summarise it, or answer a question about it, and no output filter reliably catches that.</strong> Post-filtering is not a security control. This is why the ACL groups are denormalised onto every chunk: so the filter can run inside the search, not after it.</div>
+</div>
+<div class="flow">  <span class="fl-key">OFFLINE: INDEXING</span>                    <span class="fl-key">ONLINE: SERVING</span>
 
   document source                          user question + auth
        |                                        |
@@ -9868,7 +10183,44 @@ single-row hot-write problem rather than a throughput problem is most of the ans
 </div>
 <div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="flow">  <span class="fl-key">SEARCH PATH</span>  (read-heavy, may be stale)
+  <div class="ds-body">
+<div class="anim">
+  <div class="an-head">
+    <div class="an-title">Hold, pay, confirm &mdash; and the timeout where doing nothing is correct</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 244" role="img">
+  <rect x="14" y="96" width="94" height="52" rx="9" class="nd" data-n="u"/>
+  <text x="61" y="126" text-anchor="middle" class="nd-l">User</text>
+  <rect x="150" y="96" width="156" height="52" rx="9" class="nd nd-hi" data-n="s"/>
+  <text x="228" y="118" text-anchor="middle" class="nd-l">Booking service</text>
+  <text x="228" y="133" text-anchor="middle" class="nd-s">holds seat 14A</text>
+  <rect x="350" y="20" width="150" height="52" rx="9" class="nd" data-n="db"/>
+  <text x="425" y="42" text-anchor="middle" class="nd-l">Inventory row</text>
+  <text x="425" y="57" text-anchor="middle" class="nd-s">state=held</text>
+  <rect x="560" y="150" width="176" height="52" rx="9" class="nd" data-n="pay"/>
+  <text x="648" y="172" text-anchor="middle" class="nd-l">Payment provider</text>
+  <text x="648" y="187" text-anchor="middle" class="nd-s">external, slow</text>
+  <path d="M 108 122 L 150 122" class="ed"/>
+  <path d="M 306 122 L 350 46" class="ed"/>
+  <path d="M 306 122 L 560 176" class="ed"/>
+  <text x="470" y="120" text-anchor="middle" class="ax">seconds, can time out</text>
+  <g class="pk pk-w" style="--x1:108px;--y1:114px;--x2:82px;--y2:114px;--delay:0.00s;--dur:2.40s"><rect width="68" height="15"/><text x="34" y="11" text-anchor="middle">book 14A</text></g>
+  <g class="pk pk-r" style="--x1:306px;--y1:114px;--x2:212px;--y2:38px;--delay:0.70s;--dur:2.40s"><rect width="138" height="15"/><text x="69" y="11" text-anchor="middle">conditional UPDATE</text></g>
+  <g class="pk pk-y" style="--x1:306px;--y1:114px;--x2:429px;--y2:168px;--delay:1.30s;--dur:2.80s"><rect width="131" height="15"/><text x="66" y="11" text-anchor="middle">charge (idem key)</text></g>
+  <g class="pk pk-r" style="--x1:560px;--y1:168px;--x2:224px;--y2:114px;--delay:2.20s;--dur:2.80s"><rect width="82" height="15"/><text x="41" y="11" text-anchor="middle">charged OK</text></g>
+  <g class="fail-only"><line x1="424" y1="140" x2="442" y2="158" class="xmark"/><line x1="442" y1="140" x2="424" y2="158" class="xmark"/></g>
+  <g class="fail-only pulse"><rect x="560" y="150" width="176" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="648" y="172" text-anchor="middle" class="nd-l">TIMEOUT</text><text x="648" y="187" text-anchor="middle" class="nd-s">did the charge happen? unknown</text></g>
+  <g class="fail-only"><text x="380" y="226" text-anchor="middle" class="ax" fill="#ff8a80">confirm and you may give away an unpaid seat. Release and you may have charged for nothing.</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">booking request</span><span class="an-k k-r">inventory / result</span><span class="an-k k-y">payment</span><span class="an-k k-e">ambiguous</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> the request takes a <em>hold</em> via a single conditional UPDATE on one row &mdash; that one statement settles every race atomically &mdash; then calls the payment provider with an idempotency key, and only confirms once payment succeeds.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> the payment call times out. You do not know whether the card was charged (<span class="srcref">Ch 1</span>). Confirming risks giving away a seat nobody paid for; releasing risks charging someone who gets nothing. <strong>The correct action is to do neither</strong> &mdash; leave the hold to expire and reconcile against the provider afterwards. If the charge did land, refund it: a refund is recoverable, a double-sold seat is not.</div>
+</div>
+<div class="flow">  <span class="fl-key">SEARCH PATH</span>  (read-heavy, may be stale)
     client -&gt; CDN/cache -&gt; availability read replica
     <span class="fl-dim">stale by seconds; the 409 on hold is what corrects it</span>
 
@@ -13799,6 +14151,7 @@ var GLOSSARY = {
   </div>
   <div class="sn-scroll" id="sn-scroll">
     <a class="sn-link sn-top-link" href="#master-toc"><span class="sn-b">&#9776;</span>Complete Table of Contents</a>
+    <a class="sn-link sn-top-link" href="#start-here"><span class="sn-b">&#9733;</span>Start here &mdash; how to use this guide</a>
     <a class="sn-link sn-top-link" href="questions-google.html"><span class="sn-b">Q</span>Question Bank &mdash; 78 tagged questions</a>
     <div class="sn-group">
       <div class="sn-gh">Part 1 &middot; Theory</div>

@@ -40,7 +40,7 @@ distributed systems concepts from first principles.
 |---|---|
 | **File** | `index.html` — single self-contained file, ~1.5 MB |
 | **Backup** | `Distributed_Systems_Deep_Guide.backup.html` — the original before any enrichment |
-| **Content** | ~102,300 words |
+| **Content** | ~104,800 words |
 | **Deps** | None. One Google Fonts `@import`. No JS libraries. Opens offline from `file://` |
 | **Structure** | 1 `<style>` block, 5 `<script>` blocks (early state-restore in `<body>`, glossary data, glossary engine, search palette, left-nav engine, view-size engine) |
 
@@ -49,6 +49,7 @@ distributed systems concepts from first principles.
 ```
 .top-nav                     sticky nav — brand + 4 links + badge
 .cover                       title page
+#start-here                  orientation: 3 reading paths + the conventions table
 #master-toc                  full table of contents
 #part1-theory                Part 1 banner
   #ch1 … #ch15               15 chapters (div.chapter + div.content pairs)
@@ -332,6 +333,8 @@ Reuse these. Do not invent new block types without a reason.
 | `.takeaway` | Green chapter closer | `.label`, `<p>`, `<ul>` |
 | `.recall` | "Before this chapter, remember X" | `.rc-icon` + a `<div>` |
 | `.srcref` | Small inline chapter chip | `<span class="srcref">Ch 4, 12</span>` |
+| `.anim` | Animated architecture diagram — inline SVG + CSS keyframes, **never a GIF** (the file must stay self-contained and open from `file://`) | `.an-head` (title + Pause + "What goes wrong"), `<svg>`, `.an-legend`, then **two** captions: `.an-cap.ok-only` and `.an-cap.fail-only`. Elements marked `.fail-only` appear and `.ok-only` hide when the container gets `.is-fail`. **Generate the geometry** with `scratchpad/anim/mk.py` — hand-placed coordinates collide, exactly as with the ASCII diagrams |
+| `.startcard` | The "Start here" orientation, once, after the cover | Three reading paths + a conventions table. Teaching the reader the document's conventions is what makes 104k words navigable |
 | `.quickref` | Scannable decision table at the **top** of a chapter, for a reader who already knows the material and just needs the answer | `.label`, `.qr-sub`, then a 4-column table: *If you need… / Reach for / Because / **Used in***. The last column carries real systems (`Envoy`, `resilience4j`, Kafka) and `<span class="srcref">` links to designs. Wrap the table in `.tw`. Collapses to stacked cards under 680px |
 | `.buildup` | Progressive derivation — build the naive design, break it, fix it, repeat | `.label`, then `.bu-step` > `.bu-n` + `.bu-body` containing `.bu-try` (the attempt), `.bu-break` (the exact failure, red), `.bu-learn` (what it teaches, green); closing `.bu-end`. **The best device in the toolkit for genuinely hard topics** — the reader arrives at the real answer having felt why every simpler answer fails |
 | `.assume` | Stated assumptions **with the consequence of each being wrong**, inside step 2 | `.label`, then `.as-row` > `.as-a` (the assumption) + `.as-b` (what breaks). A bare list of numbers is not an assumptions section |
@@ -417,7 +420,8 @@ though they exist. Drive the page by clicking real elements, not by calling its 
 
 ```
 totalWords 102280 · designs 23 (207 steps, all 1-9) · toolkitCards 7
-quickref 10 · buildup 3 · all 15 chapters enriched
+quickref 15 (every chapter) · buildup 3 · anims 9 (73 packets, all with both captions)
+all 15 chapters enriched · startcard 1
 clarify 23 · assume 23 · concl 23 · tradeoff 23 · glossaryTerms 199 · designSteps 105 · flows 45
 vidrefs 22 · externalLinks 63 (all target=_blank rel=noopener, all verified 200)
 flowsScrollingOnDesktop 0 (was 9; Fit is on by default) · gtInCtl 0

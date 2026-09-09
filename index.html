@@ -1129,6 +1129,91 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
 
 
 
+/* ============================================================
+   ANIMATED FLOW DIAGRAMS
+   Inline SVG + CSS keyframes. No GIFs: the file must stay self-contained and
+   open from file://, and vectors stay crisp at any zoom and any --fscale.
+   Every diagram has two modes -- the happy path, and what goes wrong.
+   ============================================================ */
+.anim {
+  background: #1a1a2e; border-radius: 12px; margin: 26px 0;
+  padding: 16px 18px 14px; overflow: hidden;
+}
+.an-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+.an-title {
+  font-size: calc(11px * var(--fscale, 1)); font-weight: 800; text-transform: uppercase;
+  letter-spacing: 1.3px; color: #80cbc4; flex: 1; min-width: 0;
+}
+.an-btns { display: flex; gap: 6px; flex-shrink: 0; }
+.an-btn {
+  appearance: none; cursor: pointer; font-family: 'Inter', sans-serif;
+  font-size: calc(11px * var(--fscale, 1)); font-weight: 700;
+  padding: 5px 12px; border-radius: 20px;
+  background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.18); color: #cfd8dc;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.an-btn:hover { background: rgba(255,255,255,.17); color: #fff; }
+.an-btn[aria-pressed="true"] { background: rgba(198,40,40,.34); border-color: rgba(239,83,80,.6); color: #ff8a80; }
+.an-btn.an-play[aria-pressed="true"] { background: rgba(38,166,154,.3); border-color: rgba(38,166,154,.6); color: #80cbc4; }
+.an-btn:focus-visible { outline: 2px solid #80cbc4; outline-offset: 2px; }
+.anim svg { display: block; width: 100%; height: auto; margin: 6px 0 2px; }
+
+/* nodes */
+.anim .nd { fill: #23233d; stroke: rgba(255,255,255,.16); stroke-width: 1; }
+.anim .nd-hi { fill: #1f3a46; stroke: rgba(38,166,154,.5); }
+.anim .nd-l { fill: #eceff1; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; }
+.anim .nd-s { fill: rgba(255,255,255,.5); font-family: 'Inter', sans-serif; font-size: 9.5px; }
+.anim .ed { stroke: rgba(255,255,255,.22); stroke-width: 1.5; fill: none; }
+.anim .ed-d { stroke-dasharray: 4 4; }
+.anim .ax { fill: rgba(255,255,255,.42); font-family: 'Inter', sans-serif; font-size: 9.5px; }
+
+/* packets — a labelled chip that travels an edge */
+.anim .pk { animation: an-travel var(--dur, 3s) linear infinite; animation-delay: var(--delay, 0s); }
+.anim .pk rect { rx: 4; }
+.anim .pk text { font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 700; fill: #10101c; }
+.pk-w rect { fill: #80cbc4; } .pk-r rect { fill: #9fa8da; }
+.pk-e rect { fill: #ef9a9a; } .pk-e text { fill: #3b0d0d; }
+.pk-y rect { fill: #ffcc80; }
+@keyframes an-travel {
+  0%   { transform: translate(var(--x1), var(--y1)); opacity: 0; }
+  6%   { opacity: 1; }
+  94%  { opacity: 1; }
+  100% { transform: translate(var(--x2), var(--y2)); opacity: 0; }
+}
+
+/* failure mode: everything .fail-only appears, .ok-only hides */
+.anim .fail-only { display: none; }
+.anim.is-fail .fail-only { display: revert; }
+.anim.is-fail .ok-only { display: none; }
+.anim .xmark { stroke: #ef5350; stroke-width: 3; stroke-linecap: round; }
+.anim .deadnode { fill: #3d1f22; stroke: rgba(239,83,80,.55); }
+.anim .pulse { animation: an-pulse 1.4s ease-in-out infinite; }
+@keyframes an-pulse { 0%,100% { opacity: .35; } 50% { opacity: 1; } }
+
+/* paused */
+.anim.is-paused .pk, .anim.is-paused .pulse { animation-play-state: paused; }
+
+.an-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; }
+.an-k {
+  font-size: calc(10.5px * var(--fscale, 1)); color: rgba(255,255,255,.62);
+  font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 6px;
+}
+.an-k::before { content: ''; width: 11px; height: 8px; border-radius: 2px; background: #80cbc4; }
+.an-k.k-r::before { background: #9fa8da; } .an-k.k-e::before { background: #ef9a9a; }
+.an-k.k-y::before { background: #ffcc80; }
+.an-cap {
+  margin-top: 10px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,.12);
+  font-size: calc(13px * var(--fscale, 1)); line-height: 1.6; color: rgba(255,255,255,.72);
+}
+.an-cap strong { color: #fff; }
+.an-cap .whatbreaks { color: #ff8a80; font-weight: 700; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim .pk, .anim .pulse { animation: none; }
+  .anim .pk { transform: translate(var(--x2), var(--y2)); opacity: 1; }
+}
+@media (max-width: 680px) { .anim { padding: 12px 11px 11px; } .an-title { flex-basis: 100%; } }
+
 /* Quick reference — a scannable decision table for someone who already knows
    the material and just needs the answer, plus where each thing is actually used.
    Sits near the TOP of a chapter, before the prose. */
@@ -5270,6 +5355,54 @@ most large outages.</p>
 states &mdash; healthy, and collapsed &mdash; and enough load pushes it across a threshold from
 which it will not return on its own. Capacity planning tells you where the threshold is; load
 shedding is what stops you crossing it.</div>
+<div class="anim">
+  <div class="an-head">
+    <div class="an-title">Metastable failure &mdash; the loop that outlives its own cause</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">Show the retry storm</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 232" role="img">
+  <rect x="10" y="30" width="118" height="52" rx="9" class="nd" data-n="c1"/>
+  <text x="69" y="52" text-anchor="middle" class="nd-l">Clients</text>
+  <text x="69" y="67" text-anchor="middle" class="nd-s">10,000 of them</text>
+  <rect x="190" y="90" width="126" height="52" rx="9" class="nd" data-n="lb"/>
+  <text x="253" y="112" text-anchor="middle" class="nd-l">Service A</text>
+  <text x="253" y="127" text-anchor="middle" class="nd-s">200 threads</text>
+  <rect x="420" y="90" width="140" height="52" rx="9" class="nd nd-hi" data-n="b"/>
+  <text x="490" y="112" text-anchor="middle" class="nd-l">Service B</text>
+  <text x="490" y="127" text-anchor="middle" class="nd-s">capacity 5K rps</text>
+  <rect x="636" y="90" width="112" height="52" rx="9" class="nd" data-n="db"/>
+  <text x="692" y="120" text-anchor="middle" class="nd-l">Database</text>
+  <path d="M 128 56 L 190 116" class="ed"/>
+  <path d="M 316 116 L 420 116" class="ed"/>
+  <path d="M 560 116 L 636 116" class="ed"/>
+  <text x="360" y="78" text-anchor="middle" class="ax">normal: 4K rps</text>
+  <g class="pk pk-w" style="--x1:128px;--y1:48px;--x2:129px;--y2:108px;--delay:0.00s;--dur:2.40s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">request</text></g>
+  <g class="pk pk-w" style="--x1:128px;--y1:48px;--x2:129px;--y2:108px;--delay:0.60s;--dur:2.40s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">request</text></g>
+  <g class="pk pk-w" style="--x1:316px;--y1:108px;--x2:380px;--y2:108px;--delay:0.80s;--dur:2.20s"><rect width="40" height="15"/><text x="20" y="11" text-anchor="middle">call</text></g>
+  <g class="pk pk-r" style="--x1:560px;--y1:108px;--x2:589px;--y2:108px;--delay:1.20s;--dur:2.20s"><rect width="47" height="15"/><text x="24" y="11" text-anchor="middle">query</text></g>
+  <g class="fail-only"><rect x="420" y="90" width="140" height="52" rx="9" class="deadnode"/><text x="490" y="112" text-anchor="middle" class="nd-l">Service B</text><text x="490" y="127" text-anchor="middle" class="nd-s">slow: 8 s per call</text></g>
+  <g class="pk pk-e fail-only" style="--x1:128px;--y1:48px;--x2:143px;--y2:108px;--delay:0.00s;--dur:1.50s"><rect width="47" height="15"/><text x="24" y="11" text-anchor="middle">RETRY</text></g>
+  <g class="pk pk-e fail-only" style="--x1:128px;--y1:48px;--x2:143px;--y2:108px;--delay:0.16s;--dur:1.50s"><rect width="47" height="15"/><text x="24" y="11" text-anchor="middle">RETRY</text></g>
+  <g class="pk pk-e fail-only" style="--x1:128px;--y1:48px;--x2:143px;--y2:108px;--delay:0.32s;--dur:1.50s"><rect width="47" height="15"/><text x="24" y="11" text-anchor="middle">RETRY</text></g>
+  <g class="pk pk-e fail-only" style="--x1:128px;--y1:48px;--x2:143px;--y2:108px;--delay:0.48s;--dur:1.50s"><rect width="47" height="15"/><text x="24" y="11" text-anchor="middle">RETRY</text></g>
+  <g class="pk pk-e fail-only" style="--x1:128px;--y1:48px;--x2:143px;--y2:108px;--delay:0.64s;--dur:1.50s"><rect width="47" height="15"/><text x="24" y="11" text-anchor="middle">RETRY</text></g>
+  <g class="pk pk-e fail-only" style="--x1:128px;--y1:48px;--x2:143px;--y2:108px;--delay:0.80s;--dur:1.50s"><rect width="47" height="15"/><text x="24" y="11" text-anchor="middle">RETRY</text></g>
+  <g class="pk pk-e fail-only" style="--x1:128px;--y1:48px;--x2:143px;--y2:108px;--delay:0.96s;--dur:1.50s"><rect width="47" height="15"/><text x="24" y="11" text-anchor="middle">RETRY</text></g>
+  <g class="pk pk-e fail-only" style="--x1:316px;--y1:108px;--x2:352px;--y2:108px;--delay:0.00s;--dur:1.40s"><rect width="68" height="15"/><text x="34" y="11" text-anchor="middle">retry x3</text></g>
+  <g class="pk pk-e fail-only" style="--x1:316px;--y1:108px;--x2:352px;--y2:108px;--delay:0.20s;--dur:1.40s"><rect width="68" height="15"/><text x="34" y="11" text-anchor="middle">retry x3</text></g>
+  <g class="pk pk-e fail-only" style="--x1:316px;--y1:108px;--x2:352px;--y2:108px;--delay:0.40s;--dur:1.40s"><rect width="68" height="15"/><text x="34" y="11" text-anchor="middle">retry x3</text></g>
+  <g class="pk pk-e fail-only" style="--x1:316px;--y1:108px;--x2:352px;--y2:108px;--delay:0.60s;--dur:1.40s"><rect width="68" height="15"/><text x="34" y="11" text-anchor="middle">retry x3</text></g>
+  <g class="pk pk-e fail-only" style="--x1:316px;--y1:108px;--x2:352px;--y2:108px;--delay:0.80s;--dur:1.40s"><rect width="68" height="15"/><text x="34" y="11" text-anchor="middle">retry x3</text></g>
+  <g class="fail-only"><path d="M 253 142 C 253 200, 490 200, 490 142" class="ed" stroke="#ef5350" stroke-dasharray="5 4"/><text x="372" y="212" text-anchor="middle" class="ax" fill="#ff8a80">timeouts feed retries feed timeouts</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">normal traffic</span><span class="an-k k-r">downstream query</span><span class="an-k k-e">retries</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> ordinary requests, at a rate comfortably inside Service B&rsquo;s capacity. Each request occupies one of A&rsquo;s 200 threads for a few milliseconds and returns. Concurrency is latency &times; rate, so at low latency a small pool serves a lot of traffic.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> B slows to 8&nbsp;s per call. A&rsquo;s clients time out and <strong>retry</strong>, tripling offered load on a service that is already struggling; A&rsquo;s threads are all parked waiting. Now the vicious part: <strong>fixing B does not fix the system.</strong> The retry backlog alone keeps load above capacity, so the outage sustains itself after its cause is gone. Recovery needs <em>shedding</em> &mdash; and the server is meanwhile busy computing replies for clients that already gave up.</div>
+</div>
+
 
 <div class="misconception">
   <div class="label">&#9888; Common misconception</div>
@@ -6969,7 +7102,55 @@ much.</p>
 }</div></div>
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="dc-diagram"><svg width="680" height="240" viewBox="0 0 680 240" xmlns="http://www.w3.org/2000/svg">
+  <div class="ds-body">
+<div class="anim">
+  <div class="an-head">
+    <div class="an-title">Fan-out on write &mdash; and the celebrity that stalls it for everybody</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 262" role="img">
+  <rect x="10" y="104" width="112" height="52" rx="9" class="nd" data-n="u"/>
+  <text x="66" y="126" text-anchor="middle" class="nd-l">Author</text>
+  <text x="66" y="141" text-anchor="middle" class="nd-s">posts a tweet</text>
+  <rect x="160" y="104" width="140" height="52" rx="9" class="nd" data-n="sv"/>
+  <text x="230" y="126" text-anchor="middle" class="nd-l">Write service</text>
+  <text x="230" y="141" text-anchor="middle" class="nd-s">durable, then async</text>
+  <rect x="400" y="16" width="150" height="42" rx="9" class="nd" data-n="f1"/>
+  <text x="475" y="41" text-anchor="middle" class="nd-l">Timeline: Ana</text>
+  <rect x="400" y="74" width="150" height="42" rx="9" class="nd" data-n="f2"/>
+  <text x="475" y="99" text-anchor="middle" class="nd-l">Timeline: Ben</text>
+  <rect x="400" y="132" width="150" height="42" rx="9" class="nd" data-n="f3"/>
+  <text x="475" y="157" text-anchor="middle" class="nd-l">Timeline: Cleo</text>
+  <rect x="400" y="190" width="150" height="42" rx="9" class="nd" data-n="f4"/>
+  <text x="475" y="215" text-anchor="middle" class="nd-l">Timeline: &hellip;500</text>
+  <path d="M 300 130 L 400 37" class="ed"/>
+  <path d="M 300 130 L 400 95" class="ed"/>
+  <path d="M 300 130 L 400 153" class="ed"/>
+  <path d="M 300 130 L 400 211" class="ed"/>
+  <path d="M 122 130 L 160 130" class="ed"/>
+  <text x="660" y="130" text-anchor="middle" class="ax">fan-out on write</text>
+  <g class="pk pk-w" style="--x1:122px;--y1:122px;--x2:92px;--y2:122px;--delay:0.00s;--dur:2.40s"><rect width="68" height="15"/><text x="34" y="11" text-anchor="middle">new post</text></g>
+  <g class="pk pk-r" style="--x1:300px;--y1:122px;--x2:360px;--y2:30px;--delay:0.90s;--dur:2.20s"><rect width="40" height="15"/><text x="20" y="11" text-anchor="middle">copy</text></g>
+  <g class="pk pk-r" style="--x1:300px;--y1:122px;--x2:360px;--y2:88px;--delay:1.02s;--dur:2.20s"><rect width="40" height="15"/><text x="20" y="11" text-anchor="middle">copy</text></g>
+  <g class="pk pk-r" style="--x1:300px;--y1:122px;--x2:360px;--y2:146px;--delay:1.14s;--dur:2.20s"><rect width="40" height="15"/><text x="20" y="11" text-anchor="middle">copy</text></g>
+  <g class="pk pk-r" style="--x1:300px;--y1:122px;--x2:360px;--y2:204px;--delay:1.26s;--dur:2.20s"><rect width="40" height="15"/><text x="20" y="11" text-anchor="middle">copy</text></g>
+  <g class="fail-only"><rect x="10" y="104" width="112" height="52" rx="9" class="deadnode"/><text x="66" y="126" text-anchor="middle" class="nd-l">Celebrity</text><text x="66" y="141" text-anchor="middle" class="nd-s">40M followers</text></g>
+  <g class="pk pk-e fail-only" style="--x1:300px;--y1:122px;--x2:325px;--y2:204px;--delay:0.00s;--dur:1.60s"><rect width="75" height="15"/><text x="38" y="11" text-anchor="middle">copy x40M</text></g>
+  <g class="pk pk-e fail-only" style="--x1:300px;--y1:122px;--x2:325px;--y2:204px;--delay:0.18s;--dur:1.60s"><rect width="75" height="15"/><text x="38" y="11" text-anchor="middle">copy x40M</text></g>
+  <g class="pk pk-e fail-only" style="--x1:300px;--y1:122px;--x2:325px;--y2:204px;--delay:0.36s;--dur:1.60s"><rect width="75" height="15"/><text x="38" y="11" text-anchor="middle">copy x40M</text></g>
+  <g class="pk pk-e fail-only" style="--x1:300px;--y1:122px;--x2:325px;--y2:204px;--delay:0.54s;--dur:1.60s"><rect width="75" height="15"/><text x="38" y="11" text-anchor="middle">copy x40M</text></g>
+  <g class="pk pk-e fail-only" style="--x1:300px;--y1:122px;--x2:325px;--y2:204px;--delay:0.72s;--dur:1.60s"><rect width="75" height="15"/><text x="38" y="11" text-anchor="middle">copy x40M</text></g>
+  <g class="pk pk-e fail-only" style="--x1:300px;--y1:122px;--x2:325px;--y2:204px;--delay:0.90s;--dur:1.60s"><rect width="75" height="15"/><text x="38" y="11" text-anchor="middle">copy x40M</text></g>
+  <g class="fail-only pulse"><rect x="160" y="104" width="140" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="230" y="126" text-anchor="middle" class="nd-l">Fan-out queue</text><text x="230" y="141" text-anchor="middle" class="nd-s">backed up for everyone</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">the post</span><span class="an-k k-r">timeline copies</span><span class="an-k k-e">40M copies</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> the post is written once and made durable, then &mdash; asynchronously &mdash; <em>copied into every follower&rsquo;s timeline</em>. Reads afterwards are a single sequential fetch of a precomputed list, which is why this shape wins when reads vastly outnumber writes.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> an account with 40 million followers posts. The same loop now enqueues <strong>40 million copies</strong>, saturating the fan-out workers, and every ordinary user&rsquo;s post sits behind it &mdash; a queue delay that has nothing to do with those users. This is why production systems are <strong>hybrid</strong>: above a follower threshold, stop fanning out and merge the celebrity&rsquo;s posts at read time instead.</div>
+</div>
+<div class="dc-diagram"><svg width="680" height="240" viewBox="0 0 680 240" xmlns="http://www.w3.org/2000/svg">
   <defs><marker id="t1" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
   <!-- Post tweet -->
   <rect x="10" y="15" width="70" height="32" rx="6" fill="#5c6bc0"/><text x="45" y="35" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">User posts</text>
@@ -8296,7 +8477,56 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 <span class="cm">-- Query = narrow by labels to a few chunks, then brute-force grep them.</span></div></div>
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="flow">  <span class="fl-key">100,000 hosts</span> -- each runs a local AGENT (batches 10s, disk-buffers on failure)
+  <div class="ds-body">
+<div class="anim">
+  <div class="an-head">
+    <div class="an-title">Telemetry ingest &mdash; and the cardinality bomb the collector has to stop</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 250" role="img">
+  <rect x="10" y="100" width="104" height="52" rx="9" class="nd" data-n="ag"/>
+  <text x="62" y="122" text-anchor="middle" class="nd-l">Agents</text>
+  <text x="62" y="137" text-anchor="middle" class="nd-s">100K hosts</text>
+  <rect x="150" y="100" width="124" height="52" rx="9" class="nd" data-n="co"/>
+  <text x="212" y="122" text-anchor="middle" class="nd-l">Collectors</text>
+  <text x="212" y="137" text-anchor="middle" class="nd-s">validate + cap</text>
+  <rect x="320" y="100" width="142" height="52" rx="9" class="nd nd-hi" data-n="lg"/>
+  <text x="391" y="122" text-anchor="middle" class="nd-l">Durable log</text>
+  <text x="391" y="137" text-anchor="middle" class="nd-s">the shock absorber</text>
+  <rect x="546" y="40" width="150" height="52" rx="9" class="nd" data-n="ts"/>
+  <text x="621" y="62" text-anchor="middle" class="nd-l">Metrics TSDB</text>
+  <text x="621" y="77" text-anchor="middle" class="nd-s">~1.4 B/point</text>
+  <rect x="546" y="158" width="150" height="52" rx="9" class="nd" data-n="ls"/>
+  <text x="621" y="180" text-anchor="middle" class="nd-l">Log store</text>
+  <text x="621" y="195" text-anchor="middle" class="nd-s">labels indexed only</text>
+  <path d="M 114 126 L 150 126" class="ed"/>
+  <path d="M 274 126 L 320 126" class="ed"/>
+  <path d="M 462 126 L 546 66" class="ed"/>
+  <path d="M 462 126 L 546 184" class="ed"/>
+  <text x="470" y="34" text-anchor="middle" class="ax">10M points/s</text>
+  <text x="470" y="214" text-anchor="middle" class="ax">3 GB/s raw</text>
+  <g class="pk pk-w" style="--x1:114px;--y1:118px;--x2:89px;--y2:118px;--delay:0.00s;--dur:2.40s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">metrics</text></g>
+  <g class="pk pk-w" style="--x1:114px;--y1:118px;--x2:89px;--y2:118px;--delay:0.50s;--dur:2.40s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">metrics</text></g>
+  <g class="pk pk-w" style="--x1:114px;--y1:118px;--x2:89px;--y2:118px;--delay:1.00s;--dur:2.40s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">metrics</text></g>
+  <g class="pk pk-w" style="--x1:114px;--y1:118px;--x2:89px;--y2:118px;--delay:1.50s;--dur:2.40s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">metrics</text></g>
+  <g class="pk pk-w" style="--x1:274px;--y1:118px;--x2:259px;--y2:118px;--delay:0.90s;--dur:2.40s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">batched</text></g>
+  <g class="pk pk-r" style="--x1:462px;--y1:118px;--x2:492px;--y2:58px;--delay:1.30s;--dur:2.40s"><rect width="54" height="15"/><text x="27" y="11" text-anchor="middle">series</text></g>
+  <g class="pk pk-y" style="--x1:462px;--y1:118px;--x2:471px;--y2:176px;--delay:1.60s;--dur:2.40s"><rect width="75" height="15"/><text x="38" y="11" text-anchor="middle">log chunk</text></g>
+  <g class="fail-only"><line x1="288" y1="117" x2="306" y2="135" class="xmark"/><line x1="306" y1="117" x2="288" y2="135" class="xmark"/></g>
+  <g class="fail-only"><rect x="150" y="100" width="124" height="52" rx="9" class="deadnode"/><text x="212" y="122" text-anchor="middle" class="nd-l">Collector</text><text x="212" y="137" text-anchor="middle" class="nd-s">rejects: over series budget</text></g>
+  <g class="pk pk-e fail-only" style="--x1:114px;--y1:118px;--x2:40px;--y2:118px;--delay:0.00s;--dur:1.80s"><rect width="110" height="15"/><text x="55" y="11" text-anchor="middle">user_id label!</text></g>
+  <g class="pk pk-e fail-only" style="--x1:114px;--y1:118px;--x2:40px;--y2:118px;--delay:0.35s;--dur:1.80s"><rect width="110" height="15"/><text x="55" y="11" text-anchor="middle">user_id label!</text></g>
+  <g class="pk pk-e fail-only" style="--x1:114px;--y1:118px;--x2:40px;--y2:118px;--delay:0.70s;--dur:1.80s"><rect width="110" height="15"/><text x="55" y="11" text-anchor="middle">user_id label!</text></g>
+  <g class="fail-only pulse"><rect x="546" y="40" width="150" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="621" y="62" text-anchor="middle" class="nd-l">TSDB</text><text x="621" y="77" text-anchor="middle" class="nd-s">index OOM if this got through</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">metric points</span><span class="an-k k-r">time series</span><span class="an-k k-y">log chunks</span><span class="an-k k-e">rejected</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> agents batch metric points every 10&nbsp;s and push them through stateless collectors into a <em>durable log</em>, which is the shock absorber &mdash; it decouples a producer spike from consumer capacity. Downstream, the same stream forks into two completely different stores: compressed series for metrics, gzip chunks plus a label index for logs.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> one deploy adds a <code>user_id</code> label to a request counter. Each distinct value becomes its own time series, so one metric becomes millions, and the TSDB&rsquo;s memory-resident index grows without bound until the process is <strong>OOM-killed</strong>. Nothing about traffic changed &mdash; an application change did this. The defence is a per-tenant series budget enforced <em>at the collector</em>, so the blast radius is one team rather than everyone&rsquo;s monitoring.</div>
+</div>
+<div class="flow">  <span class="fl-key">100,000 hosts</span> -- each runs a local AGENT (batches 10s, disk-buffers on failure)
         |
         v
   <span class="fl-key">REGIONAL COLLECTORS</span>  stateless, terminate TLS, authenticate, validate,
@@ -8435,7 +8665,55 @@ temporarily out of capacity without loss.</div></div>
 <span class="cm">-- Virtual nodes are what make removal move 1/N of keys, not half.</span></div></div>
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
-  <div class="ds-body"><div class="flow">  <span class="fl-key">APPLICATION</span> + smart client library
+  <div class="ds-body">
+<div class="anim">
+  <div class="an-head">
+    <div class="an-title">Read path &mdash; and what a dead cache node does to the origin</div>
+    <div class="an-btns">
+      <button class="an-btn an-play" type="button" aria-pressed="true" data-act="play">Pause</button>
+      <button class="an-btn" type="button" aria-pressed="false" data-act="fail">What goes wrong</button>
+    </div>
+  </div>
+  <svg viewBox="0 0 760 268" role="img">
+  <rect x="12" y="92" width="118" height="52" rx="9" class="nd" data-n="cl"/>
+  <text x="71" y="114" text-anchor="middle" class="nd-l">Client</text>
+  <text x="71" y="129" text-anchor="middle" class="nd-s">smart client</text>
+  <rect x="190" y="24" width="140" height="52" rx="9" class="nd" data-n="h"/>
+  <text x="260" y="46" text-anchor="middle" class="nd-l">Cache node A</text>
+  <text x="260" y="61" text-anchor="middle" class="nd-s">hash(key) -> A</text>
+  <rect x="190" y="96" width="140" height="52" rx="9" class="nd" data-n="m"/>
+  <text x="260" y="118" text-anchor="middle" class="nd-l">Cache node B</text>
+  <text x="260" y="133" text-anchor="middle" class="nd-s">8 GB, LRU</text>
+  <rect x="190" y="168" width="140" height="52" rx="9" class="nd" data-n="d"/>
+  <text x="260" y="190" text-anchor="middle" class="nd-l">Cache node C</text>
+  <text x="260" y="205" text-anchor="middle" class="nd-s">8 GB, LRU</text>
+  <rect x="560" y="96" width="180" height="52" rx="9" class="nd nd-hi" data-n="or"/>
+  <text x="650" y="118" text-anchor="middle" class="nd-l">Origin DB</text>
+  <text x="650" y="133" text-anchor="middle" class="nd-s">sized for ~1% of reads</text>
+  <path d="M 130 118 L 190 50" class="ed"/>
+  <path d="M 130 118 L 190 122" class="ed"/>
+  <path d="M 130 118 L 190 194" class="ed"/>
+  <path d="M 330 122 L 560 122" class="ed ed-d"/>
+  <text x="452" y="88" text-anchor="middle" class="ax">only on a miss</text>
+  <g class="pk pk-r" style="--x1:130px;--y1:110px;--x2:129px;--y2:114px;--delay:0.00s;--dur:2.20s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">GET key</text></g>
+  <g class="pk pk-r" style="--x1:190px;--y1:114px;--x2:48px;--y2:110px;--delay:1.10s;--dur:2.20s"><rect width="82" height="15"/><text x="41" y="11" text-anchor="middle">HIT 0.2 ms</text></g>
+  <g class="pk pk-r" style="--x1:130px;--y1:110px;--x2:129px;--y2:42px;--delay:0.70s;--dur:2.60s"><rect width="61" height="15"/><text x="30" y="11" text-anchor="middle">GET key</text></g>
+  <g class="pk pk-w" style="--x1:330px;--y1:114px;--x2:464px;--y2:114px;--delay:1.60s;--dur:2.60s"><rect width="96" height="15"/><text x="48" y="11" text-anchor="middle">MISS -> read</text></g>
+  <g class="fail-only"><line x1="436" y1="113" x2="454" y2="131" class="xmark"/><line x1="454" y1="113" x2="436" y2="131" class="xmark"/></g>
+  <g class="fail-only"><rect x="190" y="96" width="140" height="52" rx="9" class="deadnode"/><text x="260" y="118" text-anchor="middle" class="nd-l">Node B DEAD</text><text x="260" y="133" text-anchor="middle" class="nd-s">its keys vanish</text></g>
+  <g class="fail-only"><path d="M 130 144 C 150 242, 300 242, 560 242" class="ed" stroke="#ef5350" stroke-dasharray="5 4"/></g>
+  <g class="pk pk-e fail-only" style="--x1:150px;--y1:234px;--x2:453px;--y2:234px;--delay:0.00s;--dur:2.00s"><rect width="103" height="15"/><text x="52" y="11" text-anchor="middle">rehashed miss</text></g>
+  <g class="pk pk-e fail-only" style="--x1:150px;--y1:234px;--x2:453px;--y2:234px;--delay:0.55s;--dur:2.00s"><rect width="103" height="15"/><text x="52" y="11" text-anchor="middle">rehashed miss</text></g>
+  <g class="pk pk-e fail-only" style="--x1:150px;--y1:234px;--x2:453px;--y2:234px;--delay:1.10s;--dur:2.00s"><rect width="103" height="15"/><text x="52" y="11" text-anchor="middle">rehashed miss</text></g>
+  <g class="pk pk-e fail-only" style="--x1:150px;--y1:234px;--x2:453px;--y2:234px;--delay:1.65s;--dur:2.00s"><rect width="103" height="15"/><text x="52" y="11" text-anchor="middle">rehashed miss</text></g>
+  
+  <g class="fail-only pulse"><rect x="560" y="96" width="180" height="52" rx="9" fill="#5a1f1f" stroke="#ef5350" stroke-width="1.5"/><text x="650" y="118" text-anchor="middle" class="nd-l">Origin DB</text><text x="650" y="133" text-anchor="middle" class="nd-s">now taking 20x its planned load</text></g>
+</svg>
+  <div class="an-legend"><span class="an-k ">request / hit</span><span class="an-k k-e">miss reaching the origin</span></div>
+  <div class="an-cap ok-only"><strong>What is moving:</strong> a <em>key lookup</em> out, and either a cached value back in ~0.2&nbsp;ms, or &mdash; on a miss &mdash; a read that continues to the origin. The client hashes the key itself and talks to exactly one node, so there is no coordinator anywhere on this path.</div>
+  <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> node B dies and its share of keys is rehashed onto the survivors &mdash; where they are <strong>not present</strong>. Every one of those reads is now a miss travelling to an origin sized for about 1% of read traffic. With consistent hashing that is ~1/N of keys and survivable; with <code>hash mod N</code> it is <strong>99.5% of keys at once</strong>, a cold-start stampede the origin will not survive.</div>
+</div>
+<div class="flow">  <span class="fl-key">APPLICATION</span> + smart client library
         |
         |  1. hash(key) -&gt; position on the ring
         |  2. walk clockwise to the owning virtual node
@@ -13225,7 +13503,7 @@ var GLOSSARY = {
   /* ---------- 2. auto-linker ---------- */
   var SKIP_TAGS  = { SCRIPT:1, STYLE:1, CODE:1, PRE:1, A:1, BUTTON:1, INPUT:1,
                      TEXTAREA:1, SVG:1, svg:1, TEXT:1, text:1, OPTION:1 };
-  var SKIP_CLASS = /\b(codeblock|schema-code|api-code|flow|top-nav|cover|toc-section|gl-|gt|nav-|toc-card|toc-badge|ch-num|part-tag|ng-val|dc-meta|vs-|cp-|sn-|side-)/;
+  var SKIP_CLASS = /\b(codeblock|schema-code|api-code|flow|top-nav|cover|toc-section|gl-|gt|nav-|toc-card|toc-badge|ch-num|part-tag|ng-val|dc-meta|vs-|cp-|sn-|side-|an-|nd-|pk|ed|ax)/;
   var MAX_PER_ZONE = 2;
 
   function skippable(el) {
@@ -13595,6 +13873,41 @@ var GLOSSARY = {
 </div>
 
 <script>
+/* ============================================================
+   ANIMATED DIAGRAMS — play/pause and the failure toggle
+   ============================================================ */
+(function () {
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('.an-btn'); if (!b) return;
+    var box = b.closest('.anim'); if (!box) return;
+    if (b.dataset.act === 'play') {
+      var playing = box.classList.toggle('is-paused') === false;
+      b.setAttribute('aria-pressed', playing ? 'true' : 'false');
+      b.textContent = playing ? 'Pause' : 'Play';
+    } else {
+      var failing = box.classList.toggle('is-fail');
+      b.setAttribute('aria-pressed', failing ? 'true' : 'false');
+      /* Showing the failure while paused is pointless -- the whole value is
+         watching the load pile up -- so resume automatically. */
+      if (failing && box.classList.contains('is-paused')) {
+        box.classList.remove('is-paused');
+        var pb = box.querySelector('[data-act="play"]');
+        if (pb) { pb.setAttribute('aria-pressed', 'true'); pb.textContent = 'Pause'; }
+      }
+    }
+  });
+  /* Respect the OS setting: if motion is reduced, start paused. */
+  try {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      Array.prototype.forEach.call(document.querySelectorAll('.anim'), function (a) {
+        a.classList.add('is-paused');
+        var pb = a.querySelector('[data-act="play"]');
+        if (pb) { pb.setAttribute('aria-pressed', 'false'); pb.textContent = 'Play'; }
+      });
+    }
+  } catch (e) {}
+})();
+
 /* ============================================================
    SEARCH PALETTE
    Searches the 37 document sections AND all 199 glossary terms.

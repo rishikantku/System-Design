@@ -75,6 +75,29 @@ distributed systems concepts from first principles.
 .footer
 ```
 
+### The canonical 9-step design template
+
+**Every design in Part 2 runs steps 1&ndash;9 in order. Verify with the audit snippet below
+after touching any of them** &mdash; two designs had steps out of order and five were missing
+steps entirely before this was enforced.
+
+| # | Class | Header | Notes |
+|---|---|---|---|
+| 1 | `req` | Requirements | Opens with a `.clarify` block, then Functional / Non-Functional |
+| 2 | `est` | Capacity Estimation | Opens with an `.assume` block, then `.ng` number cells |
+| 3 | `api` | API Design | `.api-code` |
+| 4 | `schema` | Schema Design | `.schema-code` |
+| 5 | `arch` | High-Level Architecture | `.dc-diagram` SVG or a `.flow` |
+| 6 | `deep` | Component Deep Dives | |
+| 7 | `tradeoff` | Trade-off Analysis | `table.to` with `td.chosen` / `td.rej` |
+| 8 | `fault` | Fault Tolerance | `.ft-row` > `.ft-fail` + `.ft-fix` |
+| 9 | `concl` | Conclusion | `.concl-grid` &mdash; four cards, see the vocabulary table |
+
+```python
+st = "".join(x[1] for x in re.findall(r'class="ds-header">\[(\w+)\] (\d)\.', design_html))
+assert st == "123456789"
+```
+
 ### The 15 chapters
 
 | id | Title | Enriched? |
@@ -303,6 +326,8 @@ Reuse these. Do not invent new block types without a reason.
 | `.takeaway` | Green chapter closer | `.label`, `<p>`, `<ul>` |
 | `.recall` | "Before this chapter, remember X" | `.rc-icon` + a `<div>` |
 | `.srcref` | Small inline chapter chip | `<span class="srcref">Ch 4, 12</span>` |
+| `.assume` | Stated assumptions **with the consequence of each being wrong**, inside step 2 | `.label`, then `.as-row` > `.as-a` (the assumption) + `.as-b` (what breaks). A bare list of numbers is not an assumptions section |
+| `.concl-grid` | Step 9 closing summary | Four `.cc` cards: dominant constraint, what I would build first (`.cc.first`), what I deliberately did not build, biggest risk (`.cc.risk`) |
 | `.clarify` | The clarifying questions to ask in the first five minutes, one per design, inside step 1 | `.label`, then `.cq-row` > `.cq-q` (the question) + `.cq-w` (**what the answer changes** — not what the answer is), closing `.cq-note`. The rationale column is the point: a list of questions without consequences teaches nothing |
 | `.vidref` | Video/lecture references, red left border | `.label`, then `<ul><li>` with `<a target="_blank" rel="noopener">` + `.vr-meta` runtime span + one sentence on *why that video*. Optional closing `.vr-none` for "no good video exists, read this instead" |
 
@@ -383,7 +408,8 @@ though they exist. Drive the page by clicking real elements, not by calling its 
 **Baseline to regress against** (current, after the Google-question-bank work):
 
 ```
-totalWords 73523 · designs 14 · toolkitCards 7 · clarifyBlocks 14 (71 questions) · designSteps 105 · flows 45
+totalWords 77011 · designs 14 (126 steps, all 1-9) · toolkitCards 7
+clarify 14 (71 questions) · assume 14 · concl 14 · tradeoff 14 · designSteps 105 · flows 45
 vidrefs 22 · externalLinks 63 (all target=_blank rel=noopener, all verified 200)
 flowsScrollingOnDesktop 0 (was 9; Fit is on by default) · gtInCtl 0
 questions-google.html: 78 questions · 55 eng · 39 cross-linked · 22 clusters

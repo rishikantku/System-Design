@@ -442,6 +442,7 @@ code { font-family: 'JetBrains Mono', monospace; font-size: calc(13px * var(--fs
 .design-step.deep .ds-header { background: #e0f7fa; color: #006064; border-color: #b2ebf2; }
 .design-step.tradeoff .ds-header { background: #fffde7; color: #f57f17; border-color: #fff59d; }
 .design-step.fault .ds-header { background: #ffebee; color: #b71c1c; border-color: #ffcdd2; }
+.design-step.concl .ds-header { background: #e0f2f1; color: #004d40; border-color: #b2dfdb; }
 .ds-body { padding: 20px; font-size: calc(14.5px * var(--fscale, 1)); line-height: 1.68; }
 
 /* Number Crunching Grids */
@@ -1127,6 +1128,34 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
 .nl-abbr { display: inline; }
 
 
+
+/* Assumptions — stated, with the consequence of being wrong */
+.assume {
+  background: var(--bgwarm); border: 1px solid var(--line);
+  border-left: 4px solid var(--accent3); border-radius: 0 10px 10px 0;
+  padding: 14px 18px; margin: 0 0 18px;
+}
+.assume .label {
+  font-size: calc(11px * var(--fscale, 1)); font-weight: 800; text-transform: uppercase;
+  letter-spacing: 1.2px; color: var(--accent3); margin-bottom: 9px;
+}
+.as-row { display: flex; gap: 14px; padding: 6px 0; border-top: 1px solid var(--line); }
+.as-row:first-of-type { border-top: 0; padding-top: 0; }
+.as-a { flex: 0 0 38%; font-size: calc(13.8px * var(--fscale, 1)); font-weight: 700; color: var(--ink); line-height: 1.5; }
+.as-b { flex: 1; font-size: calc(13.6px * var(--fscale, 1)); color: var(--soft); line-height: 1.6; }
+@media (max-width: 680px) { .as-row { flex-direction: column; gap: 2px; } .as-a { flex: none; } }
+
+/* Closing summary — what you say in the last three minutes */
+.concl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.cc { background: var(--bgcool); border-radius: 9px; padding: 13px 16px; }
+.cc .h {
+  font-size: calc(10.5px * var(--fscale, 1)); font-weight: 800; text-transform: uppercase;
+  letter-spacing: 1.1px; color: var(--accent); margin-bottom: 6px;
+}
+.cc p { font-size: calc(14px * var(--fscale, 1)); color: var(--soft); line-height: 1.6; margin: 0; }
+.cc.risk { background: var(--red-bg); } .cc.risk .h { color: var(--accent4); }
+.cc.first { background: var(--teal-bg); } .cc.first .h { color: #00695c; }
+@media (max-width: 680px) { .concl-grid { grid-template-columns: 1fr; } }
 
 /* Clarifying questions — the first five minutes of any design round */
 .clarify {
@@ -5885,7 +5914,11 @@ shedding is what stops you crossing it.</div>
 </ul></div>
 </div><div class="design-step est">
   <div class="ds-header">[chart] 2. Capacity Estimation</div>
-  <div class="ds-body"><p><strong>Assumptions:</strong> 100M new URLs/day, 10B redirects/day</p>
+  <div class="ds-body"><div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">100M new URLs/day, 10B redirects/day</div><div class="as-b">If the ratio were closer to 1:1 the CDN and cache tier stop paying for themselves and this becomes a write-throughput design.</div></div><div class="as-row"><div class="as-a">Short codes are 7 characters, base62</div><div class="as-b">62^7 is ~3.5 trillion. At 100M/day that is ~95 years of headroom; at 10B/day it is under a year and the code length must grow.</div></div><div class="as-row"><div class="as-a">Links are effectively permanent</div><div class="as-b">If most links expired in 30 days, storage would plateau and a TTL sweep becomes a required component rather than an optional one.</div></div>
+</div>
+<p><strong>Assumptions:</strong> 100M new URLs/day, 10B redirects/day</p>
 <div class="ng"><div class="ng-cell"><div class="ng-val">~1,200</div><div class="ng-desc">write QPS avg</div></div><div class="ng-cell"><div class="ng-val">~3,600</div><div class="ng-desc">write QPS peak (3x)</div></div><div class="ng-cell"><div class="ng-val">~116K</div><div class="ng-desc">read QPS avg</div></div><div class="ng-cell"><div class="ng-val">~350K</div><div class="ng-desc">read QPS peak</div></div><div class="ng-cell"><div class="ng-val">~50 GB</div><div class="ng-desc">storage/day</div></div><div class="ng-cell"><div class="ng-val">~18 TB</div><div class="ng-desc">storage/year</div></div></div>
 <p><strong>Bandwidth:</strong> 350K read QPS x 500B = 175 MB/s. CDN absorbs ~95% -> 8.75 MB/s hits origin.</p>
 <p><strong>Servers:</strong> 350K x 5% origin = 17.5K origin reads/sec / 50K QPS/server = 1 read server (CDN does the work). Write path: 3,600 QPS / 1,000 QPS/server = 4 write servers.</p></div>
@@ -5980,7 +6013,18 @@ shedding is what stops you crossing it.</div>
 </div><div class="design-step fault">
   <div class="ds-header">[shield] 8. Fault Tolerance</div>
   <div class="ds-body"><div class="ft-row"><div class="ft-fail">DynamoDB node failure</div><div class="ft-fix">Managed multi-AZ DynamoDB: automatic failover. Read from Redis during DB degradation -- cache continues serving popular URLs. On cache miss during outage: return 503 with Retry-After header.</div></div><div class="ft-row"><div class="ft-fail">Redis failure</div><div class="ft-fix">Redis Cluster with replicas. On failure: read API falls through to DynamoDB directly (5ms vs 0.1ms, but correct). CDN cache continues serving popular URLs without any origin hit.</div></div><div class="ft-row"><div class="ft-fail">ID generator crash</div><div class="ft-fix">Pre-allocated ranges stored per server. On crash: ID range is abandoned (some IDs wasted, no duplicates). New instance gets new range. No coordination needed on hot path.</div></div><div class="ft-row"><div class="ft-fail">CDN outage</div><div class="ft-fix">DNS failover to origin. Higher latency (CDN miss -> origin). Multi-CDN strategy (CloudFront + Fastly) as mitigation for critical SLAs.</div></div><div class="ft-row"><div class="ft-fail">Analytics pipeline lag</div><div class="ft-fix">Kafka durable (7-day retention). Consumer lag = analytics delayed, not lost. Zero impact on redirect service -- analytics consumer entirely decoupled.</div></div></div>
-</div></div>
+</div><div class="design-step concl">
+  <div class="ds-header">[flag] 9. Conclusion &mdash; what I would say in the last three minutes</div>
+  <div class="ds-body">
+  <div class="concl-grid">
+    <div class="cc"><div class="h">The dominant constraint</div><p><strong>The 100:1 read-to-write ratio.</strong> Everything follows from it: a counter-based ID so writes never coordinate, and a CDN plus cache tier that absorbs almost all reads before they reach storage.</p></div>
+    <div class="cc first"><div class="h">What I would build first</div><p>The KGS counter with pre-allocated ranges and the cache-in-front-of-KV read path. Analytics can be added later without touching either.</p></div>
+    <div class="cc"><div class="h">What I deliberately did not build</div><p>Real-time analytics, custom domains, and link previews. I would use 302 only for the small subset of links that need per-click tracking, and 301 for the rest so the CDN keeps absorbing them.</p></div>
+    <div class="cc risk"><div class="h">The biggest risk</div><p>The cache tier. At a 99% hit rate the origin sees 1% of 350K QPS; at 95% it sees five times that. I would alert on hit rate, not just on origin latency.</p></div>
+  </div>
+  </div>
+</div>
+</div>
 </div>
 <div class="design-card">
   <div class="dc-header">
@@ -6013,10 +6057,31 @@ shedding is what stops you crossing it.</div>
 </ul></div>
 </div><div class="design-step est">
   <div class="ds-header">[chart] 2. Capacity Estimation</div>
-  <div class="ds-body"><p><strong>Core scale:</strong> 500M DAU, avg 2 tweets/user/day, avg 200 followers/user</p>
+  <div class="ds-body"><div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">Median user follows a few hundred accounts</div><div class="as-b">If the median were tens of thousands, fan-out-on-write stops being affordable for everyone, not just celebrities.</div></div><div class="as-row"><div class="as-a">Timeline is chronological</div><div class="as-b">Ranking would put a scoring service on the read path and largely invalidate precomputed timelines.</div></div><div class="as-row"><div class="as-a">A few seconds of delay before a post appears is acceptable</div><div class="as-b">Instant visibility rules out fan-out-on-write entirely and forces a pull-and-merge design.</div></div>
+</div>
+<p><strong>Core scale:</strong> 500M DAU, avg 2 tweets/user/day, avg 200 followers/user</p>
 <div class="ng"><div class="ng-cell"><div class="ng-val">~12K</div><div class="ng-desc">tweet write QPS avg</div></div><div class="ng-cell"><div class="ng-val">~36K</div><div class="ng-desc">write QPS peak</div></div><div class="ng-cell"><div class="ng-val">~1.2M</div><div class="ng-desc">read QPS avg</div></div><div class="ng-cell"><div class="ng-val">~3.6M</div><div class="ng-desc">read QPS peak</div></div><div class="ng-cell"><div class="ng-val">~500 GB</div><div class="ng-desc">tweet storage/day</div></div><div class="ng-cell"><div class="ng-val">2.4M</div><div class="ng-desc">fan-out ops/sec avg</div></div></div>
 <p><strong>The fan-out problem:</strong> 1 tweet x avg 200 followers = 200 timeline writes. 12K writes/sec x 200 = 2.4M fan-out ops/sec. Celebrity: 1 tweet x 100M followers = 100M writes. Synchronous fan-out for celebrities is impossible.</p></div>
-</div><div class="design-step schema">
+</div><div class="design-step api">
+  <div class="ds-header">[plug] 3. API Design</div>
+  <div class="ds-body"><div class="api-code"><span class="kw">POST</span>   /v1/tweets
+  Body:     { text, media_ids?, reply_to? }
+  Response: 201 { tweet_id, created_at }
+  <span class="cm">// returns as soon as the tweet is durable; fan-out is async</span>
+
+<span class="kw">GET</span>    /v1/timeline/home?cursor=&amp;limit=50
+  Response: { items:[{tweet_id, author, text, ts}], next_cursor }
+  <span class="cm">// cursor is (ts, tweet_id), never an offset -- offsets skip</span>
+  <span class="cm">// or repeat items when the feed mutates under the reader</span>
+
+<span class="kw">GET</span>    /v1/timeline/user/{user_id}?cursor=&amp;limit=50
+<span class="kw">POST</span>   /v1/follow      Body: { target_id }   -&gt; 202
+  <span class="cm">// 202: following a celebrity may enqueue backfill work</span>
+<span class="kw">DELETE</span> /v1/tweets/{id}                       -&gt; 204 (idempotent)</div></div>
+</div>
+<div class="design-step schema">
   <div class="ds-header">[db] 4. Schema Design</div>
   <div class="ds-body"><div class="schema-code"><span class="cm">-- Tweets (Cassandra -- write-heavy, time-series, no joins)</span>
 <span class="kw">TABLE</span> tweets {
@@ -6096,7 +6161,18 @@ shedding is what stops you crossing it.</div>
 </div><div class="design-step fault">
   <div class="ds-header">[shield] 8. Fault Tolerance</div>
   <div class="ds-body"><div class="ft-row"><div class="ft-fail">Redis timeline lost</div><div class="ft-fix">Redis Cluster. On node loss: rebuild affected timelines from Cassandra on next request. Slow first load (~500ms), fast thereafter. Alert if rebuild rate is high (many nodes lost).</div></div><div class="ft-row"><div class="ft-fail">Fan-out service overwhelmed</div><div class="ft-fix">Kafka back-pressure: fan-out workers pull at their own rate. Scale worker pods horizontally. Kafka retains messages for 7 days -- no loss during overload. Users see timeline lag, not errors.</div></div><div class="ft-row"><div class="ft-fail">Cassandra node failure</div><div class="ft-fix">RF=3, quorum reads/writes. Node failure -> automatic reroute to replicas. Cassandra's gossip protocol detects failure in ~3s. No manual intervention.</div></div><div class="ft-row"><div class="ft-fail">Celebrity posts viral tweet (traffic spike)</div><div class="ft-fix">Celebrity tweets use read fan-out -- no write spike. CDN caches user profile pages. Rate limit profile page fetches. Auto-scale read API pods on CPU metric.</div></div></div>
-</div></div>
+</div><div class="design-step concl">
+  <div class="ds-header">[flag] 9. Conclusion &mdash; what I would say in the last three minutes</div>
+  <div class="ds-body">
+  <div class="concl-grid">
+    <div class="cc"><div class="h">The dominant constraint</div><p><strong>Follower-count skew.</strong> A handful of accounts with tens of millions of followers is what makes a single fan-out strategy impossible, so the design is a hybrid rather than a choice between push and pull.</p></div>
+    <div class="cc first"><div class="h">What I would build first</div><p>Fan-out-on-write for the ordinary case, with a celebrity threshold above which posts are pulled and merged at read time.</p></div>
+    <div class="cc"><div class="h">What I deliberately did not build</div><p>Ranking, ads and notifications. A chronological timeline is a legitimate v1 and it keeps the read path free of a scoring service.</p></div>
+    <div class="cc risk"><div class="h">The biggest risk</div><p>Getting the celebrity threshold wrong. Too high and one account can stall the fan-out queue for everyone; I would make it a tunable and monitor fan-out lag per tier.</p></div>
+  </div>
+  </div>
+</div>
+</div>
 </div>
 <div class="design-card">
   <div class="dc-header">
@@ -6128,8 +6204,41 @@ shedding is what stops you crossing it.</div>
 </ul></div>
 </div><div class="design-step est">
   <div class="ds-header">[chart] 2. Capacity Estimation</div>
-  <div class="ds-body"><div class="ng"><div class="ng-cell"><div class="ng-val">10M</div><div class="ng-desc">cluster QPS</div></div><div class="ng-cell"><div class="ng-val">~1 KB</div><div class="ng-desc">avg value size</div></div><div class="ng-cell"><div class="ng-val">~10 GB/s</div><div class="ng-desc">read bandwidth</div></div><div class="ng-cell"><div class="ng-val">~100 TB</div><div class="ng-desc">data total</div></div><div class="ng-cell"><div class="ng-val">3</div><div class="ng-desc">replication factor</div></div><div class="ng-cell"><div class="ng-val">~33 nodes</div><div class="ng-desc">at 300K QPS/node</div></div></div>
+  <div class="ds-body"><div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">Callers tolerate eventual consistency</div><div class="as-b">If any caller needs linearizability, quorums are not enough and the write path needs consensus, roughly tripling write latency.</div></div><div class="as-row"><div class="as-a">Access is by key, no range scans</div><div class="as-b">Range queries would force range partitioning, which reintroduces hot shards that hashing avoids.</div></div><div class="as-row"><div class="as-a">Values are small, order of kilobytes</div><div class="as-b">Multi-megabyte values need a separate blob path; storing them inline destroys the memory model.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">10M</div><div class="ng-desc">cluster QPS</div></div><div class="ng-cell"><div class="ng-val">~1 KB</div><div class="ng-desc">avg value size</div></div><div class="ng-cell"><div class="ng-val">~10 GB/s</div><div class="ng-desc">read bandwidth</div></div><div class="ng-cell"><div class="ng-val">~100 TB</div><div class="ng-desc">data total</div></div><div class="ng-cell"><div class="ng-val">3</div><div class="ng-desc">replication factor</div></div><div class="ng-cell"><div class="ng-val">~33 nodes</div><div class="ng-desc">at 300K QPS/node</div></div></div>
 <p><strong>Storage per node:</strong> 100 TB / 33 nodes = ~3 TB/node (with RF=3). Use SSDs for low latency. Hot data in RAM (OS page cache + explicit memory pool).</p></div>
+</div><div class="design-step api">
+  <div class="ds-header">[plug] 3. API Design</div>
+  <div class="ds-body"><div class="api-code"><span class="kw">GET</span>    /v1/keys/{key}?consistency=one|quorum
+  Response: 200 { value, version_vector, coordinator }
+            <span class="num">404</span> not found
+  <span class="cm">// may return SIBLINGS when concurrent writes diverged --</span>
+  <span class="cm">// the client resolves and writes back</span>
+
+<span class="kw">PUT</span>    /v1/keys/{key}?w=2
+  Body:     { value, context }   <span class="cm">// context = version vector from a prior read</span>
+  Response: 200 { version_vector }
+            <span class="num">503</span> insufficient replicas (when sloppy quorum is disabled)
+
+<span class="kw">DELETE</span> /v1/keys/{key}   <span class="cm">// writes a TOMBSTONE, not a removal --</span>
+                        <span class="cm">// deleting outright lets a stale replica resurrect it</span>
+
+<span class="cm">// Admin: GET /v1/ring -- the token map, polled by smart clients</span></div></div>
+</div>
+<div class="design-step schema">
+  <div class="ds-header">[db] 4. Schema Design</div>
+  <div class="ds-body"><div class="schema-code"><span class="cm">-- On each node (RocksDB or custom LSM-tree store)</span>
+<span class="kw">KEY</span>  -> { value: bytes, version: VectorClock | Timestamp, tombstone: bool }
+
+<span class="cm">-- Metadata (gossip-distributed to all nodes)</span>
+<span class="kw">RING</span>  ->  sorted([(hash_position, node_id, address)])
+<span class="kw">NODE_STATUS</span>  ->  { node_id: { status, last_heartbeat, token_count } }
+
+<span class="cm">-- Hint store (per node, for hinted handoff)</span>
+<span class="kw">HINTS</span>  ->  { target_node: [(key, value, timestamp)] }</span></div></div>
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
   <div class="ds-body"><div class="dc-diagram"><svg width="680" height="260" viewBox="0 0 680 260" xmlns="http://www.w3.org/2000/svg">
@@ -6166,17 +6275,6 @@ shedding is what stops you crossing it.</div>
 <p><strong>Conflict resolution:</strong> Last-Write-Wins (LWW) by default (timestamp). For shopping cart use case: vector clocks + application-level merge (union of items). Cassandra uses LWW by default; DynamoDB's original design used vector clocks.</p>
 <p><strong>Anti-entropy:</strong> Background process (per node pair) compares Merkle trees. Find differing subtrees -> sync only different parts. Ensures all replicas converge even for cold keys that never get read-repaired.</p>
 <p><strong>Hinted handoff:</strong> If Node E is down during a write, coordinator stores the write with a 'hint: this belongs to E' on another node. When E recovers, the hint is delivered. Prevents permanent data loss from temporary failures.</p></div>
-</div><div class="design-step schema">
-  <div class="ds-header">[db] 4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="cm">-- On each node (RocksDB or custom LSM-tree store)</span>
-<span class="kw">KEY</span>  -> { value: bytes, version: VectorClock | Timestamp, tombstone: bool }
-
-<span class="cm">-- Metadata (gossip-distributed to all nodes)</span>
-<span class="kw">RING</span>  ->  sorted([(hash_position, node_id, address)])
-<span class="kw">NODE_STATUS</span>  ->  { node_id: { status, last_heartbeat, token_count } }
-
-<span class="cm">-- Hint store (per node, for hinted handoff)</span>
-<span class="kw">HINTS</span>  ->  { target_node: [(key, value, timestamp)] }</span></div></div>
 </div><div class="design-step tradeoff">
   <div class="ds-header">[balance] 7. Trade-off Analysis</div>
   <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Consistency model</strong></td><td class='chosen'>Tunable quorum (R+W>N=strong, else eventual)</td><td class='rej'>Always strong</td><td>Tunable gives flexibility: low-latency apps use W=1,R=1; financial use W=3,R=2. One size doesn't fit all.</td></tr><tr><td><strong>Conflict resolution</strong></td><td class='chosen'>LWW (default) + vector clocks (opt-in)</td><td class='rej'>Reject conflicts (require re-read)</td><td>Rejecting conflicts kills availability. LWW is simple. Vector clocks enable app-level merge for complex data types.</td></tr><tr><td><strong>Partitioning</strong></td><td class='chosen'>Consistent hashing + vnodes</td><td class='rej'>Range partitioning</td><td>Consistent hashing: smooth rebalancing. Vnodes: even distribution. Range: good for scans but creates hot partitions for sequential writes.</td></tr></tbody></table></div></div>
@@ -6189,6 +6287,17 @@ shedding is what stops you crossing it.</div>
     <li><a href="https://www.youtube.com/watch?v=EpIgvowZr00" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 3: GFS</a> <span class="vr-meta">~80 min</span> &mdash; the storage paper every Google interviewer assumes exists.</li>
     <li><a href="https://www.youtube.com/watch?v=IXHzbCuADt0" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 9: More Replication, CRAQ</a> <span class="vr-meta">~80 min</span> &mdash; chain replication as an alternative to the quorum design used here.</li>
   </ul>
+</div>
+<div class="design-step concl">
+  <div class="ds-header">[flag] 9. Conclusion &mdash; what I would say in the last three minutes</div>
+  <div class="ds-body">
+  <div class="concl-grid">
+    <div class="cc"><div class="h">The dominant constraint</div><p><strong>Whether the caller needs strong or eventual consistency.</strong> I designed for eventual with tunable quorums, because that is what buys availability during a partition; strong consistency would mean consensus on the write path and a different system.</p></div>
+    <div class="cc first"><div class="h">What I would build first</div><p>Consistent hashing with virtual nodes, plus R + W > N quorums. Anti-entropy and hinted handoff come next, because without them eventual never actually converges.</p></div>
+    <div class="cc"><div class="h">What I deliberately did not build</div><p>Secondary indexes, transactions and range scans. Each of those pulls the design back toward a database.</p></div>
+    <div class="cc risk"><div class="h">The biggest risk</div><p>Silent divergence. Without Merkle-tree anti-entropy running and being monitored, replicas drift and nobody finds out until a read repair surfaces it years later.</p></div>
+  </div>
+  </div>
 </div>
 </div>
 </div>
@@ -6222,9 +6331,28 @@ shedding is what stops you crossing it.</div>
 </ul></div>
 </div><div class="design-step est">
   <div class="ds-header">[chart] 2. Capacity Estimation</div>
-  <div class="ds-body"><div class="ng"><div class="ng-cell"><div class="ng-val">~1.16M</div><div class="ng-desc">messages/sec avg</div></div><div class="ng-cell"><div class="ng-val">~3.5M</div><div class="ng-desc">messages/sec peak</div></div><div class="ng-cell"><div class="ng-val">~100 KB</div><div class="ng-desc">avg message size</div></div><div class="ng-cell"><div class="ng-val">~116 GB/s</div><div class="ng-desc">message throughput</div></div><div class="ng-cell"><div class="ng-val">~10 PB</div><div class="ng-desc">storage/year</div></div><div class="ng-cell"><div class="ng-val">~50K</div><div class="ng-desc">concurrent WS conns/server</div></div></div>
+  <div class="ds-body"><div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">Groups are bounded, order of hundreds</div><div class="as-b">A 100,000-member group changes fan-out from a loop into its own subsystem.</div></div><div class="as-row"><div class="as-a">Ordering is required per conversation only</div><div class="as-b">Global ordering across conversations would force coordination and remove the partitioning that makes this scale.</div></div><div class="as-row"><div class="as-a">Messages are not stored after delivery</div><div class="as-b">If history must be retained server-side, end-to-end encryption becomes far harder and search becomes possible.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">~1.16M</div><div class="ng-desc">messages/sec avg</div></div><div class="ng-cell"><div class="ng-val">~3.5M</div><div class="ng-desc">messages/sec peak</div></div><div class="ng-cell"><div class="ng-val">~100 KB</div><div class="ng-desc">avg message size</div></div><div class="ng-cell"><div class="ng-val">~116 GB/s</div><div class="ng-desc">message throughput</div></div><div class="ng-cell"><div class="ng-val">~10 PB</div><div class="ng-desc">storage/year</div></div><div class="ng-cell"><div class="ng-val">~50K</div><div class="ng-desc">concurrent WS conns/server</div></div></div>
 <p><strong>WebSocket servers:</strong> 2B users x 70% active daily x peak 30% online simultaneously = 600M concurrent connections / 50K/server = 12,000 WebSocket servers.</p></div>
-</div><div class="design-step schema">
+</div><div class="design-step api">
+  <div class="ds-header">[plug] 3. API Design</div>
+  <div class="ds-body"><div class="api-code"><span class="cm">// Long-lived WebSocket. HTTP is used only for auth and media.</span>
+
+<span class="kw">WS</span>     /v1/connect        Header: Bearer &lt;token&gt;
+  &lt;- { type:"ack",      client_msg_id, server_msg_id, seq }
+  &lt;- { type:"message",  conversation_id, seq, from, ciphertext, ts }
+  &lt;- { type:"receipt",  message_id, state:"delivered"|"read" }
+  -&gt; { type:"send",     conversation_id, client_msg_id, ciphertext }
+     <span class="cm">// client_msg_id makes the send idempotent across reconnects</span>
+
+<span class="kw">POST</span>   /v1/media          -&gt; { media_id, upload_url }
+<span class="kw">GET</span>    /v1/sync?since_seq= -&gt; missed messages after reconnect
+<span class="kw">POST</span>   /v1/keys/prekeys    -&gt; replenish the one-time prekey pool</div></div>
+</div>
+<div class="design-step schema">
   <div class="ds-header">[db] 4. Schema Design</div>
   <div class="ds-body"><div class="schema-code"><span class="cm">-- Messages (Cassandra -- write-heavy, time-series)</span>
 <span class="kw">TABLE</span> messages {
@@ -6293,7 +6421,18 @@ shedding is what stops you crossing it.</div>
 </div><div class="design-step fault">
   <div class="ds-header">[shield] 8. Fault Tolerance</div>
   <div class="ds-body"><div class="ft-row"><div class="ft-fail">WebSocket server crashes</div><div class="ft-fix">All connections on that server disconnect. Clients auto-reconnect to any WS server (load balancer with sticky session NOT required -- connection registry handles routing). Reconnect within 1-2 seconds. Messages in flight are re-delivered from Cassandra.</div></div><div class="ft-row"><div class="ft-fail">Connection registry (Redis) down</div><div class="ft-fix">Short outage: WS servers cache recent {user->server} mappings locally (LRU, 5 min TTL). On cache miss: fan-out to all WS servers (expensive but rare). Redis Cluster + sentinels for HA.</div></div><div class="ft-row"><div class="ft-fail">Cassandra node failure</div><div class="ft-fix">RF=3, W=2, R=1. Node failure -> writes still succeed (2 of remaining 4 nodes). Read: if returning stale data, read-repair brings it up to date. Hinted handoff for writes during node unavailability.</div></div><div class="ft-row"><div class="ft-fail">Message lost in transit</div><div class="ft-fix">Message ID is Snowflake (globally unique). ACK from WS server means it received the message. If sender doesn't get ACK in 5s -> retry (idempotent: same message_id = same Cassandra row). Three retries, then store in outbox for async retry.</div></div></div>
-</div></div>
+</div><div class="design-step concl">
+  <div class="ds-header">[flag] 9. Conclusion &mdash; what I would say in the last three minutes</div>
+  <div class="ds-body">
+  <div class="concl-grid">
+    <div class="cc"><div class="h">The dominant constraint</div><p><strong>Delivery ordering is required per conversation, not globally.</strong> That single relaxation is what lets me partition by conversation ID and avoid any cross-shard coordination on the hot path.</p></div>
+    <div class="cc first"><div class="h">What I would build first</div><p>The WebSocket gateway plus per-conversation sequencing and the offline queue. Presence is deliberately a separate service.</p></div>
+    <div class="cc"><div class="h">What I deliberately did not build</div><p>Server-side search, which end-to-end encryption largely rules out, and global message ordering, which nobody needs.</p></div>
+    <div class="cc risk"><div class="h">The biggest risk</div><p>Presence. It has a far higher write rate than messaging and, if co-located, its load will take the messaging path down with it.</p></div>
+  </div>
+  </div>
+</div>
+</div>
 </div>
 <div class="design-card">
   <div class="dc-header">
@@ -6326,9 +6465,54 @@ shedding is what stops you crossing it.</div>
 </ul></div>
 </div><div class="design-step est">
   <div class="ds-header">[chart] 2. Capacity Estimation</div>
-  <div class="ds-body"><div class="ng"><div class="ng-cell"><div class="ng-val">500 hrs</div><div class="ng-desc">uploaded/min</div></div><div class="ng-cell"><div class="ng-val">~8.3 GB/s</div><div class="ng-desc">upload bandwidth raw</div></div><div class="ng-cell"><div class="ng-val">~100x</div><div class="ng-desc">typical view:upload ratio</div></div><div class="ng-cell"><div class="ng-val">~50 GB/s</div><div class="ng-desc">streaming bandwidth</div></div><div class="ng-cell"><div class="ng-val">~10 PB</div><div class="ng-desc">new video storage/day</div></div><div class="ng-cell"><div class="ng-val">~4 EB</div><div class="ng-desc">stored video total</div></div></div>
+  <div class="ds-body"><div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">Watch volume is orders of magnitude above upload volume</div><div class="as-b">If uploads dominated, transcode capacity rather than CDN egress would be the binding cost.</div></div><div class="as-row"><div class="as-a">Video-on-demand only</div><div class="as-b">Live removes the batch transcode window and changes this into a latency-bound design.</div></div><div class="as-row"><div class="as-a">A handful of renditions per video</div><div class="as-b">Every extra rendition multiplies the transcode bill across the entire catalogue.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">500 hrs</div><div class="ng-desc">uploaded/min</div></div><div class="ng-cell"><div class="ng-val">~8.3 GB/s</div><div class="ng-desc">upload bandwidth raw</div></div><div class="ng-cell"><div class="ng-val">~100x</div><div class="ng-desc">typical view:upload ratio</div></div><div class="ng-cell"><div class="ng-val">~50 GB/s</div><div class="ng-desc">streaming bandwidth</div></div><div class="ng-cell"><div class="ng-val">~10 PB</div><div class="ng-desc">new video storage/day</div></div><div class="ng-cell"><div class="ng-val">~4 EB</div><div class="ng-desc">stored video total</div></div></div>
 <p><strong>Transcoding:</strong> 1 hour video -> 10 quality versions -> each 10x slower than realtime for 4K -> 1 hour -> 10 hours transcode time. Parallel transcode per quality. 500 hrs/min = 5,000 transcode-hours/min needed -> ~5,000 transcode VMs needed (1 hour video processed in 1 minute each).</p></div>
-</div><div class="design-step arch">
+</div><div class="design-step api">
+  <div class="ds-header">[plug] 3. API Design</div>
+  <div class="ds-body"><div class="api-code"><span class="kw">POST</span>   /v1/uploads
+  Body:     { filename, size_bytes, content_type }
+  Response: 201 { upload_id, chunk_size, upload_urls[] }
+  <span class="cm">// resumable: the client PUTs chunks directly to object storage</span>
+
+<span class="kw">PUT</span>    {upload_url}/chunk/{n}       -&gt; 200 { etag }
+<span class="kw">POST</span>   /v1/uploads/{id}/complete    -&gt; 202 { video_id, state:"transcoding" }
+
+<span class="kw">GET</span>    /v1/videos/{id}/manifest?profile=hls|dash
+  Response: 200 HLS/DASH manifest of the available renditions
+  <span class="cm">// the player picks a rendition per segment; the server never decides</span>
+
+<span class="kw">POST</span>   /v1/videos/{id}/view   -&gt; 202
+  <span class="cm">// fire-and-forget into a stream; counts are eventually correct</span></div></div>
+</div>
+<div class="design-step schema">
+  <div class="ds-header">[db] 4. Schema Design</div>
+  <div class="ds-body"><div class="schema-code"><span class="cm">-- Metadata in a relational store; bytes in object storage.</span>
+<span class="kw">TABLE</span> videos {
+  video_id      <span class="ty">UUID</span>       <span class="pk">PRIMARY KEY</span>,
+  channel_id    <span class="ty">UUID</span>,
+  title, description <span class="ty">TEXT</span>,
+  state         <span class="ty">ENUM</span>(uploading, transcoding, ready, failed),
+  duration_s    <span class="ty">INT</span>,
+  published_at  <span class="ty">TIMESTAMP</span>
+}
+<span class="cm">-- INDEX: (channel_id, published_at DESC) for a channel page</span>
+
+<span class="kw">TABLE</span> renditions {          <span class="cm">-- one row per output of the transcode DAG</span>
+  video_id  <span class="ty">UUID</span>, height <span class="ty">INT</span>, codec <span class="ty">VARCHAR</span>, bitrate_kbps <span class="ty">INT</span>,
+  object_key <span class="ty">TEXT</span>, state <span class="ty">ENUM</span>(pending, ready),
+  <span class="pk">PRIMARY KEY</span> (video_id, height, codec)
+}
+
+<span class="kw">TABLE</span> view_counts {         <span class="cm">-- eventually correct, written from a stream</span>
+  video_id <span class="ty">UUID</span> <span class="pk">PRIMARY KEY</span>, count <span class="ty">BIGINT</span>, updated_at <span class="ty">TIMESTAMP</span>
+}
+<span class="cm">-- Never incremented synchronously on the playback path.</span></div></div>
+</div>
+<div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
   <div class="ds-body"><div class="dc-diagram"><svg width="680" height="260" viewBox="0 0 680 260" xmlns="http://www.w3.org/2000/svg">
   <defs><marker id="yt1" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
@@ -6372,7 +6556,18 @@ shedding is what stops you crossing it.</div>
 </div><div class="design-step fault">
   <div class="ds-header">[shield] 8. Fault Tolerance</div>
   <div class="ds-body"><div class="ft-row"><div class="ft-fail">Transcode worker crashes mid-job</div><div class="ft-fix">Kafka offset not committed until job complete. Worker crash -> message re-delivered -> new worker picks up from beginning (idempotent: transcode is pure function, same input = same output). Partial segments discarded.</div></div><div class="ft-row"><div class="ft-fail">GCS regional outage</div><div class="ft-fix">Multi-region GCS bucket (US + EU). If primary region down, read from secondary with minimal latency increase. Writes queued and replayed when primary recovers. CDN cache continues serving most traffic during outage.</div></div><div class="ft-row"><div class="ft-fail">CDN node failure</div><div class="ft-fix">CDN routes around failed edge nodes automatically. Traffic shifts to next-nearest edge. Brief latency increase. Popular content likely cached on multiple edges.</div></div></div>
-</div></div>
+</div><div class="design-step concl">
+  <div class="ds-header">[flag] 9. Conclusion &mdash; what I would say in the last three minutes</div>
+  <div class="ds-body">
+  <div class="concl-grid">
+    <div class="cc"><div class="h">The dominant constraint</div><p><strong>Upload volume and watch volume are different systems.</strong> Transcoding is a throughput problem sized by uploads; delivery is an egress problem sized by watches, and they scale independently.</p></div>
+    <div class="cc first"><div class="h">What I would build first</div><p>Chunked resumable upload into object storage, then an asynchronous transcode DAG. Playback can serve the original rendition until the ladder is ready.</p></div>
+    <div class="cc"><div class="h">What I deliberately did not build</div><p>Live streaming, DRM and recommendations. Live in particular removes the batch transcode window and is a different design.</p></div>
+    <div class="cc risk"><div class="h">The biggest risk</div><p>Transcode cost. The rendition matrix multiplies your entire compute bill, so I would transcode lazily for the long tail rather than eagerly for everything.</p></div>
+  </div>
+  </div>
+</div>
+</div>
 </div>
 <div class="design-card">
   <div class="dc-header">
@@ -6402,7 +6597,33 @@ shedding is what stops you crossing it.</div>
   <li>Retry on failure (configurable: max retries, backoff)</li>
   <li>HA: 99.99% -- scheduler failure must not cause missed jobs</li>
 </ul></div>
-</div><div class="design-step schema">
+</div><div class="design-step est">
+  <div class="ds-header">[chart] 2. Capacity Estimation</div>
+  <div class="ds-body"><div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">10M scheduled jobs, 100K fires/sec at peak</div><div class="as-b">If peak were 1M/sec the single-database claim loop breaks and the scheduler must shard by time bucket.</div></div><div class="as-row"><div class="as-a">Jobs fire within 1 second of schedule</div><div class="as-b">Relaxing to a minute allows a far simpler polling design with much lower database pressure.</div></div><div class="as-row"><div class="as-a">Handlers are idempotent</div><div class="as-b">Otherwise at-least-once delivery is unsafe and a deduplication store joins the execution path.</div></div>
+</div>
+<p><strong>Assumptions:</strong> 10M scheduled jobs, 100K job fires/sec at peak, average payload 2 KB.</p><div class="ng"><div class="ng-cell"><div class="ng-val">10M</div><div class="ng-desc">scheduled jobs</div></div><div class="ng-cell"><div class="ng-val">100K/s</div><div class="ng-desc">peak fires</div></div><div class="ng-cell"><div class="ng-val">~35K/s</div><div class="ng-desc">claim queries at batch 3</div></div><div class="ng-cell"><div class="ng-val">~20 GB</div><div class="ng-desc">job rows</div></div><div class="ng-cell"><div class="ng-val">200 MB/s</div><div class="ng-desc">payload throughput</div></div><div class="ng-cell"><div class="ng-val">&lt;1 s</div><div class="ng-desc">fire precision</div></div></div><p><strong>The number that shapes the design:</strong> at 100K fires/sec, a naive one-row-per-claim poll would be 100K transactions/sec against a single table &mdash; well past what one primary sustains. Workers therefore claim in <strong>batches</strong> and hold a lease, which cuts claim traffic by the batch factor and is why <code>SKIP LOCKED</code> matters: it lets N workers claim disjoint batches without blocking each other.</p></div>
+</div>
+<div class="design-step api">
+  <div class="ds-header">[plug] 3. API Design</div>
+  <div class="ds-body"><div class="api-code"><span class="kw">POST</span>   /v1/jobs
+  Body:     { name, cron_expr | run_at, handler_url, payload,
+              max_retries, idempotency_key }
+  Response: 201 { job_id, next_run_at }
+  <span class="cm">// idempotency_key makes job creation safe to retry</span>
+
+<span class="kw">GET</span>    /v1/jobs/{id}      -&gt; { state, next_run_at, last_run, retry_count }
+<span class="kw">PATCH</span>  /v1/jobs/{id}      Body: { paused: true }
+<span class="kw">DELETE</span> /v1/jobs/{id}      -&gt; 204 (idempotent)
+<span class="kw">GET</span>    /v1/jobs/{id}/runs -&gt; execution history with fencing tokens
+
+<span class="cm">// Worker-facing, not public:</span>
+<span class="kw">POST</span>   /internal/claim    Body: { worker_id, lease_ms, batch }
+  Response: { jobs:[{ job_id, payload, fencing_token, lease_expires }] }
+<span class="kw">POST</span>   /internal/heartbeat  <span class="cm">// extends the lease mid-run</span></div></div>
+</div>
+<div class="design-step schema">
   <div class="ds-header">[db] 4. Schema Design</div>
   <div class="ds-body"><div class="schema-code"><span class="cm">-- Jobs table (PostgreSQL -- ACID needed for scheduling locks)</span>
 <span class="kw">TABLE</span> jobs {
@@ -6469,7 +6690,18 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 </div><div class="design-step fault">
   <div class="ds-header">[shield] 8. Fault Tolerance</div>
   <div class="ds-body"><div class="ft-row"><div class="ft-fail">Scheduler leader crashes</div><div class="ft-fix">Follower detects via etcd lease expiry (~15s). Takes over leadership. Jobs due during those 15s: lock_expires hasn't passed, so they're safe. After 15s: new leader picks up pending jobs. Max 15-second delay.</div></div><div class="ft-row"><div class="ft-fail">Worker crashes mid-execution</div><div class="ft-fix">lock_expires passes -> sweeper resets job to pending -> re-executed. Handler MUST be idempotent (most are: send email with idempotency key, write to DB with upsert). Document this contract clearly.</div></div><div class="ft-row"><div class="ft-fail">DB (PostgreSQL) failure</div><div class="ft-fix">Primary fails -> replica promoted (RDS Multi-AZ: ~30s). Schedulers lose DB connection, buffer job picks in memory (Kafka), retry DB connection. No jobs lost. Some delayed by up to ~1 min.</div></div></div>
-</div></div>
+</div><div class="design-step concl">
+  <div class="ds-header">[flag] 9. Conclusion &mdash; what I would say in the last three minutes</div>
+  <div class="ds-body">
+  <div class="concl-grid">
+    <div class="cc"><div class="h">The dominant constraint</div><p><strong>Nobody can promise exactly-once execution across a network.</strong> So the design provides at-least-once delivery with fencing tokens, and requires handlers to be idempotent. Saying that plainly is the honest answer.</p></div>
+    <div class="cc first"><div class="h">What I would build first</div><p>The leased-claim loop: SELECT FOR UPDATE SKIP LOCKED, a lease with a heartbeat, and a fencing token so a resurrected worker cannot act on stale authority.</p></div>
+    <div class="cc"><div class="h">What I deliberately did not build</div><p>DAG dependencies between jobs. That is a workflow engine, and it is a different system worth scoping out explicitly.</p></div>
+    <div class="cc risk"><div class="h">The biggest risk</div><p>The catch-up stampede. After an outage, every missed window fires at once against a system that is already unhealthy; the backlog needs rate limiting, not just replay.</p></div>
+  </div>
+  </div>
+</div>
+</div>
 </div>
 <!-- PART 2: FULL SYSTEM DESIGNS -->
 
@@ -6502,7 +6734,11 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 </ul></div>
 </div><div class="design-step est">
   <div class="ds-header">[chart] 2. Capacity Estimation</div>
-  <div class="ds-body"><div class="ng"><div class="ng-cell"><div class="ng-val">1M msgs/sec</div><div class="ng-desc">Peak produce rate (~1 KB avg message payload)</div></div><div class="ng-cell"><div class="ng-val">1 GB/sec</div><div class="ng-desc">Network ingress bandwidth into broker cluster</div></div><div class="ng-cell"><div class="ng-val">5 GB/sec</div><div class="ng-desc">Network egress bandwidth (5x fan-out consumption)</div></div><div class="ng-cell"><div class="ng-val">86.4 TB/day</div><div class="ng-desc">Daily raw storage without replication</div></div><div class="ng-cell"><div class="ng-val">605 TB / 7 days</div><div class="ng-desc">Cluster retention with 3x replication factor</div></div><div class="ng-cell"><div class="ng-val">100 brokers</div><div class="ng-desc">Broker nodes assuming 10 Gbps NIC and NVMe storage</div></div></div></div>
+  <div class="ds-body"><div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">Per-partition ordering is sufficient</div><div class="as-b">Global ordering means one partition and caps throughput at a single machine.</div></div><div class="as-row"><div class="as-a">Consumers can be made idempotent</div><div class="as-b">Otherwise exactly-once semantics are required, which costs meaningful throughput.</div></div><div class="as-row"><div class="as-a">Retention is measured in days, not years</div><div class="as-b">Long retention turns this into a storage design and changes the cost model entirely.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">1M msgs/sec</div><div class="ng-desc">Peak produce rate (~1 KB avg message payload)</div></div><div class="ng-cell"><div class="ng-val">1 GB/sec</div><div class="ng-desc">Network ingress bandwidth into broker cluster</div></div><div class="ng-cell"><div class="ng-val">5 GB/sec</div><div class="ng-desc">Network egress bandwidth (5x fan-out consumption)</div></div><div class="ng-cell"><div class="ng-val">86.4 TB/day</div><div class="ng-desc">Daily raw storage without replication</div></div><div class="ng-cell"><div class="ng-val">605 TB / 7 days</div><div class="ng-desc">Cluster retention with 3x replication factor</div></div><div class="ng-cell"><div class="ng-val">100 brokers</div><div class="ng-desc">Broker nodes assuming 10 Gbps NIC and NVMe storage</div></div></div></div>
 </div><div class="design-step api">
   <div class="ds-header">[plug] 3. API Design</div>
   <div class="ds-body"><div class="api-code"><span class="cm">// 1. Produce Message (gRPC / TCP Streaming)</span>
@@ -6610,6 +6846,17 @@ This SQL atomically locks selected rows. A second scheduler running the same que
     <li><a href="https://www.youtube.com/watch?v=iJLL-KPqBpM" target="_blank" rel="noopener">System Design Interview &mdash; Distributed Message Queue</a> <span class="vr-meta">~55 min</span> &mdash; the closest match to this design anywhere on YouTube. Watch it after reading, and note where his choices differ from these.</li>
   </ul>
 </div>
+<div class="design-step concl">
+  <div class="ds-header">[flag] 9. Conclusion &mdash; what I would say in the last three minutes</div>
+  <div class="ds-body">
+  <div class="concl-grid">
+    <div class="cc"><div class="h">The dominant constraint</div><p><strong>Sequential disk I/O plus the page cache is faster than most people assume.</strong> The whole design leans on it: an append-only log, zero-copy sendfile to consumers, and no per-message random access anywhere.</p></div>
+    <div class="cc first"><div class="h">What I would build first</div><p>The partitioned append-only log with an ISR replication protocol. Ordering is per partition, which is the trade that makes throughput scale linearly with partitions.</p></div>
+    <div class="cc"><div class="h">What I deliberately did not build</div><p>Exactly-once semantics and global ordering. Both are available and both cost throughput; most consumers are cheaper to make idempotent.</p></div>
+    <div class="cc risk"><div class="h">The biggest risk</div><p>Partition count. It is effectively permanent once keys are hashed to partitions, and under-provisioning it caps your throughput in a way you cannot fix without a migration.</p></div>
+  </div>
+  </div>
+</div>
 </div>
 </div>
 
@@ -6642,7 +6889,11 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 </ul></div>
 </div><div class="design-step est">
   <div class="ds-header">[chart] 2. Capacity Estimation</div>
-  <div class="ds-body"><div class="ng"><div class="ng-cell"><div class="ng-val">100M DAU</div><div class="ng-desc">Active users uploading/syncing files daily</div></div><div class="ng-cell"><div class="ng-val">100M files/day</div><div class="ng-desc">Daily upload volume (~10 MB avg file size)</div></div><div class="ng-cell"><div class="ng-val">1 PB/day</div><div class="ng-desc">Daily raw incoming data ingestion</div></div><div class="ng-cell"><div class="ng-val">100 Gbps</div><div class="ng-desc">Peak network ingress bandwidth into block servers</div></div><div class="ng-cell"><div class="ng-val">4 MB Chunks</div><div class="ng-desc">Optimal content-defined chunk size with Rabin Fingerprinting</div></div><div class="ng-cell"><div class="ng-val">60% Savings</div><div class="ng-desc">Storage reduction via cross-user content hashing & deduplication</div></div></div></div>
+  <div class="ds-body"><div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">Files are edited by one user at a time</div><div class="as-b">Concurrent editing of the same file needs CRDTs and is a different system.</div></div><div class="as-row"><div class="as-a">Average file is small; large files are rare</div><div class="as-b">If large files were the norm, chunk size and transfer scheduling would dominate the design.</div></div><div class="as-row"><div class="as-a">Deduplication is per account</div><div class="as-b">Cross-user dedup saves more storage and leaks the existence of files between users.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">100M DAU</div><div class="ng-desc">Active users uploading/syncing files daily</div></div><div class="ng-cell"><div class="ng-val">100M files/day</div><div class="ng-desc">Daily upload volume (~10 MB avg file size)</div></div><div class="ng-cell"><div class="ng-val">1 PB/day</div><div class="ng-desc">Daily raw incoming data ingestion</div></div><div class="ng-cell"><div class="ng-val">100 Gbps</div><div class="ng-desc">Peak network ingress bandwidth into block servers</div></div><div class="ng-cell"><div class="ng-val">4 MB Chunks</div><div class="ng-desc">Optimal content-defined chunk size with Rabin Fingerprinting</div></div><div class="ng-cell"><div class="ng-val">60% Savings</div><div class="ng-desc">Storage reduction via cross-user content hashing & deduplication</div></div></div></div>
 </div><div class="design-step api">
   <div class="ds-header">[plug] 3. API Design</div>
   <div class="ds-body"><div class="api-code"><span class="cm">// 1. Initiate Resumable Chunked Upload</span>
@@ -6768,6 +7019,17 @@ This SQL atomically locks selected rows. A second scheduler running the same que
     <li><a href="https://www.youtube.com/watch?v=EpIgvowZr00" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 3: GFS</a> <span class="vr-meta">~80 min</span> &mdash; chunked distributed file storage, which is the substrate this design sits on.</li>
   </ul>
 </div>
+<div class="design-step concl">
+  <div class="ds-header">[flag] 9. Conclusion &mdash; what I would say in the last three minutes</div>
+  <div class="ds-body">
+  <div class="concl-grid">
+    <div class="cc"><div class="h">The dominant constraint</div><p><strong>Sync is not collaborative editing.</strong> I scoped this as file sync with versioning, which makes content-defined chunking and delta transfer the core, rather than CRDTs and operational transform.</p></div>
+    <div class="cc first"><div class="h">What I would build first</div><p>Rabin-fingerprint chunking plus a chunk-hash manifest. Deduplication and delta sync both fall out of it for free.</p></div>
+    <div class="cc"><div class="h">What I deliberately did not build</div><p>Real-time co-editing, and cross-user deduplication. The second is a genuine storage win and a privacy leak, so I would keep dedup per-account.</p></div>
+    <div class="cc risk"><div class="h">The biggest risk</div><p>Conflict handling on offline edits. Last-writer-wins is simple and silently destroys work; the honest answer is to keep both versions and tell the user.</p></div>
+  </div>
+  </div>
+</div>
 </div>
 </div>
 
@@ -6801,7 +7063,11 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 </ul></div>
 </div><div class="design-step est">
   <div class="ds-header">[chart] 2. Capacity Estimation</div>
-  <div class="ds-body"><div class="ng"><div class="ng-cell"><div class="ng-val">5M Drivers</div><div class="ng-desc">Active drivers broadcasting GPS every 4 seconds</div></div><div class="ng-cell"><div class="ng-val">1.25M QPS</div><div class="ng-desc">Continuous location update ingestion rate</div></div><div class="ng-cell"><div class="ng-val">100 Bytes</div><div class="ng-desc">Payload size per GPS ping (driver_id, lat, lng, bearing, status)</div></div><div class="ng-cell"><div class="ng-val">125 MB/sec</div><div class="ng-desc">Ingress location stream network bandwidth</div></div><div class="ng-cell"><div class="ng-val">500,000</div><div class="ng-desc">Simultaneous active trips during peak hours globally</div></div><div class="ng-cell"><div class="ng-val">H3 Level 8</div><div class="ng-desc">Hexagonal spatial indexing resolution (~460m edge length)</div></div></div></div>
+  <div class="ds-body"><div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">Demand is local to a city</div><div class="as-b">Cross-city matching would remove geo-sharding, which is the assumption the whole partitioning rests on.</div></div><div class="as-row"><div class="as-a">Drivers report location every 4 seconds</div><div class="as-b">Halving that interval doubles the largest write stream in the system.</div></div><div class="as-row"><div class="as-a">Greedy matching is acceptable</div><div class="as-b">If allocation quality mattered more than latency, batched global optimisation would be required.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">5M Drivers</div><div class="ng-desc">Active drivers broadcasting GPS every 4 seconds</div></div><div class="ng-cell"><div class="ng-val">1.25M QPS</div><div class="ng-desc">Continuous location update ingestion rate</div></div><div class="ng-cell"><div class="ng-val">100 Bytes</div><div class="ng-desc">Payload size per GPS ping (driver_id, lat, lng, bearing, status)</div></div><div class="ng-cell"><div class="ng-val">125 MB/sec</div><div class="ng-desc">Ingress location stream network bandwidth</div></div><div class="ng-cell"><div class="ng-val">500,000</div><div class="ng-desc">Simultaneous active trips during peak hours globally</div></div><div class="ng-cell"><div class="ng-val">H3 Level 8</div><div class="ng-desc">Hexagonal spatial indexing resolution (~460m edge length)</div></div></div></div>
 </div><div class="design-step api">
   <div class="ds-header">[plug] 3. API Design</div>
   <div class="ds-body"><div class="api-code"><span class="cm">// 1. Driver Location Broadcast (gRPC Bidirectional Stream)</span>
@@ -6930,7 +7196,18 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 </div><div class="design-step fault">
   <div class="ds-header">[shield] 8. Fault Tolerance</div>
   <div class="ds-body"><div class="ft-row"><div class="ft-fail">Driver Loses Internet Mid-Trip</div><div class="ft-fix">Driver app buffers GPS points in local SQLite. Upon reconnection, app uploads buffered breadcrumbs to reconcile route and compute accurate fare.</div></div><div class="ft-row"><div class="ft-fail">Dispatch Service Node Crashes during 15s offer</div><div class="ft-fix">Driver offer is backed by Redis TTL key with an expiring lease. If dispatch node dies, heartbeat supervisor detects pending trip and re-dispatches to another driver.</div></div><div class="ft-row"><div class="ft-fail">Surge Traffic Spike (New Year's Eve 10x Load)</div><div class="ft-fix">Rate limit nearby driver map refreshes from 4s to 8s per rider; drop unneeded background location telemetry while preserving dispatch pipeline.</div></div><div class="ft-row"><div class="ft-fail">Redis H3 Shard Failure</div><div class="ft-fix">Redis Sentinel / Cluster promotes replica in <1s. Lost ephemeral driver pings are replenished within 4 seconds as drivers broadcast.</div></div></div>
-</div></div>
+</div><div class="design-step concl">
+  <div class="ds-header">[flag] 9. Conclusion &mdash; what I would say in the last three minutes</div>
+  <div class="ds-body">
+  <div class="concl-grid">
+    <div class="cc"><div class="h">The dominant constraint</div><p><strong>Supply and demand are both intensely local.</strong> That is what makes geo-sharding correct here: a rider in one city never needs to be matched against a driver in another, so no query has to be global.</p></div>
+    <div class="cc first"><div class="h">What I would build first</div><p>H3 hexagonal indexing over driver locations, with a greedy matcher inside a cell and its ring. It is not optimal, and it is fast enough to be right.</p></div>
+    <div class="cc"><div class="h">What I deliberately did not build</div><p>Pooled rides, which turn matching into an NP-hard routing problem, and dynamic pricing, which is a separate feedback system with its own stability failures.</p></div>
+    <div class="cc risk"><div class="h">The biggest risk</div><p>Location write volume. Drivers reporting every few seconds is the largest number in the design, and it is what will break first as the fleet grows.</p></div>
+  </div>
+  </div>
+</div>
+</div>
 </div>
 
 <div class="design-card">
@@ -6962,7 +7239,11 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 </ul></div>
 </div><div class="design-step est">
   <div class="ds-header">[chart] 2. Capacity Estimation</div>
-  <div class="ds-body"><div class="ng"><div class="ng-cell"><div class="ng-val">10 Billion</div><div class="ng-desc">Total web pages indexed per monthly crawl cycle</div></div><div class="ng-cell"><div class="ng-val">4,000 pages/sec</div><div class="ng-desc">Average continuous crawl ingestion throughput</div></div><div class="ng-cell"><div class="ng-val">10,000 pages/sec</div><div class="ng-desc">Peak burst crawl throughput</div></div><div class="ng-cell"><div class="ng-val">400 MB/sec</div><div class="ng-desc">Continuous download network bandwidth (at 100 KB/page)</div></div><div class="ng-cell"><div class="ng-val">1 Petabyte</div><div class="ng-desc">Storage required for 10B parsed HTML documents</div></div><div class="ng-cell"><div class="ng-val">200 Billion</div><div class="ng-desc">URLs maintained in URL Frontier queue</div></div></div></div>
+  <div class="ds-body"><div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">Politeness is defined per host</div><div class="as-b">If it were per IP, hosts sharing an IP would need coordinated rate limiting across partitions.</div></div><div class="as-row"><div class="as-a">Most pages are static HTML</div><div class="as-b">If most required JavaScript rendering, fleet cost rises by one to two orders of magnitude.</div></div><div class="as-row"><div class="as-a">Near-duplicate detection is good enough</div><div class="as-b">Exact-duplicate-only detection would let templated content flood the index.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">10 Billion</div><div class="ng-desc">Total web pages indexed per monthly crawl cycle</div></div><div class="ng-cell"><div class="ng-val">4,000 pages/sec</div><div class="ng-desc">Average continuous crawl ingestion throughput</div></div><div class="ng-cell"><div class="ng-val">10,000 pages/sec</div><div class="ng-desc">Peak burst crawl throughput</div></div><div class="ng-cell"><div class="ng-val">400 MB/sec</div><div class="ng-desc">Continuous download network bandwidth (at 100 KB/page)</div></div><div class="ng-cell"><div class="ng-val">1 Petabyte</div><div class="ng-desc">Storage required for 10B parsed HTML documents</div></div><div class="ng-cell"><div class="ng-val">200 Billion</div><div class="ng-desc">URLs maintained in URL Frontier queue</div></div></div></div>
 </div><div class="design-step api">
   <div class="ds-header">[plug] 3. API Design</div>
   <div class="ds-body"><div class="api-code"><span class="cm">// URL Frontier Internal RPC Protocol (gRPC)</span>
@@ -7069,7 +7350,18 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 </div><div class="design-step fault">
   <div class="ds-header">[shield] 8. Fault Tolerance</div>
   <div class="ds-body"><div class="ft-row"><div class="ft-fail">Fetcher Worker Freezes (Slow Server Response)</div><div class="ft-fix">Fetchers use non-blocking asynchronous I/O (epoll/libuv) with hard 5-second socket read timeouts and 2MB response size caps.</div></div><div class="ft-row"><div class="ft-fail">DNS Resolution Bottleneck</div><div class="ft-fix">Local custom caching DNS server with pre-fetching; eliminates 100ms DNS query delay per crawled page.</div></div><div class="ft-row"><div class="ft-fail">Frontier Master Node Failure</div><div class="ft-fix">Frontier queue state is checkpointed to RocksDB / distributed log (Kafka). Standby master restores queue pointers in <5s.</div></div><div class="ft-row"><div class="ft-fail">Malicious Spider Trap / Zip Bomb</div><div class="ft-fix">Decompression stream reader capped at 10MB; immediately aborts and blacklists the URL pattern if exceeded.</div></div></div>
-</div></div>
+</div><div class="design-step concl">
+  <div class="ds-header">[flag] 9. Conclusion &mdash; what I would say in the last three minutes</div>
+  <div class="ds-body">
+  <div class="concl-grid">
+    <div class="cc"><div class="h">The dominant constraint</div><p><strong>Politeness is per host, so the partition key must be the host.</strong> Making the constraint local instead of coordinated is the entire architectural move; partition by URL and you need a distributed rate limiter you cannot afford.</p></div>
+    <div class="cc first"><div class="h">What I would build first</div><p>The Mercator-style frontier with per-host queues and a politeness delay, plus SimHash near-duplicate detection before anything is indexed.</p></div>
+    <div class="cc"><div class="h">What I deliberately did not build</div><p>JavaScript rendering, which costs 10 to 100 times more per page, and the ranking system, which is a different problem entirely.</p></div>
+    <div class="cc risk"><div class="h">The biggest risk</div><p>Spider traps and infinite URL spaces. Without per-domain budgets and depth caps, one badly behaved site consumes the whole fleet.</p></div>
+  </div>
+  </div>
+</div>
+</div>
 </div>
 
 
@@ -7101,7 +7393,11 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 <div class="insight"><div class="label">&#128161; The framing move that separates L6 from L5 here</div><p>Say this in the first three minutes: <strong>metrics and logs are two different systems and building them as one is the classic mistake.</strong> Metrics are numeric, aggregatable, and bounded by cardinality &mdash; you can pre-compute almost everything. Logs are unbounded, not aggregatable, and read rarely but urgently. They have opposite cost curves, so they get different storage engines behind a shared ingest path.</p></div></div>
 </div><div class="design-step est">
   <div class="ds-header">[chart] 2. Capacity Estimation</div>
-  <div class="ds-body"><p><strong>Assumptions:</strong> 100K hosts; 1,000 active metric series per host at 10s resolution; 100 log lines/sec per host at 300 bytes.</p>
+  <div class="ds-body"><div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">100K hosts, ~1,000 series each</div><div class="as-b">Cardinality, not host count, is the binding constraint; one bad label can multiply this by the user base.</div></div><div class="as-row"><div class="as-a">Sub-minute freshness is required for alerting</div><div class="as-b">Relaxing to five minutes would allow batch ingestion and remove the streaming tier.</div></div><div class="as-row"><div class="as-a">Logs are read rarely but urgently</div><div class="as-b">If log search were high-volume, label-only indexing would be too slow and a full inverted index would be justified.</div></div>
+</div>
+<p><strong>Assumptions:</strong> 100K hosts; 1,000 active metric series per host at 10s resolution; 100 log lines/sec per host at 300 bytes.</p>
 <div class="ng"><div class="ng-cell"><div class="ng-val">100M</div><div class="ng-desc">active metric series</div></div><div class="ng-cell"><div class="ng-val">10M/s</div><div class="ng-desc">metric datapoints</div></div><div class="ng-cell"><div class="ng-val">10M/s</div><div class="ng-desc">log lines</div></div><div class="ng-cell"><div class="ng-val">3 GB/s</div><div class="ng-desc">raw log bytes</div></div><div class="ng-cell"><div class="ng-val">~14 MB/s</div><div class="ng-desc">compressed metrics</div></div><div class="ng-cell"><div class="ng-val">260 TB</div><div class="ng-desc">raw logs/day</div></div></div>
 <p><strong>The number that decides the architecture:</strong> a metric datapoint compresses to roughly <strong>1.4 bytes</strong> using delta-of-delta timestamps plus XOR-encoded floats (the Gorilla scheme), against 16 bytes uncompressed. So 10M datapoints/sec is only ~14 MB/s &mdash; about <strong>1.2 TB/day</strong>. Logs at 10:1 gzip are ~26 TB/day.</p>
 <p><strong>Logs are ~20&times; the cost of metrics for a fraction of the query volume.</strong> That ratio is the entire justification for treating them differently, and it is the number to lead with when someone asks why you did not just use one system.</p></div>
@@ -7203,6 +7499,17 @@ temporarily out of capacity without loss.</div></div>
   </ul>
   <div class="vr-none">This design has no good video match, which is itself informative &mdash; the infrastructure round is the under-served half of the free video landscape. The primary sources are the Gorilla paper (Facebook, VLDB 2015) and the Prometheus TSDB documentation.</div>
 </div>
+<div class="design-step concl">
+  <div class="ds-header">[flag] 9. Conclusion &mdash; what I would say in the last three minutes</div>
+  <div class="ds-body">
+  <div class="concl-grid">
+    <div class="cc"><div class="h">The dominant constraint</div><p><strong>Metrics and logs have opposite cost curves.</strong> Logs are roughly twenty times the bytes for a fraction of the queries, so they get separate storage engines behind one shared, durable ingest path.</p></div>
+    <div class="cc first"><div class="h">What I would build first</div><p>The durable log in the middle. It decouples a producer spike from consumer capacity, and everything downstream of it can be rebuilt or restarted without loss.</p></div>
+    <div class="cc"><div class="h">What I deliberately did not build</div><p>Tracing, and per-tenant query isolation beyond a simple budget. Both matter and both are separable.</p></div>
+    <div class="cc risk"><div class="h">The biggest risk</div><p>Cardinality. One well-meaning application change adding a user_id label can OOM the ingesters, which is why the per-tenant series budget is enforced at the collector rather than reviewed by humans.</p></div>
+  </div>
+  </div>
+</div>
 </div>
 </div>
 
@@ -7233,7 +7540,11 @@ temporarily out of capacity without loss.</div></div>
 <div class="insight"><div class="label">&#128161; Scope the problem before designing it</div><p>The clarifying question that earns the most here: <strong>&ldquo;is this a cache or a low-latency store?&rdquo;</strong> If the answer is cache, you may lose data freely and the design is about locality and eviction. If the answer is store, you need replication and durability and you are designing something two orders of magnitude more expensive. Most candidates assume the first and never say so; saying it out loud is the staff signal.</p></div></div>
 </div><div class="design-step est">
   <div class="ds-header">[chart] 2. Capacity Estimation</div>
-  <div class="ds-body"><p><strong>Assumptions:</strong> 10 TB working set, average value 1 KB, 10M QPS at 95:5 read:write.</p>
+  <div class="ds-body"><div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">Data is reconstructible from the origin</div><div class="as-b">If it is not, this is a low-latency store and needs replication and durability.</div></div><div class="as-row"><div class="as-a">Access is Zipfian</div><div class="as-b">Under a uniform distribution a cache smaller than the working set thrashes and adds latency instead of removing it.</div></div><div class="as-row"><div class="as-a">Values average around 1 KB</div><div class="as-b">At 100 bytes, per-entry overhead exceeds the payload and the design must pack entries.</div></div>
+</div>
+<p><strong>Assumptions:</strong> 10 TB working set, average value 1 KB, 10M QPS at 95:5 read:write.</p>
 <div class="ng"><div class="ng-cell"><div class="ng-val">~10B</div><div class="ng-desc">keys resident</div></div><div class="ng-cell"><div class="ng-val">~64 GB</div><div class="ng-desc">usable RAM/node</div></div><div class="ng-cell"><div class="ng-val">~200</div><div class="ng-desc">nodes (with headroom)</div></div><div class="ng-cell"><div class="ng-val">50K</div><div class="ng-desc">QPS per node avg</div></div><div class="ng-cell"><div class="ng-val">~10 GB/s</div><div class="ng-desc">aggregate value bytes</div></div><div class="ng-cell"><div class="ng-val">~1.4 TB</div><div class="ng-desc">overhead at 120B/key</div></div></div>
 <p><strong>The overhead nobody estimates:</strong> every entry carries key bytes, a hash-table slot, LRU pointers, TTL and flags &mdash; roughly <strong>50&ndash;120 bytes</strong> before your value. With 1 KB values that is ~10% waste; with 100-byte values it is <strong>more than half your RAM</strong>. If the workload is small values, the correct answer is to change the workload &mdash; pack many logical entries into one cache entry &mdash; not to buy more nodes.</p>
 <p><strong>Sanity check the network, not just the memory:</strong> 10M QPS &times; 1 KB &asymp; 10 GB/s aggregate, or ~50 MB/s per node. Comfortable. But a single hot key at 1M QPS &times; 1 KB is <strong>1 GB/s to one node</strong> &mdash; an 8 Gbps NIC saturated by one key. Hot keys are a bandwidth problem before they are a CPU problem.</p></div>
@@ -7333,6 +7644,17 @@ coordinator. Consensus is confined to membership, which changes a few times a we
     <li><a href="https://www.youtube.com/watch?v=Myp8z0ybdzM" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 16: Memcached at Facebook</a> <span class="vr-meta">~80 min</span> &mdash; the production reality: what actually broke, and what they did about it. Read the paper too if you have time.</li>
   </ul>
 </div>
+<div class="design-step concl">
+  <div class="ds-header">[flag] 9. Conclusion &mdash; what I would say in the last three minutes</div>
+  <div class="ds-body">
+  <div class="concl-grid">
+    <div class="cc"><div class="h">The dominant constraint</div><p><strong>It is a cache, so the data is reconstructible.</strong> That permission is what makes the rest cheap: no replication, no durability, no consensus on the data path, and a node loss costs 1/N of the hit rate rather than any correctness.</p></div>
+    <div class="cc first"><div class="h">What I would build first</div><p>Consistent hashing with virtual nodes plus a smart client that connects directly. Consensus is confined to membership, which changes a few times a week.</p></div>
+    <div class="cc"><div class="h">What I deliberately did not build</div><p>Persistence and cross-region replication. Both would double the cost to protect data whose whole point is that losing it is safe.</p></div>
+    <div class="cc risk"><div class="h">The biggest risk</div><p>The cold-start stampede. If the tier restarts and the origin cannot survive a 0% hit rate, the cache is not an optimisation but an undeclared hard dependency.</p></div>
+  </div>
+  </div>
+</div>
 </div>
 </div>
 
@@ -7365,7 +7687,11 @@ coordinator. Consensus is confined to membership, which changes a few times a we
 <div class="insight"><div class="label">&#128161; The reframe that carries the interview</div><p><strong>This is not a search problem, it is a precomputation problem.</strong> You are not searching a corpus at request time &mdash; you are looking up an answer that was computed hours ago. Once you say that, every subsequent decision follows: the serving path does one lookup and no ranking, and all the interesting engineering moves offline into the pipeline that builds the lookup table.</p></div></div>
 </div><div class="design-step est">
   <div class="ds-header">[chart] 2. Capacity Estimation</div>
-  <div class="ds-body"><p><strong>Assumptions:</strong> 5B searches/day; ~15 keystroke requests per search after client-side debouncing; 100M distinct queries worth suggesting.</p>
+  <div class="ds-body"><div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">Suggestions are global, not personalised</div><div class="as-b">Personalisation removes the single precomputed answer per prefix and invalidates the whole serving model.</div></div><div class="as-row"><div class="as-a">The prefix table fits in memory, about 150 GB</div><div class="as-b">If it did not, the serving path gains a disk seek and the latency budget no longer holds.</div></div><div class="as-row"><div class="as-a">Hourly freshness is sufficient for most terms</div><div class="as-b">Only trending terms need the streaming lane; if everything needed minute freshness the batch build is pointless.</div></div>
+</div>
+<p><strong>Assumptions:</strong> 5B searches/day; ~15 keystroke requests per search after client-side debouncing; 100M distinct queries worth suggesting.</p>
 <div class="ng"><div class="ng-cell"><div class="ng-val">~75B</div><div class="ng-desc">suggestion reqs/day</div></div><div class="ng-cell"><div class="ng-val">~870K</div><div class="ng-desc">QPS average</div></div><div class="ng-cell"><div class="ng-val">~2.6M</div><div class="ng-desc">QPS peak (3x)</div></div><div class="ng-cell"><div class="ng-val">~500M</div><div class="ng-desc">distinct prefixes</div></div><div class="ng-cell"><div class="ng-val">~150 GB</div><div class="ng-desc">prefix&#8594;top10 table</div></div><div class="ng-cell"><div class="ng-val">&lt;100 ms</div><div class="ng-desc">p99 budget</div></div></div>
 <p><strong>The estimate that decides the architecture:</strong> 500M prefixes &times; 10 suggestions &times; ~30 bytes &asymp; <strong>150 GB</strong>. That fits in the RAM of a modest cluster &mdash; perhaps 8 machines with replication. <strong>The entire answer set fits in memory</strong>, which is why the serving path can be a hash lookup and why p99 under 100 ms is comfortably achievable.</p>
 <p>Note the client-side saving: debouncing at ~50 ms and cancelling in-flight requests cuts request volume by roughly 60% for free, before any server-side work. Mention it &mdash; the cheapest capacity is the request you never send.</p></div>
@@ -7462,6 +7788,17 @@ cheaper than rebuilding 150 GB every minute.</div></div>
     <li><a href="https://www.youtube.com/watch?v=foMMYyycRgk" target="_blank" rel="noopener">CMU 15-445 &mdash; #09 Vector Indexes, Inverted Indexes, Filters, Tries</a> <span class="vr-meta">~75 min</span> &mdash; tries as a database implementer builds them.</li>
   </ul>
 </div>
+<div class="design-step concl">
+  <div class="ds-header">[flag] 9. Conclusion &mdash; what I would say in the last three minutes</div>
+  <div class="ds-body">
+  <div class="concl-grid">
+    <div class="cc"><div class="h">The dominant constraint</div><p><strong>It is a precomputation problem, not a search problem.</strong> The whole prefix-to-top-k table fits in memory, so the serving path is one hash lookup and every interesting decision moves offline into the build.</p></div>
+    <div class="cc first"><div class="h">What I would build first</div><p>The offline trie build that caches top-k at every node, flattened into a versioned table that is swapped atomically.</p></div>
+    <div class="cc"><div class="h">What I deliberately did not build</div><p>Personalisation, which breaks the single precomputed table because there is no longer one answer per prefix.</p></div>
+    <div class="cc risk"><div class="h">The biggest risk</div><p>Publishing a bad table. Suggestions are editorial content, so I would gate the swap on canary prefixes and a safety scan, and keep serve-time filtering as a same-minute kill switch.</p></div>
+  </div>
+  </div>
+</div>
 </div>
 </div>
 
@@ -7493,7 +7830,11 @@ cheaper than rebuilding 150 GB every minute.</div></div>
 <div class="insight"><div class="label">&#128161; Two things to say early that most candidates miss</div><p>First: <strong>this is two systems</strong> &mdash; an offline indexing pipeline and an online serving path &mdash; and almost all the quality lives in the offline half while all the latency lives in the online half. Second: <strong>access control must be enforced at retrieval time, not by filtering the answer.</strong> Once a restricted passage enters the prompt, the model may paraphrase it and no downstream filter can reliably catch that. Post-filtering a generated answer is not a security control.</p></div></div>
 </div><div class="design-step est">
   <div class="ds-header">[chart] 2. Capacity Estimation</div>
-  <div class="ds-body"><p><strong>Assumptions:</strong> 10M documents averaging 5 KB of text; chunked at ~500 tokens with overlap; 1,536-dimension embeddings; 100K queries/day.</p>
+  <div class="ds-body"><div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">The corpus is 10M documents, ~50 GB of text</div><div class="as-b">Two orders of magnitude more and the vector index no longer fits one machine even quantised.</div></div><div class="as-row"><div class="as-a">Query volume is low, around 1 QPS</div><div class="as-b">This is cost- and quality-constrained, not throughput-constrained. High QPS would change the serving design entirely.</div></div><div class="as-row"><div class="as-a">Permissions change rarely but must be respected immediately</div><div class="as-b">This is why ACLs are resolved at query time rather than trusted from the index.</div></div>
+</div>
+<p><strong>Assumptions:</strong> 10M documents averaging 5 KB of text; chunked at ~500 tokens with overlap; 1,536-dimension embeddings; 100K queries/day.</p>
 <div class="ng"><div class="ng-cell"><div class="ng-val">~100M</div><div class="ng-desc">chunks</div></div><div class="ng-cell"><div class="ng-val">6 KB</div><div class="ng-desc">per vector (fp32)</div></div><div class="ng-cell"><div class="ng-val">~600 GB</div><div class="ng-desc">vectors, unquantised</div></div><div class="ng-cell"><div class="ng-val">~150 GB</div><div class="ng-desc">int8 quantised</div></div><div class="ng-cell"><div class="ng-val">~1.2</div><div class="ng-desc">QPS average</div></div><div class="ng-cell"><div class="ng-val">~4K</div><div class="ng-desc">prompt tokens/query</div></div></div>
 <p><strong>The number that reframes the problem:</strong> 1.2 QPS is <em>nothing</em>. This system is not throughput-constrained &mdash; it is <strong>cost- and quality-constrained</strong>. Say that explicitly, because it inverts the usual instinct: the interesting engineering here is not sharding for scale, it is the index that fits in memory and the tokens you do not send.</p>
 <p><strong>Vector index sizing is the real capacity question.</strong> 600 GB of fp32 vectors does not fit one machine; 150 GB of int8 does, comfortably. Scalar quantisation to int8 costs a few percent of recall and <strong>4&times;</strong> the memory &mdash; the single highest-leverage trade in the design. Note also that an HNSW graph adds roughly 30&ndash;50% overhead on top of the vectors for its edge lists.</p>
@@ -7605,6 +7946,17 @@ cost 10&times; as much and answer worse.</div></div>
     <li><a href="https://www.youtube.com/watch?v=LPZh9BOjkQs" target="_blank" rel="noopener">3Blue1Brown &mdash; Large Language Models explained briefly</a> <span class="vr-meta">~8 min</span> &mdash; worth watching first if the whole area is new.</li>
     <li><a href="https://www.youtube.com/watch?v=foMMYyycRgk" target="_blank" rel="noopener">CMU 15-445 &mdash; #09 Vector Indexes, Inverted Indexes, Filters, Tries</a> <span class="vr-meta">~75 min</span> &mdash; vector indexes and inverted indexes in one lecture, which is exactly the hybrid retrieval this design uses.</li>
   </ul>
+</div>
+<div class="design-step concl">
+  <div class="ds-header">[flag] 9. Conclusion &mdash; what I would say in the last three minutes</div>
+  <div class="ds-body">
+  <div class="concl-grid">
+    <div class="cc"><div class="h">The dominant constraint</div><p><strong>Access control has to be enforced during retrieval.</strong> Once a restricted passage is in the prompt the model can paraphrase it past any output filter, so post-filtering is not a security control. This constrains the index design more than latency does.</p></div>
+    <div class="cc first"><div class="h">What I would build first</div><p>Hybrid retrieval (vector plus BM25) with ACL filtering inside the ANN traversal, then a cross-encoder rerank down to a handful of passages.</p></div>
+    <div class="cc"><div class="h">What I deliberately did not build</div><p>Fine-tuning, and agentic multi-step retrieval. Both are tempting and neither is needed to answer grounded questions with citations.</p></div>
+    <div class="cc risk"><div class="h">The biggest risk</div><p>Confident wrong answers. Without a reranker score threshold and an explicit 'I could not find this', the system invents plausible text and the user cannot tell.</p></div>
+  </div>
+  </div>
 </div>
 </div>
 </div>

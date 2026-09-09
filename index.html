@@ -1144,6 +1144,15 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
 .sc-row { display: flex; gap: 14px; padding: 7px 0; font-size: calc(14px * var(--fscale, 1)); line-height: 1.6; }
 .sc-row .k { flex: 0 0 190px; font-weight: 700; color: var(--ink); }
 .sc-row .v { flex: 1; color: var(--soft); }
+.animindex { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.animchip {
+  font-size: calc(12.4px * var(--fscale, 1)); text-decoration: none;
+  background: #1a1a2e; color: #cfd8dc; border-radius: 18px;
+  padding: 5px 12px; border: 1px solid rgba(255,255,255,.14);
+  transition: background .15s;
+}
+.animchip:hover { background: #2a2a44; color: #fff; }
+.animchip b { color: #80cbc4; font-weight: 800; margin-right: 5px; }
 @media (max-width: 900px) { .sc-paths { grid-template-columns: 1fr; } }
 @media (max-width: 680px) { .startcard { padding: 20px 16px; } .sc-row { flex-direction: column; gap: 2px; } .sc-row .k { flex: none; } }
 
@@ -1700,7 +1709,7 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
       <div class="h">Conventions &mdash; worth thirty seconds, they make everything faster</div>
       <div class="sc-row"><div class="k">&#9889; Quick reference</div><div class="v">Opens every chapter. A four-column decision table ending in <strong>Used in</strong>, naming the real systems that made each choice.</div></div>
       <div class="sc-row"><div class="k">&#128296; Build it wrong first</div><div class="v">Progressive derivation for the hardest topics: the naive design, the exact failure that breaks it, the fix, repeat. Used for CAP, exactly-once, and cascading failure.</div></div>
-      <div class="sc-row"><div class="k">&#9654; Animated diagrams</div><div class="v">Show what data is moving. Every one has a <strong>&ldquo;What goes wrong&rdquo;</strong> toggle that switches to the failure mode and swaps the explanation with it.</div></div>
+      <div class="sc-row"><div class="k">&#9654; Animated diagrams</div><div class="v">Nine flows show what data is moving, each with a <strong>&ldquo;What goes wrong&rdquo;</strong> toggle that switches to the failure mode and swaps the explanation with it. They sit inside the relevant chapter or design &mdash; jump straight to one:<div class="animindex"><a class="animchip" href="#anim-replication"><b>Ch 4</b> Async replication &mdash; the acknowledged write that vanishes</a><a class="animchip" href="#anim-2pc"><b>Ch 7</b> Two-phase commit &mdash; the coordinator that blocks everyone</a><a class="animchip" href="#anim-metastable"><b>Ch 10</b> Metastable failure &mdash; the loop that outlives its cause</a><a class="animchip" href="#anim-fanout"><b>D2</b> Fan-out on write &mdash; the celebrity that stalls the queue</a><a class="animchip" href="#anim-isr"><b>D7</b> Leader election &mdash; why only the in-sync set may be elected</a><a class="animchip" href="#anim-telemetry"><b>D11</b> Telemetry ingest &mdash; the cardinality bomb</a><a class="animchip" href="#anim-cache"><b>D12</b> Cache read path &mdash; a dead node stampedes the origin</a><a class="animchip" href="#anim-rag"><b>D14</b> Retrieval &mdash; why ACLs cannot be applied at the end</a><a class="animchip" href="#anim-booking"><b>D19</b> Hold, pay, confirm &mdash; the ambiguous payment timeout</a></div></div></div>
       <div class="sc-row"><div class="k">&#10067; Clarify first</div><div class="v">Opens every design &mdash; the questions to ask in the first five minutes, each paired with <em>what the answer changes</em>. Steps then run 1&ndash;9 identically in all 23 designs.</div></div>
       <div class="sc-row"><div class="k">&#9998; Exercises</div><div class="v">Always carry a worked answer behind a toggle, and end on a transferable principle. This guide never asks a question it does not answer.</div></div>
       <div class="sc-row"><div class="k">&#9888; Misconceptions</div><div class="v">Quote the false sentence, then dismantle it. If you believe the quoted line, that block is the most valuable thing on the page.</div></div>
@@ -2659,7 +2668,7 @@ around it is like planning your week around the fire alarm.</div>
   </table></div>
 </div>
 
-<div class="anim">
+<div class="anim" id="anim-replication">
   <div class="an-head">
     <div class="an-title">Asynchronous replication &mdash; and the acknowledged write that disappears</div>
     <div class="an-btns">
@@ -3871,7 +3880,7 @@ around it is like planning your week around the fire alarm.</div>
   </table></div>
 </div>
 
-<div class="anim">
+<div class="anim" id="anim-2pc">
   <div class="an-head">
     <div class="an-title">Two-phase commit &mdash; and the window where the coordinator owns everyone</div>
     <div class="an-btns">
@@ -5554,7 +5563,7 @@ most large outages.</p>
 states &mdash; healthy, and collapsed &mdash; and enough load pushes it across a threshold from
 which it will not return on its own. Capacity planning tells you where the threshold is; load
 shedding is what stops you crossing it.</div>
-<div class="anim">
+<div class="anim" id="anim-metastable">
   <div class="an-head">
     <div class="an-title">Metastable failure &mdash; the loop that outlives its own cause</div>
     <div class="an-btns">
@@ -7335,7 +7344,7 @@ much.</p>
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
   <div class="ds-body">
-<div class="anim">
+<div class="anim" id="anim-fanout">
   <div class="an-head">
     <div class="an-title">Fan-out on write &mdash; and the celebrity that stalls it for everybody</div>
     <div class="an-btns">
@@ -8056,7 +8065,7 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
   <div class="ds-body">
-<div class="anim">
+<div class="anim" id="anim-isr">
   <div class="an-head">
     <div class="an-title">Replication and leader election &mdash; why only the in-sync set may be elected</div>
     <div class="an-btns">
@@ -8752,7 +8761,7 @@ This SQL atomically locks selected rows. A second scheduler running the same que
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
   <div class="ds-body">
-<div class="anim">
+<div class="anim" id="anim-telemetry">
   <div class="an-head">
     <div class="an-title">Telemetry ingest &mdash; and the cardinality bomb the collector has to stop</div>
     <div class="an-btns">
@@ -8940,7 +8949,7 @@ temporarily out of capacity without loss.</div></div>
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
   <div class="ds-body">
-<div class="anim">
+<div class="anim" id="anim-cache">
   <div class="an-head">
     <div class="an-title">Read path &mdash; and what a dead cache node does to the origin</div>
     <div class="an-btns">
@@ -9284,7 +9293,7 @@ cheaper than rebuilding 150 GB every minute.</div></div>
 </div><div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
   <div class="ds-body">
-<div class="anim">
+<div class="anim" id="anim-rag">
   <div class="an-head">
     <div class="an-title">Retrieval and generation &mdash; and why access control cannot be applied at the end</div>
     <div class="an-btns">
@@ -10184,7 +10193,7 @@ single-row hot-write problem rather than a throughput problem is most of the ans
 <div class="design-step arch">
   <div class="ds-header">[build] 5. High-Level Architecture</div>
   <div class="ds-body">
-<div class="anim">
+<div class="anim" id="anim-booking">
   <div class="an-head">
     <div class="an-title">Hold, pay, confirm &mdash; and the timeout where doing nothing is correct</div>
     <div class="an-btns">

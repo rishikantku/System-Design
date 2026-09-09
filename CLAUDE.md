@@ -40,7 +40,7 @@ distributed systems concepts from first principles.
 |---|---|
 | **File** | `index.html` — single self-contained file, ~1.5 MB |
 | **Backup** | `Distributed_Systems_Deep_Guide.backup.html` — the original before any enrichment |
-| **Content** | ~94,500 words |
+| **Content** | ~102,300 words |
 | **Deps** | None. One Google Fonts `@import`. No JS libraries. Opens offline from `file://` |
 | **Structure** | 1 `<style>` block, 5 `<script>` blocks (early state-restore in `<body>`, glossary data, glossary engine, search palette, left-nav engine, view-size engine) |
 
@@ -115,9 +115,9 @@ assert st == "123456789"
 | `ch8` | Distributed Time & Clocks | ✅ |
 | `ch9` | Caching | ✅ |
 | `ch10` | Load Balancing & Rate Limiting | ✅ |
-| `ch11` | Message Queues & Streaming | ❌ still original depth |
+| `ch11` | Message Queues & Streaming | ✅ |
 | `ch12` | Database Internals (+ data models, OLAP) | ✅ |
-| `ch13` | Microservices & Resilience | ❌ still original depth |
+| `ch13` | Microservices & Resilience | ✅ |
 | `ch14` | Observability & SRE | ✅ |
 | `ch15` | Security & API Design (+ encoding/evolution) | ✅ |
 
@@ -332,6 +332,8 @@ Reuse these. Do not invent new block types without a reason.
 | `.takeaway` | Green chapter closer | `.label`, `<p>`, `<ul>` |
 | `.recall` | "Before this chapter, remember X" | `.rc-icon` + a `<div>` |
 | `.srcref` | Small inline chapter chip | `<span class="srcref">Ch 4, 12</span>` |
+| `.quickref` | Scannable decision table at the **top** of a chapter, for a reader who already knows the material and just needs the answer | `.label`, `.qr-sub`, then a 4-column table: *If you need… / Reach for / Because / **Used in***. The last column carries real systems (`Envoy`, `resilience4j`, Kafka) and `<span class="srcref">` links to designs. Wrap the table in `.tw`. Collapses to stacked cards under 680px |
+| `.buildup` | Progressive derivation — build the naive design, break it, fix it, repeat | `.label`, then `.bu-step` > `.bu-n` + `.bu-body` containing `.bu-try` (the attempt), `.bu-break` (the exact failure, red), `.bu-learn` (what it teaches, green); closing `.bu-end`. **The best device in the toolkit for genuinely hard topics** — the reader arrives at the real answer having felt why every simpler answer fails |
 | `.assume` | Stated assumptions **with the consequence of each being wrong**, inside step 2 | `.label`, then `.as-row` > `.as-a` (the assumption) + `.as-b` (what breaks). A bare list of numbers is not an assumptions section |
 | `.concl-grid` | Step 9 closing summary | Four `.cc` cards: dominant constraint, what I would build first (`.cc.first`), what I deliberately did not build, biggest risk (`.cc.risk`) |
 | `.clarify` | The clarifying questions to ask in the first five minutes, one per design, inside step 1 | `.label`, then `.cq-row` > `.cq-q` (the question) + `.cq-w` (**what the answer changes** — not what the answer is), closing `.cq-note`. The rationale column is the point: a list of questions without consequences teaches nothing |
@@ -414,7 +416,8 @@ though they exist. Drive the page by clicking real elements, not by calling its 
 **Baseline to regress against** (current, after the Google-question-bank work):
 
 ```
-totalWords 94473 · designs 23 (207 steps, all 1-9) · toolkitCards 7
+totalWords 102280 · designs 23 (207 steps, all 1-9) · toolkitCards 7
+quickref 10 · buildup 3 · all 15 chapters enriched
 clarify 23 · assume 23 · concl 23 · tradeoff 23 · glossaryTerms 199 · designSteps 105 · flows 45
 vidrefs 22 · externalLinks 63 (all target=_blank rel=noopener, all verified 200)
 flowsScrollingOnDesktop 0 (was 9; Fit is on by default) · gtInCtl 0
@@ -517,12 +520,19 @@ answers it, with remaining gaps marked in red. Coverage of the Tier 1 list went 
 10/15. Provenance caveat is stated in the card itself: none of it is confirmed by Google,
 and vendor lists are biased toward what they sell content for.
 
-**Not done — remaining chapters at original depth:**
+**All 15 chapters are now enriched.** `ch11` and `ch13` were the last two and are done;
+`ch3` was rebuilt because it was the thinnest of the nominally-enriched chapters and covers
+the field's most-misunderstood result.
 
-- `ch11` **Message Queues & Streaming** — the natural source is **DDIA Ch 11 (Stream
-  Processing)**, which was scoped out of the original Ch 1–9 request. Worth asking.
-- `ch13` **Microservices & Resilience** — circuit breakers, bulkheads, cascading failure.
-  Partly covered by DDIA Ch 8, and retry budgets / metastable failure now live in `ch10`.
+**Remaining thin spots, in priority order** (measured by word count and missing block types):
+
+| Chapter | Words | Missing |
+|---|---|---|
+| `ch1` | 2,057 | recall, teach-qa, usecase, takeaway — the foundation chapter, and the thinnest |
+| `ch14` | 2,133 | recall, usecase, quickref |
+| `ch15` | 2,444 | usecase, quickref |
+| `ch8` | 3,289 | recall, usecase, quickref |
+| `ch5` | 3,608 | quickref |
 
 **Not done — the five Tier 1 questions still marked as gaps in T6:**
 

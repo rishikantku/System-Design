@@ -1129,6 +1129,91 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
 
 
 
+/* Quick reference — a scannable decision table for someone who already knows
+   the material and just needs the answer, plus where each thing is actually used.
+   Sits near the TOP of a chapter, before the prose. */
+.quickref {
+  background: linear-gradient(180deg, var(--bgcool), var(--bgwarm));
+  border: 1px solid var(--line); border-radius: 12px;
+  padding: 18px 20px; margin: 24px 0 28px;
+}
+.quickref > .label {
+  font-size: calc(11px * var(--fscale, 1)); font-weight: 800; text-transform: uppercase;
+  letter-spacing: 1.3px; color: var(--accent); margin-bottom: 4px;
+}
+.quickref > .qr-sub {
+  font-size: calc(13.4px * var(--fscale, 1)); color: var(--muted);
+  font-style: italic; margin-bottom: 13px;
+}
+.quickref table { width: 100%; border-collapse: collapse; font-size: calc(13.8px * var(--fscale, 1)); }
+.quickref th {
+  text-align: left; font-size: calc(10.5px * var(--fscale, 1)); font-weight: 800;
+  text-transform: uppercase; letter-spacing: .9px; color: var(--muted);
+  padding: 0 12px 7px 0; border-bottom: 2px solid var(--line); white-space: nowrap;
+}
+.quickref td { padding: 9px 12px 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; line-height: 1.55; color: var(--soft); }
+.quickref tr:last-child td { border-bottom: 0; }
+.quickref td:first-child { color: var(--ink); font-weight: 600; }
+.quickref .qr-pick { color: var(--accent); font-weight: 700; }
+.quickref .qr-seen { font-size: calc(12.6px * var(--fscale, 1)); color: var(--muted); }
+.quickref .qr-seen code {
+  background: #fff; border: 1px solid var(--line); border-radius: 4px;
+  padding: 1px 5px; font-size: calc(11.6px * var(--fscale, 1)); color: var(--soft);
+  font-family: 'JetBrains Mono', monospace; white-space: nowrap;
+}
+@media (max-width: 680px) {
+  .quickref { padding: 14px 13px; }
+  .quickref table, .quickref thead, .quickref tbody, .quickref tr, .quickref td { display: block; width: 100%; }
+  .quickref thead { display: none; }
+  .quickref tr { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .quickref td { border: 0; padding: 2px 0; }
+  .quickref td:first-child { font-size: calc(14.5px * var(--fscale, 1)); margin-bottom: 3px; }
+}
+
+/* Progressive derivation — build the naive design, break it, fix it, repeat.
+   For the genuinely hard topics this beats any diagram: the reader arrives at
+   the real answer having felt why every simpler answer fails. */
+.buildup {
+  background: var(--bgwarm); border: 1px solid var(--line);
+  border-radius: 12px; padding: 20px 22px; margin: 26px 0;
+}
+.buildup > .label {
+  font-size: calc(11px * var(--fscale, 1)); font-weight: 800; text-transform: uppercase;
+  letter-spacing: 1.3px; color: var(--accent5); margin-bottom: 16px;
+}
+.bu-step { display: flex; gap: 14px; position: relative; padding-bottom: 18px; }
+.bu-step:last-of-type { padding-bottom: 4px; }
+.bu-step::before {
+  content: ''; position: absolute; left: 13px; top: 30px; bottom: 0;
+  width: 2px; background: var(--line);
+}
+.bu-step:last-of-type::before { display: none; }
+.bu-n {
+  flex: 0 0 28px; height: 28px; border-radius: 50%;
+  background: var(--accent5); color: #fff; font-weight: 800;
+  font-size: calc(13px * var(--fscale, 1));
+  display: flex; align-items: center; justify-content: center; z-index: 1;
+}
+.bu-body { flex: 1; min-width: 0; }
+.bu-try { font-size: calc(15px * var(--fscale, 1)); color: var(--ink); line-height: 1.65; margin-bottom: 7px; }
+.bu-try strong { font-weight: 700; }
+.bu-break {
+  font-size: calc(14.2px * var(--fscale, 1)); color: #b71c1c; line-height: 1.6;
+  background: var(--red-bg); border-left: 3px solid var(--red-border);
+  padding: 8px 13px; border-radius: 0 7px 7px 0; margin-bottom: 7px;
+}
+.bu-learn {
+  font-size: calc(14.2px * var(--fscale, 1)); color: #1b5e20; line-height: 1.6;
+  background: #e8f5e9; border-left: 3px solid #2e7d32;
+  padding: 8px 13px; border-radius: 0 7px 7px 0;
+}
+.bu-end {
+  margin-top: 14px; padding-top: 14px; border-top: 2px solid var(--line);
+  font-size: calc(15px * var(--fscale, 1)); color: var(--ink); line-height: 1.7;
+}
+.bu-end strong { color: var(--accent5); }
+@media (max-width: 680px) { .buildup { padding: 16px 14px; } .bu-step { gap: 10px; } }
+
 /* Assumptions — stated, with the consequence of being wrong */
 .assume {
   background: var(--bgwarm); border: 1px solid var(--line);
@@ -1735,6 +1820,21 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   <div class="ch-sub">What does it mean to 'read the latest data' — and why is it so hard?</div>
 </div>
 <div class="content">
+<div class="quickref">
+  <div class="label">&#9889; Quick reference</div>
+  <div class="qr-sub">Pick the weakest model that still makes your feature correct &mdash; each step stronger costs latency on every operation, forever.</div>
+  <div class="tw"><table>
+    <thead><tr><th>If you need&hellip;</th><th>Reach for</th><th>Because</th><th>Used in</th></tr></thead>
+    <tbody>
+      <tr><td>Everyone sees one timeline, matching real time</td><td class="qr-pick">Linearizability</td><td>A single total order consistent with wall clock. The strongest, and the most expensive.</td><td class="qr-seen"><code>etcd</code>, ZooKeeper, Spanner reads, a single-primary DB</td></tr>
+      <tr><td>Reads that never go backwards for one user</td><td class="qr-pick">Monotonic reads</td><td>Cheaper than linearizable and fixes the &ldquo;my comment vanished&rdquo; class of bug.</td><td class="qr-seen">Session-consistent replicas, sticky routing</td></tr>
+      <tr><td>A reply never appears before the post it answers</td><td class="qr-pick">Causal consistency</td><td>Preserves happens-before without a global order, so it survives partitions.</td><td class="qr-seen">COPS, MongoDB causal sessions, <code>Bolt-on</code> layers</td></tr>
+      <tr><td>Your own writes visible to you immediately</td><td class="qr-pick">Read-your-writes</td><td>Read from the primary for a short window after a write &mdash; the cheapest fix for the commonest complaint.</td><td class="qr-seen">Most web apps, routing by user after write</td></tr>
+      <tr><td>Maximum availability, staleness tolerable</td><td class="qr-pick">Eventual consistency</td><td>No coordination on the write path; replicas converge later.</td><td class="qr-seen">DNS, Cassandra, S3 list-after-write, CDNs</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
 
 <p>Let's start with a story you'll recognize.</p>
 <div class="scenario"><div class="label">🎯 Scenario — The Instagram Like Problem</div>
@@ -2024,6 +2124,21 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   <div class="ch-sub">What you actually give up, and when it matters.</div>
 </div>
 <div class="content">
+<div class="quickref">
+  <div class="label">&#9889; Quick reference</div>
+  <div class="qr-sub">CAP only binds during a partition. Decide per operation, not per system.</div>
+  <div class="tw"><table>
+    <thead><tr><th>If you need&hellip;</th><th>Reach for</th><th>Because</th><th>Used in</th></tr></thead>
+    <tbody>
+      <tr><td>An operation that must never be wrong</td><td class="qr-pick">Choose C: refuse during a partition</td><td>A minority side that keeps serving will diverge, and money and inventory cannot be reconciled after the fact.</td><td class="qr-seen">Spanner, etcd, ZooKeeper, payment writes</td></tr>
+      <tr><td>An operation that must always answer</td><td class="qr-pick">Choose A: serve possibly-stale</td><td>A stale feed is harmless; an error page is not. Reconcile afterwards.</td><td class="qr-seen">DNS, Cassandra, CDN reads, profile pages</td></tr>
+      <tr><td>To reason about normal operation, not incidents</td><td class="qr-pick">PACELC's <em>else</em> branch</td><td>Partitions are rare; the latency-versus-consistency trade is paid on every write, forever.</td><td class="qr-seen">Every synchronous-replication decision you make</td></tr>
+      <tr><td>Both, in the same product</td><td class="qr-pick">Classify per operation</td><td>Payments CP, recommendations AP, in one system. Classifying the whole company is a category error.</td><td class="qr-seen">Essentially every real product</td></tr>
+      <tr><td>Strong consistency <em>and</em> high availability</td><td class="qr-pick">Attack P, not the theorem</td><td>Make partitions vanishingly rare with a private, redundant network. This is what Spanner actually did.</td><td class="qr-seen">Google's global network &mdash; available to almost nobody else</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
 
 <p>CAP theorem is one of the most cited and most misunderstood concepts in distributed systems. Let's build up the correct intuition from first principles.</p>
 
@@ -2197,6 +2312,160 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     <li><a href="https://www.youtube.com/watch?v=uNxl3BFcKSA" target="_blank" rel="noopener">Kleppmann &mdash; 5.2 Quorums</a> <span class="vr-meta">~13 min</span> &mdash; how the availability half of the trade is actually bought.</li>
   </ul>
 </div>
+
+<div class="recall">
+  <div class="rc-icon">&#128279;</div>
+  <div>Two things from earlier. From <strong>Ch 1</strong>: a network partition is indistinguishable
+  from a slow node &mdash; you never <em>know</em> you are partitioned, you only fail to hear back.
+  From <strong>Ch 2</strong>: the &ldquo;C&rdquo; in CAP is <strong>linearizability</strong>
+  specifically, not the C in ACID and not &ldquo;the data is correct&rdquo;.</div>
+</div>
+
+<h3>Deriving CAP From Two Machines &mdash; Rather Than Quoting It</h3>
+
+<p>CAP is the most quoted and least understood result in the field, and the reason is that people
+learn it as a slogan (&ldquo;pick two of three&rdquo;) instead of deriving it. It takes about
+ninety seconds to derive from scratch, and once you have, the slogan is obviously wrong. Build it
+up:</p>
+<div class="buildup">
+  <div class="label">&#128296; Build it wrong first &mdash; deriving CAP from two nodes</div>
+  <div class="bu-step">
+    <div class="bu-n">1</div>
+    <div class="bu-body">
+      <div class="bu-try"><strong>Start with one node.</strong> A single server holds the data. Every read sees the last write, and it answers every request it receives.</div>
+      <div class="bu-learn">&rarr; It is perfectly consistent <em>and</em> perfectly available. <strong>CAP has nothing to say here</strong> &mdash; with one node there is no network between replicas to partition. Most systems people call &ldquo;CP&rdquo; or &ldquo;AP&rdquo; are not even in CAP&rsquo;s scope for most of their operations.</div>
+    </div>
+  </div>
+  <div class="bu-step">
+    <div class="bu-n">2</div>
+    <div class="bu-body">
+      <div class="bu-try"><strong>Add a second node for durability.</strong> Node A takes the write, forwards it to node B, and only then acknowledges the client.</div>
+      <div class="bu-learn">&rarr; Nothing breaks yet. While the network works this is still consistent and still available &mdash; just slower, because every write now pays a round trip. <strong>The cost of consistency shows up <em>before</em> any failure, as latency.</strong> Hold on to that: it is what PACELC is about.</div>
+    </div>
+  </div>
+  <div class="bu-step">
+    <div class="bu-n">3</div>
+    <div class="bu-body">
+      <div class="bu-try"><strong>Now cut the link between A and B.</strong> They are both alive, both serving clients, and neither can reach the other. A client writes <code>x = 1</code> to A.</div>
+      <div class="bu-break">&#10007; A cannot forward the write. And crucially, A cannot tell whether B is dead, slow, or unreachable &mdash; <strong>Ch 1</strong>. It has exactly two options and there is no third.</div>
+      <div class="bu-learn">&rarr; This is the entire theorem, and it is a forced choice, not a design preference.</div>
+    </div>
+  </div>
+  <div class="bu-step">
+    <div class="bu-n">4</div>
+    <div class="bu-body">
+      <div class="bu-try"><strong>Option one: A waits (or refuses).</strong> A will not acknowledge the write until it can reach B.</div>
+      <div class="bu-break">&#10007; The client gets no answer. The system is <strong>not available</strong>.</div>
+      <div class="bu-learn">&rarr; You kept consistency. You gave up availability. This is &ldquo;CP&rdquo;.</div>
+    </div>
+  </div>
+  <div class="bu-step">
+    <div class="bu-n">5</div>
+    <div class="bu-body">
+      <div class="bu-try"><strong>Option two: A answers alone.</strong> A accepts <code>x = 1</code> and acknowledges immediately.</div>
+      <div class="bu-break">&#10007; Meanwhile a client reads <code>x</code> from B and gets the old value. Two clients now observe different states at the same moment.</div>
+      <div class="bu-learn">&rarr; You kept availability. You gave up linearizability. This is &ldquo;AP&rdquo;.</div>
+    </div>
+  </div>
+  <div class="bu-end"><strong>That is all CAP says:</strong> during a partition, you must choose between answering
+with possibly-stale data and not answering. It is not a menu of three properties from which you
+select two &mdash; you never &ldquo;choose&rdquo; partition tolerance, because partitions are
+something the network does to you whether or not you have an opinion about it. <strong>The real
+statement is: when partitioned, choose C or A. When not partitioned, you were never choosing at
+all.</strong></div>
+</div>
+
+<div class="flow"><span class="fl-key">THE ONLY DECISION CAP ACTUALLY FORCES</span>
+
+                    a write arrives at node A
+                              |
+                              v
+                  can A reach its peers?
+                       /            \
+                <span class="fl-hi">YES</span>              <span class="fl-bad">NO (partition)</span>
+                  |                    |
+                  v                    v
+      <span class="fl-hi">no choice to make.</span>        <span class="fl-key">now, and ONLY now,</span>
+      replicate and ack.        <span class="fl-key">you must choose:</span>
+      <span class="fl-dim">This is 99.9% of</span>                 |
+      <span class="fl-dim">the system's life.</span>        +------+------+
+                                |             |
+                                v             v
+                          <span class="fl-bad">refuse</span>          <span class="fl-bad">answer alone</span>
+                       (keep C, lose A)   (keep A, lose C)
+
+  <span class="fl-note">The left branch is where your system lives almost all of the time, and CAP</span>
+  <span class="fl-note">says nothing about it. That is why PACELC exists: in the ELSE case there is</span>
+  <span class="fl-note">still a real trade, and it is latency against consistency.</span></div>
+<div class="flow-cap">CAP is a statement about one branch of this tree. Designing your whole system
+around it is like planning your week around the fire alarm.</div>
+
+<div class="misconception">
+  <div class="label">&#9888; Common misconception</div>
+  <div class="mc-wrong">&ldquo;CAP says pick two of the three.&rdquo;</div>
+  <div class="mc-right">
+    <p>You cannot pick P. A partition is an event, not a property you opt into &mdash; the network
+    partitions regardless of your architecture diagram. So &ldquo;CA&rdquo; is not a category of
+    distributed system; it is a description of a system that will simply be wrong when the network
+    fails.</p>
+    <p>The honest formulation has an <em>if</em> in it: <strong>if partitioned, then choose C or
+    A.</strong> Everything else in the slogan is decoration. And notice what follows &mdash; because
+    the choice only binds during a partition, a system&rsquo;s CAP classification tells you almost
+    nothing about how it behaves on a normal Tuesday, which is when you actually operate it.</p>
+  </div>
+</div>
+
+<div class="teach-qa">
+  <h3>&#129504; Checking your understanding &mdash; CAP &amp; PACELC</h3>
+  <div class="tq-sub">Answers supplied. These are the questions that separate having derived CAP from having memorised it.</div>
+
+  <div class="tq">
+    <div class="tq-q">Is a single-node PostgreSQL an &ldquo;CA&rdquo; system?</div>
+    <div class="tq-a">The question does not apply. With one node there is no inter-replica network to partition, so CAP is silent. This matters practically: an enormous number of systems described as &ldquo;choosing CA&rdquo; are single-primary databases where CAP was never the operative constraint. The moment you add a replica and start reading from it, you have entered CAP&rsquo;s domain &mdash; and most teams do that without noticing they have made a choice.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">Why is PACELC more useful than CAP in practice?</div>
+    <div class="tq-a">Because it describes the case you are actually in. PACELC reads: <em>if Partitioned, choose Availability or Consistency; Else, choose Latency or Consistency.</em> The <strong>else</strong> branch is where your system spends virtually all of its time, and there is a real, continuous trade there &mdash; every synchronous replication round trip is latency you pay on every write, forever, in exchange for consistency you will only notice during a failure. CAP describes an emergency; PACELC describes Tuesday.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">Can a system be CP for some operations and AP for others?</div>
+    <div class="tq-a">Yes, and good systems usually are. The choice is made per operation, not per database. A payment write can refuse to proceed during a partition while a profile-picture read serves happily from a stale replica in the same system. Classifying a whole product as &ldquo;CP&rdquo; or &ldquo;AP&rdquo; is a category error &mdash; the useful question is always <em>&ldquo;which operations must be linearizable, and what does that cost the rest?&rdquo;</em> This is the single most valuable thing to say when CAP comes up in an interview.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">If I use a quorum with R + W &gt; N, have I escaped CAP?</div>
+    <div class="tq-a">No &mdash; you have chosen C. A quorum system that requires W replicas to acknowledge simply cannot complete a write when a partition leaves fewer than W reachable, so it refuses. That is the CP branch, arrived at by a different route. Quorums are a mechanism for <em>tuning where</em> the availability boundary sits, not for removing it: with N=3, W=2 you survive one node being unreachable and not two. Nothing about the arithmetic changes the underlying forced choice.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">Spanner claims strong consistency and high availability. Is that a contradiction?</div>
+    <div class="tq-a">No, and the resolution is instructive. Spanner is CP: during a partition, the minority side stops serving. Its famous availability comes from making partitions extraordinarily rare &mdash; Google owns the network end to end, with redundant private links &mdash; rather than from beating the theorem. <strong>The engineering move was to attack P, not to escape the choice between C and A.</strong> That is available to almost nobody else, which is why copying Spanner&rsquo;s consistency model without its network is a mistake.</div>
+  </div>
+</div>
+
+<div class="usecase">
+  <div class="label">&#127919; What real systems chose, and what it cost them</div>
+  <div class="uc-row"><div class="uc-sys">DynamoDB / Cassandra</div><div class="uc-why"><strong>AP by default, tunable.</strong> Accept writes on any reachable replica; reconcile later. The cost is that the application must handle conflicting versions, which is real work pushed onto every caller. <span class="srcref">Ch 4</span></div></div>
+  <div class="uc-row"><div class="uc-sys">Spanner</div><div class="uc-why"><strong>CP</strong>, with partitions engineered into near-nonexistence via a private global network and TrueTime. Cost: commit-wait latency on every write, and infrastructure nobody else has. <span class="srcref">Ch 8</span></div></div>
+  <div class="uc-row"><div class="uc-sys">ZooKeeper / etcd</div><div class="uc-why"><strong>CP, deliberately.</strong> A minority partition refuses to serve. That is exactly what you want from the component that decides who the leader is &mdash; an available-but-wrong lock service is worse than no lock service. <span class="srcref">Ch 6</span></div></div>
+  <div class="uc-row"><div class="uc-sys">DNS</div><div class="uc-why"><strong>AP to an extreme.</strong> Deliberately stale for the length of a TTL, and globally available. Nobody minds, because the staleness window is stated up front and the data changes rarely.</div></div>
+  <div class="uc-row"><div class="uc-sys">A typical product</div><div class="uc-why"><strong>Both, per operation.</strong> Payments and inventory take the CP path; feeds, profiles and recommendations take the AP path. The design work is deciding which is which, not classifying the company.</div></div>
+</div>
+
+<div class="takeaway">
+  <div class="label">&#127793; Takeaway &mdash; CAP &amp; PACELC</div>
+  <p><strong>CAP is one sentence with an <em>if</em> in it: if partitioned, choose consistency or availability.</strong> Everything else attached to it is folklore.</p>
+  <ul>
+    <li><strong>You never choose P.</strong> Partitions happen to you. &ldquo;CA&rdquo; is not a design, it is an unexamined assumption.</li>
+    <li><strong>The C is linearizability</strong>, not ACID and not correctness. A system can be fully ACID and not linearizable. <span class="srcref">Ch 2, 7</span></li>
+    <li><strong>The choice is per operation, not per system.</strong> Classifying your product as CP or AP is the wrong granularity; classifying each operation is the actual design work.</li>
+    <li><strong>PACELC covers the 99.9% case.</strong> With no partition there is still a trade &mdash; latency against consistency &mdash; and you pay it on every single write, not just during incidents.</li>
+    <li><strong>Attacking P is a legitimate strategy</strong> if you own the network. It is how Spanner gets to look like it beat the theorem, and it is why you probably cannot copy it.</li>
+  </ul>
+  <p>Chapter 4 takes the C-versus-A choice and makes it concrete: replication is where you decide, mechanism by mechanism, how much consistency you are actually buying.</p>
+</div>
 </div>
 
 
@@ -2206,6 +2475,22 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   <div class="ch-sub">Don't put all your data in one place — but coordination has a cost.</div>
 </div>
 <div class="content">
+<div class="quickref">
+  <div class="label">&#9889; Quick reference</div>
+  <div class="qr-sub">Replication is where you decide how much consistency you are buying and what latency it costs.</div>
+  <div class="tw"><table>
+    <thead><tr><th>If you need&hellip;</th><th>Reach for</th><th>Because</th><th>Used in</th></tr></thead>
+    <tbody>
+      <tr><td>Simple operations, one obvious writer</td><td class="qr-pick">Single-leader</td><td>All writes ordered by one node, so no write conflicts exist by construction.</td><td class="qr-seen">PostgreSQL, MySQL, MongoDB replica sets, Kafka partitions</td></tr>
+      <tr><td>Writes in multiple regions or offline clients</td><td class="qr-pick">Multi-leader</td><td>Local write latency everywhere &mdash; at the cost of genuine write conflicts you must resolve.</td><td class="qr-seen">CouchDB, calendar sync, collaborative editing <span class="srcref">D20</span></td></tr>
+      <tr><td>No single point of write failure</td><td class="qr-pick">Leaderless + quorums</td><td>Any replica takes writes; R + W &gt; N gives read overlap. Availability without a failover step.</td><td class="qr-seen">Dynamo, Cassandra, Riak <span class="srcref">D3</span></td></tr>
+      <tr><td>Durability guaranteed on acknowledgement</td><td class="qr-pick">Synchronous replication</td><td>The write exists on 2+ nodes before the client hears success. You pay a round trip on every write.</td><td class="qr-seen">Financial ledgers, Kafka <code>acks=all</code></td></tr>
+      <tr><td>Replicas to converge without coordination</td><td class="qr-pick">CRDTs</td><td>Operations commute by construction, so merge needs no arbiter.</td><td class="qr-seen">Redis CRDT, Automerge, Riak data types</td></tr>
+      <tr><td>To detect divergence between replicas</td><td class="qr-pick">Merkle trees / anti-entropy</td><td>Compares large datasets with logarithmic transfer. Without it, eventual consistency never actually converges.</td><td class="qr-seen">Cassandra repair, DynamoDB, git</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
 
 <p>Replication means keeping the same data on multiple machines. You do this for two reasons:</p>
 <ol>
@@ -2992,6 +3277,21 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   <div class="ch-sub">The hardest problem in distributed systems, explained from scratch.</div>
 </div>
 <div class="content">
+<div class="quickref">
+  <div class="label">&#9889; Quick reference</div>
+  <div class="qr-sub">Consensus is expensive. Buy the smallest amount that solves your problem.</div>
+  <div class="tw"><table>
+    <thead><tr><th>If you need&hellip;</th><th>Reach for</th><th>Because</th><th>Used in</th></tr></thead>
+    <tbody>
+      <tr><td>One leader, agreed by everyone</td><td class="qr-pick">Raft or Paxos</td><td>The general solution: total order broadcast, leader election and linearizable CAS are all the same problem.</td><td class="qr-seen">etcd, Consul, CockroachDB, Spanner, ZooKeeper</td></tr>
+      <tr><td>Mutual exclusion across processes</td><td class="qr-pick">Lease + fencing token</td><td>A lease can expire while its holder is paused, so the token is what makes the stale holder harmless.</td><td class="qr-seen">ZooKeeper locks, Chubby, GFS <span class="srcref">D18</span></td></tr>
+      <tr><td>Membership and config, not data</td><td class="qr-pick">A small consensus cluster</td><td>Buy consensus for a few kilobytes of topology that changes weekly &mdash; never for the data path.</td><td class="qr-seen">Kafka controller, <span class="srcref">D12</span>'s ring, Kubernetes</td></tr>
+      <tr><td>Ordered delivery of events</td><td class="qr-pick">Total order broadcast</td><td>Equivalent to consensus. Recognising that stops you inventing a weaker, broken version.</td><td class="qr-seen">Kafka partition, replicated state machines</td></tr>
+      <tr><td>To avoid consensus entirely</td><td class="qr-pick">Partition so the constraint is local</td><td>One shard, one row, one owner. The cheapest consensus is the one you did not need.</td><td class="qr-seen"><span class="srcref">D19</span> booking, <span class="srcref">D4</span> conversations</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
 
 <p>Imagine you need to elect a new president for a company of 100 employees spread across 10 offices. You need exactly one president — not zero, not two. The election must work even if some offices can't communicate with others at the moment. Some employees might crash mid-vote (they faint at the drama).</p>
 
@@ -3332,6 +3632,22 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   <div class="ch-sub">Making multiple things happen atomically — across machines.</div>
 </div>
 <div class="content">
+<div class="quickref">
+  <div class="label">&#9889; Quick reference</div>
+  <div class="qr-sub">Most &ldquo;we need distributed transactions&rdquo; problems are better solved by not being distributed.</div>
+  <div class="tw"><table>
+    <thead><tr><th>If you need&hellip;</th><th>Reach for</th><th>Because</th><th>Used in</th></tr></thead>
+    <tbody>
+      <tr><td>Atomicity within one database</td><td class="qr-pick">A local transaction</td><td>Free, fast, and correct. Restructure to reach this whenever you can.</td><td class="qr-seen">Any single-shard write</td></tr>
+      <tr><td>Atomicity across services</td><td class="qr-pick">Saga + compensations</td><td>Each step commits locally; failures run compensating actions. No global lock, no blocking coordinator.</td><td class="qr-seen">Order fulfilment, travel booking <span class="srcref">D19</span></td></tr>
+      <tr><td>A message and a DB write to be atomic</td><td class="qr-pick">Transactional outbox</td><td>Both are writes to <em>your</em> database, so one transaction covers them. The relay publishes afterwards.</td><td class="qr-seen">Debezium/CDC, <span class="srcref">Ch 11</span></td></tr>
+      <tr><td>Safe retries across an unreliable boundary</td><td class="qr-pick">Idempotency key</td><td>A timeout tells you nothing; the key lets the receiver decide whether it already happened.</td><td class="qr-seen">Stripe, payment APIs, <span class="srcref">D19</span></td></tr>
+      <tr><td>Strict atomicity across shards</td><td class="qr-pick">2PC</td><td>It genuinely works, and the coordinator is a blocking single point of failure. Use knowingly.</td><td class="qr-seen">XA, Spanner internally, distributed DBs</td></tr>
+      <tr><td>To avoid lost updates under concurrency</td><td class="qr-pick">Compare-and-set / SELECT FOR UPDATE</td><td>Turns a read-modify-write race into an atomic conditional write.</td><td class="qr-seen"><span class="srcref">D19</span>, <span class="srcref">D6</span>, optimistic concurrency</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
 
 <p>A transaction is a set of operations that either all succeed or all fail together. In a single database, this is straightforward — the database manages it. But what happens when your "transaction" involves multiple services, multiple databases, or multiple rows on different machines?</p>
 
@@ -4241,6 +4557,23 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   <div class="ch-sub">The most impactful single optimization in distributed systems — and the hardest to get right.</div>
 </div>
 <div class="content">
+<div class="quickref">
+  <div class="label">&#9889; Quick reference</div>
+  <div class="qr-sub">A cache is a replica you chose not to keep consistent. Pick the pattern that matches what a stale read costs.</div>
+  <div class="tw"><table>
+    <thead><tr><th>If you need&hellip;</th><th>Reach for</th><th>Because</th><th>Used in</th></tr></thead>
+    <tbody>
+      <tr><td>General read-heavy workload</td><td class="qr-pick">Cache-aside</td><td>Application controls the cache; a cache outage degrades latency rather than correctness.</td><td class="qr-seen">Redis + app code, the default nearly everywhere</td></tr>
+      <tr><td>A write must never leave the cache stale</td><td class="qr-pick">Write-through</td><td>Cache and DB updated together, so the cache is never ahead. Costs write latency.</td><td class="qr-seen">Prices, inventory, permission checks</td></tr>
+      <tr><td>Very high write rate, some loss tolerable</td><td class="qr-pick">Write-back</td><td>Batch to the store later. An acknowledged write can be lost &mdash; a durability decision, not a tuning knob.</td><td class="qr-seen">View counters, telemetry, <span class="srcref">D11</span></td></tr>
+      <tr><td>To stop a hot key stampeding on expiry</td><td class="qr-pick">Request coalescing</td><td>N concurrent misses become one query by construction, not by probability.</td><td class="qr-seen"><code>singleflight</code>, Varnish, <span class="srcref">D12</span></td></tr>
+      <tr><td>To stop many keys expiring together</td><td class="qr-pick">TTL jitter</td><td>Fixes the avalanche across many keys &mdash; and does nothing for a single hot key.</td><td class="qr-seen">Every mature cache client</td></tr>
+      <tr><td>To stop lookups for keys that do not exist</td><td class="qr-pick">Negative caching + Bloom filter</td><td>Otherwise every request for a missing key is an unthrottled path to your database.</td><td class="qr-seen"><span class="srcref">D1</span>, LSM engines <span class="srcref">Ch 12</span></td></tr>
+      <tr><td>Invalidation to be impossible to get wrong</td><td class="qr-pick">Content-hashed / versioned URLs</td><td>Change the identity when the content changes and staleness cannot occur.</td><td class="qr-seen">CDN assets, <span class="srcref">D17</span> map tiles</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
 <p>Caches are everywhere. Your browser caches HTML. Your OS caches disk reads. Your database keeps hot rows in memory.
 Caching works because of the <strong>principle of locality</strong>: a small fraction of your data accounts for the vast
 majority of your access. In web systems, 80% of reads often hit 20% of the data (Pareto principle). Cache that 20%
@@ -4631,6 +4964,23 @@ unthrottled channel to your database that your cache is powerless to intercept.<
   <div class="ch-sub">Distributing traffic intelligently — and protecting your system from being overwhelmed.</div>
 </div>
 <div class="content">
+<div class="quickref">
+  <div class="label">&#9889; Quick reference</div>
+  <div class="qr-sub">Balance work, not request counts &mdash; and decide in advance what you will refuse.</div>
+  <div class="tw"><table>
+    <thead><tr><th>If you need&hellip;</th><th>Reach for</th><th>Because</th><th>Used in</th></tr></thead>
+    <tbody>
+      <tr><td>Even load with no shared state</td><td class="qr-pick">Power of two choices</td><td>One extra probe takes tail load from log&nbsp;n/log&nbsp;log&nbsp;n to log&nbsp;log&nbsp;n, and cannot herd.</td><td class="qr-seen">Envoy, NGINX, most service meshes</td></tr>
+      <tr><td>Requests routed by content or path</td><td class="qr-pick">L7 load balancing</td><td>Header and path routing, per-endpoint limits, request-level retries. Costs TLS termination and CPU.</td><td class="qr-seen">Envoy, ALB, NGINX, Istio</td></tr>
+      <tr><td>Raw throughput, non-HTTP, or E2E encryption</td><td class="qr-pick">L4 load balancing</td><td>No parsing, near-zero added latency, passes encrypted traffic through untouched.</td><td class="qr-seen">NLB, IPVS, Maglev</td></tr>
+      <tr><td>Per-client limits with bursts allowed</td><td class="qr-pick">Token bucket</td><td>Accumulates while idle, so a normal page load firing 20 requests is not punished.</td><td class="qr-seen">Most public APIs, Stripe, GitHub</td></tr>
+      <tr><td>A hard ceiling on instantaneous rate</td><td class="qr-pick">Leaky bucket</td><td>Drains at a fixed rate and permits no burst &mdash; for a downstream that genuinely cannot spike.</td><td class="qr-seen">Partner integrations, legacy systems</td></tr>
+      <tr><td>Global limits without a hot counter</td><td class="qr-pick">Local buckets + async reconciliation</td><td>Approximate limits with no per-request coordination; ask what a 5% error costs.</td><td class="qr-seen"><span class="srcref">D21</span>, API gateways</td></tr>
+      <tr><td>To survive more load than you can serve</td><td class="qr-pick">Priority load shedding</td><td>Reject fast and by value. A 429 in 1&nbsp;ms frees capacity; a 30&nbsp;s timeout does not.</td><td class="qr-seen">Envoy admission control, <span class="srcref">Ch 13</span></td></tr>
+    </tbody>
+  </table></div>
+</div>
+
 <p>Load balancing is the practice of distributing incoming requests across multiple servers. Without it, all traffic hits one server, which both limits your scale and creates a single point of failure.</p><h3>Layer 4 vs Layer 7 Load Balancing</h3><p>The biggest architectural decision in load balancing is which layer to operate at:</p><div class="diagram">
 <svg width="680" height="200" viewBox="0 0 680 200" xmlns="http://www.w3.org/2000/svg">
   <rect x="10" y="10" width="310" height="180" rx="12" fill="#e8eaf6" stroke="#5c6bc0" stroke-width="1.5"/>
@@ -5019,6 +5369,22 @@ shedding is what stops you crossing it.</div>
   <div class="ch-sub">Decoupling services with Kafka — and understanding exactly-once delivery.</div>
 </div>
 <div class="content">
+<div class="quickref">
+  <div class="label">&#9889; Quick reference</div>
+  <div class="qr-sub">Choose the weakest delivery guarantee whose failure you can afford, then decide per consumer what a duplicate costs.</div>
+  <div class="tw"><table>
+    <thead><tr><th>If you need&hellip;</th><th>Reach for</th><th>Because</th><th>Used in</th></tr></thead>
+    <tbody>
+      <tr><td>Replay, multiple independent consumers</td><td class="qr-pick">Log (Kafka-style)</td><td>Consumers hold their own offset; adding a reader costs one integer, not a copy of the data.</td><td class="qr-seen">Kafka, Pulsar, Kinesis <span class="srcref">D7</span></td></tr>
+      <tr><td>Work distribution with uneven task times</td><td class="qr-pick">Queue, not log</td><td>Per-message ack and out-of-order completion; one slow task must not block the rest.</td><td class="qr-seen">SQS, RabbitMQ, Celery <span class="srcref">D6</span></td></tr>
+      <tr><td>No message ever lost</td><td class="qr-pick">At-least-once + idempotent consumer</td><td>Duplication is recoverable downstream; loss is not. This is the right default.</td><td class="qr-seen">Payments, orders, nearly everything</td></tr>
+      <tr><td>Effect and offset to commit together</td><td class="qr-pick">Transactional outbox / atomic offset</td><td>This is what &ldquo;exactly-once processing&rdquo; actually is &mdash; not a broker setting.</td><td class="qr-seen">Kafka transactions, Debezium, CDC</td></tr>
+      <tr><td>Aggregation over out-of-order events</td><td class="qr-pick">Windows + watermarks</td><td>Groups by event time and declares when a window is complete. Wait longer = more correct, less timely.</td><td class="qr-seen">Flink, Beam, Spark Structured Streaming</td></tr>
+      <tr><td>A poison message not to block a partition</td><td class="qr-pick">Dead-letter queue + alert on depth</td><td>Without an alert a DLQ hides failures rather than handling them.</td><td class="qr-seen">SQS DLQ, Kafka error topics</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
 <p>Message queues are the connective tissue of large distributed systems. Instead of Service A calling Service B synchronously (tight coupling), A drops a message onto a queue, and B consumes it when ready (loose coupling). The queue absorbs traffic spikes, enables retry, and allows B to process at its own pace.</p><div class="analogy"><div class="label">📖 Analogy</div><p>A restaurant kitchen uses a ticket system: waiters write orders on tickets and hang them on a rail. The kitchen cooks work through tickets at their own pace. If a rush of customers arrive, tickets pile up — but the kitchen doesn't crash. This is exactly what a message queue does for microservices.</p></div><h3>Why Kafka Became the Standard</h3><p>Traditional message queues (RabbitMQ, ActiveMQ) delete messages after a consumer acknowledges them. Kafka is fundamentally different — it's a <strong>distributed log</strong>. Messages are stored durably on disk and consumers track their own position (offset). Messages stay for days or weeks.</p><p>This enables something powerful: <strong>replay</strong>. If a bug is found in your analytics consumer, you fix the bug and replay from last week's messages. No data lost. This is impossible with traditional queues.</p><h3>Kafka Internals — How It Actually Works</h3><div class="diagram">
 <svg width="680" height="300" viewBox="0 0 680 300" xmlns="http://www.w3.org/2000/svg">
   <defs><marker id="k1" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
@@ -5087,6 +5453,222 @@ shedding is what stops you crossing it.</div>
     <li><a href="https://www.youtube.com/watch?v=77qpCahU3fo" target="_blank" rel="noopener">Kleppmann &mdash; 4.3 Broadcast algorithms</a> <span class="vr-meta">~15 min</span> &mdash; how those orderings are implemented.</li>
   </ul>
 </div>
+
+<div class="recall">
+  <div class="rc-icon">&#128279;</div>
+  <div>Carry two things in. From <strong>Ch 1</strong>: a timeout tells you nothing about whether
+  the work happened &mdash; the request may have been lost, or the reply may have been. From
+  <strong>Ch 7</strong>: making an operation safe to repeat is usually cheaper than making it
+  happen exactly once. Both are about to become the whole chapter.</div>
+</div>
+
+<h3>Exactly-Once Delivery, Derived &mdash; and Why It Does Not Exist</h3>
+
+<p>Every queue vendor advertises &ldquo;exactly-once&rdquo;, every engineer wants it, and it is
+impossible in the sense people mean. But something <em>very close</em> is achievable, and the
+distinction between the two is one of the highest-value things you can be clear about in an
+interview. Derive it rather than assert it:</p>
+<div class="buildup">
+  <div class="label">&#128296; Build it wrong first &mdash; deriving exactly-once processing</div>
+  <div class="bu-step">
+    <div class="bu-n">1</div>
+    <div class="bu-body">
+      <div class="bu-try"><strong>The obvious design.</strong> A consumer reads a message, processes it, then acknowledges the broker so it is not redelivered.</div>
+      <div class="bu-break">&#10007; The consumer crashes <em>after</em> processing and <em>before</em> the ack. The broker never heard back, so it redelivers. The side effect happens twice &mdash; the customer is charged twice.</div>
+      <div class="bu-learn">&rarr; This is <strong>at-least-once</strong>. It loses nothing and it duplicates.</div>
+    </div>
+  </div>
+  <div class="bu-step">
+    <div class="bu-n">2</div>
+    <div class="bu-body">
+      <div class="bu-try"><strong>Flip the order.</strong> Acknowledge first, then process.</div>
+      <div class="bu-break">&#10007; The consumer crashes <em>after</em> the ack and <em>before</em> processing. The broker believes the message is handled and never sends it again. The charge never happens and nobody knows.</div>
+      <div class="bu-learn">&rarr; This is <strong>at-most-once</strong>. It duplicates nothing and it loses messages. There is no third ordering of these two steps &mdash; you have now enumerated the entire space.</div>
+    </div>
+  </div>
+  <div class="bu-step">
+    <div class="bu-n">3</div>
+    <div class="bu-body">
+      <div class="bu-try"><strong>So make the processing idempotent.</strong> Give every message a stable ID; before acting, check a store of already-processed IDs and skip if present.</div>
+      <div class="bu-break">&#10007; Now there are two writes that must both happen: the side effect, and the record that it happened. Crash between them and you either repeat the effect or skip it forever &mdash; you have moved the atomicity problem, not solved it.</div>
+      <div class="bu-learn">&rarr; Progress: the problem is now <em>local to one consumer</em> rather than distributed across the network. Making a constraint local is the recurring move in this guide, and it is what makes the next step possible.</div>
+    </div>
+  </div>
+  <div class="bu-step">
+    <div class="bu-n">4</div>
+    <div class="bu-body">
+      <div class="bu-try"><strong>Make the effect and the record atomic.</strong> Write the side effect and the processed-ID into the <em>same</em> database, in one transaction.</div>
+      <div class="bu-break">&#10007; Nothing, provided the side effect really is a write to that database. If the effect is an external call &mdash; charging a card, sending an email &mdash; it cannot join your transaction.</div>
+      <div class="bu-learn">&rarr; This is <strong>exactly-once processing</strong>, and it is genuinely achievable. Note what made it work: not a cleverer broker, but <em>collapsing two writes into one atomic write</em>.</div>
+    </div>
+  </div>
+  <div class="bu-step">
+    <div class="bu-n">5</div>
+    <div class="bu-body">
+      <div class="bu-try"><strong>For external effects, use an outbox.</strong> The transaction writes the intent (&ldquo;charge card X, idempotency key K&rdquo;) atomically with the processed-ID. A separate relay reads the outbox and performs the external call, retrying until it succeeds.</div>
+      <div class="bu-break">&#10007; The relay may still call the external service twice after its own crash.</div>
+      <div class="bu-learn">&rarr; Which is why the <strong>idempotency key travels to the external service</strong>. The payment provider deduplicates on it. The guarantee is achieved by cooperation across the boundary, not by the queue.</div>
+    </div>
+  </div>
+  <div class="bu-end"><strong>Exactly-once <em>delivery</em> is impossible</strong> &mdash; the network can always
+lose the acknowledgement, and no protocol removes that. <strong>Exactly-once <em>processing</em> is
+achievable</strong>, by making the side effect and the record of it commit atomically, and by
+pushing an idempotency key across any boundary you do not control. When a vendor says
+&ldquo;exactly-once&rdquo;, they mean the second thing, within their own system. Saying this
+precisely is worth more than naming any broker.</div>
+</div>
+
+<div class="flow"><span class="fl-key">WHERE THE THREE GUARANTEES ACTUALLY LIVE</span>
+
+  <span class="fl-bad">AT MOST ONCE</span>     ack -&gt; process
+                    crash between = <span class="fl-bad">message lost, silently</span>
+                    <span class="fl-dim">acceptable for: metrics, telemetry, best-effort logs</span>
+
+  <span class="fl-key">AT LEAST ONCE</span>    process -&gt; ack
+                    crash between = <span class="fl-key">message redelivered</span>
+                    <span class="fl-dim">the default. Almost always the right choice, BECAUSE</span>
+                    <span class="fl-dim">a duplicate is a problem you can solve downstream</span>
+                    <span class="fl-dim">and a loss is not.</span>
+
+  <span class="fl-hi">EXACTLY ONCE</span>     process + record-of-processing in ONE transaction
+                    crash anywhere = <span class="fl-hi">safe; retry is a no-op</span>
+                    <span class="fl-dim">requires the effect to be a write you control,</span>
+                    <span class="fl-dim">or an outbox + idempotency key for ones you do not</span>
+
+  <span class="fl-note">Notice that "exactly once" is not a stronger delivery guarantee. It is</span>
+  <span class="fl-note">at-least-once delivery plus deduplication at the point of effect. The</span>
+  <span class="fl-note">broker never stopped sending duplicates; you stopped acting on them.</span></div>
+<div class="flow-cap">The choice between the first two is almost always &ldquo;at least once&rdquo;, because
+duplication is recoverable and loss is not. The third is not a broker setting &mdash; it is
+something you build in the consumer.</div>
+
+<div class="misconception">
+  <div class="label">&#9888; Common misconception</div>
+  <div class="mc-wrong">&ldquo;We enabled exactly-once mode, so duplicates are impossible.&rdquo;</div>
+  <div class="mc-right">
+    <p>What that setting buys is exactly-once <em>within the broker&rsquo;s own boundary</em> &mdash;
+    typically idempotent producers plus a transaction that commits the consumer offset and any
+    writes back into the same system atomically. It is real, and it is genuinely useful.</p>
+    <p>It says nothing about effects outside that boundary. If your consumer charges a card, sends
+    an email, or calls a partner API, the broker cannot enrol that call in its transaction, and a
+    retry will do it again. <strong>The guarantee stops at the edge of the system that issued
+    it</strong> &mdash; which is why the idempotency key has to travel with the request.</p>
+  </div>
+</div>
+
+<h3>Why the Log Beats the Queue</h3>
+
+<p>A traditional queue deletes a message once it is consumed; the broker tracks per-message state
+and the message is gone. A log does not: it is an append-only sequence, consumers track their own
+<strong>offset</strong> into it, and the data stays until a retention policy removes it. That single
+change of representation is why log-based systems displaced queues for most large-scale use.</p>
+
+<ul>
+  <li><strong>Multiple independent consumers become free.</strong> A queue must copy a message per
+  consumer group; a log just has several readers at different offsets over the same bytes.</li>
+  <li><strong>Replay becomes possible.</strong> Reset the offset and reprocess history &mdash; how
+  you rebuild a corrupted downstream store, or backfill a new feature. A deleted message cannot be
+  replayed at any price.</li>
+  <li><strong>Broker state collapses.</strong> Tracking acknowledgement per message per consumer is
+  expensive; tracking one integer per partition per group is not.</li>
+  <li><strong>Sequential disk I/O.</strong> Append-only writes and sequential reads are close to
+  memory bandwidth on modern hardware, and the page cache does most of the work. This is why the
+  design is fast, not any in-memory trickery.</li>
+</ul>
+
+<p>The cost is that <strong>ordering is per partition, not global</strong>, and that consumers must
+manage their own position. Both are usually worth it, but they are choices &mdash; see
+<a class="qlink" href="#design-kafka">D7</a> for the full design.</p>
+
+<div class="exercise">
+  <div class="label">&#9998; Mini exercise 15</div>
+  <div class="ex-q">
+    <p>An order service publishes <code>OrderPlaced</code> to a log. A billing consumer charges the
+    card; an email consumer sends a confirmation. Both use at-least-once delivery. During a
+    deployment the billing consumer is restarted mid-batch and reprocesses 400 messages.</p>
+    <p><strong>Work out:</strong> what happens, what should have been in place, and why the email
+    consumer needs a different answer from the billing consumer.</p>
+  </div>
+  <details><summary>Show the worked answer</summary><div class="ex-a">
+    <p><strong>400 customers are charged twice.</strong> The offset had not been committed for those
+    messages, so on restart the consumer resumed from the last committed position and replayed them.
+    Nothing malfunctioned &mdash; this is at-least-once behaving exactly as specified.</p>
+    <p><strong>What should have been in place:</strong> the charge and the record of having charged
+    must commit together. Concretely, the billing consumer writes a <code>payments</code> row keyed
+    by <code>order_id</code> with a uniqueness constraint, in the same transaction as its offset or
+    processed-ID record. The second attempt violates the constraint, is recognised as a duplicate,
+    and is skipped. For the external card call, the same <code>order_id</code> travels as the
+    provider&rsquo;s idempotency key so the provider deduplicates even if the relay retries.</p>
+    <p><strong>Why email is different, and this is the real lesson:</strong> a duplicate email is
+    mildly annoying; a duplicate charge is a financial incident. The <em>cost of a duplicate</em>
+    differs by orders of magnitude between the two consumers, so they warrant different amounts of
+    machinery. The email consumer can reasonably do nothing beyond a cheap best-effort dedup cache;
+    the billing consumer needs the transactional guarantee. <strong>Deciding the strength of a
+    guarantee per consumer, rather than per system, is the staff-level move</strong> &mdash; it is
+    the same &ldquo;per operation, not per system&rdquo; reasoning as CAP in
+    <a class="qlink" href="#ch3">Ch 3</a>.</p>
+    <p><strong>Transferable principle:</strong> <em>the right delivery guarantee is a function of
+    what a duplicate costs, not of what the broker supports.</em></p>
+  </div></details>
+</div>
+
+<div class="teach-qa">
+  <h3>&#129504; Checking your understanding &mdash; queues &amp; streams</h3>
+  <div class="tq-sub">Answers supplied. These are what an interviewer uses to find out whether you have operated a stream or only configured one.</div>
+
+  <div class="tq">
+    <div class="tq-q">When is a queue the right choice over a log?</div>
+    <div class="tq-a">When you need per-message acknowledgement semantics that a log&rsquo;s single offset cannot express &mdash; particularly <strong>work queues with wildly variable task durations</strong>. With a log, one slow message at offset 100 blocks the consumer&rsquo;s progress past it, because the offset is a single number that advances in order. A queue can have ten workers taking messages independently, acknowledging out of order, and redelivering just the one that failed. Task distribution wants a queue; event distribution wants a log. Using a log for a work queue is a common and painful mistake.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">What does consumer lag actually tell you, and what does it not?</div>
+    <div class="tq-a">Lag is the distance between the log&rsquo;s head and the consumer&rsquo;s offset, and the useful form is <em>time</em> lag rather than message count &mdash; 10,000 messages behind means nothing without a rate. It tells you the consumer is not keeping up. It does <em>not</em> tell you why, and the two causes need opposite responses: if the consumer is genuinely slower than the producer, adding consumers helps only up to the partition count, because a partition is consumed by exactly one member of a group. If instead one partition is hot, adding consumers helps not at all and you need to repartition. <strong>Lag concentrated in one partition and lag spread evenly are different incidents.</strong></div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">Why is the partition count so hard to change later?</div>
+    <div class="tq-a">Because ordering is guaranteed per partition and messages are usually routed by <code>hash(key) mod partitions</code>. Change the partition count and the same key starts landing in a different partition, so its old and new messages sit in two places with no ordering relationship between them. Any consumer with per-key state &mdash; a running total, a state machine &mdash; is now wrong. This is why partition count is effectively permanent, and why the standard advice is to over-provision: partitions are cheap, and a migration is not. It is the same immutability property as a hash ring without virtual nodes. <span class="srcref">Ch 5</span></div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">What is a dead-letter queue for, and what is the trap?</div>
+    <div class="tq-a">It catches messages that fail repeatedly so a poison message cannot block a partition forever &mdash; without one, a single unprocessable message halts progress for every message behind it. The trap is that dead-letter queues are almost never monitored. Messages land there, nobody looks, and weeks later someone discovers a quarter of a million orders that were never processed. <strong>A DLQ with no alert on its depth is a way of hiding failures rather than handling them</strong>, and the alert should fire on the first message, not on a threshold.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">Stream processing: what problem do windows and watermarks solve?</div>
+    <div class="tq-a">Events arrive late and out of order &mdash; a phone was offline, a partition was slow &mdash; so &ldquo;count the events in 10:00&ndash;10:05&rdquo; has no well-defined moment at which it is complete. A <strong>window</strong> groups events by their <em>event time</em> rather than arrival time, and a <strong>watermark</strong> is the system&rsquo;s assertion that it no longer expects events older than a given timestamp, which is what lets it finally emit the result. The unavoidable trade: wait longer and you are more correct but less timely; emit sooner and you may have to retract. There is no setting that is both, and a system that ignores late data entirely is choosing silently.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">Why does backpressure matter more in streaming than in request/response?</div>
+    <div class="tq-a">In request/response, an overloaded server can reject and the caller feels it immediately &mdash; the feedback is instant and local. In streaming the producer is decoupled by design, so it happily keeps writing while the consumer falls behind; nothing pushes back until the log fills or retention silently drops data the consumer had not read yet. <strong>The decoupling that makes queues valuable is the same property that hides overload.</strong> That is why lag is the primary health metric of a streaming system, and why retention must be sized against your worst expected consumer outage, not against typical lag.</div>
+  </div>
+</div>
+
+<div class="usecase">
+  <div class="label">&#127919; Which messaging shape real systems choose, and why</div>
+  <div class="uc-row"><div class="uc-sys">Event sourcing / CDC</div><div class="uc-why">Log, long retention. The log <em>is</em> the source of truth, and replay is how downstream stores are rebuilt. Deleting consumed messages would destroy the entire premise. <span class="srcref">Ch 12</span></div></div>
+  <div class="uc-row"><div class="uc-sys">Background job processing</div><div class="uc-why">Queue, not log. Tasks vary from milliseconds to minutes, must be acknowledged independently, and one slow task must not block the others. <span class="srcref">D6</span></div></div>
+  <div class="uc-row"><div class="uc-sys">Metrics and telemetry</div><div class="uc-why">At-most-once is fine. Losing a datapoint is invisible; blocking the application to guarantee delivery is not. <span class="srcref">D11</span></div></div>
+  <div class="uc-row"><div class="uc-sys">Payments and orders</div><div class="uc-why">At-least-once plus transactional dedup, with an idempotency key crossing to the payment provider. The only place the full machinery is worth its cost. <span class="srcref">Ch 7</span></div></div>
+  <div class="uc-row"><div class="uc-sys">Fan-out to many teams</div><div class="uc-why">Log with independent consumer groups. Adding a twelfth consumer costs one more offset, not a twelfth copy of the data.</div></div>
+</div>
+
+<div class="takeaway">
+  <div class="label">&#127793; Takeaway &mdash; Message queues &amp; streaming</div>
+  <p><strong>A queue trades time coupling for a duplicate problem, and that is nearly always a good trade</strong> &mdash; because duplicates can be handled locally and lost messages cannot be recovered at all.</p>
+  <ul>
+    <li><strong>Exactly-once delivery does not exist; exactly-once processing does.</strong> You get it by committing the effect and the record of it atomically, not by a broker setting.</li>
+    <li><strong>Choose at-least-once by default.</strong> Then decide, per consumer, what a duplicate costs &mdash; the email consumer and the billing consumer deserve different answers.</li>
+    <li><strong>Idempotency keys must cross every boundary you do not control.</strong> Your transaction stops at your database; the key is what carries the guarantee onwards.</li>
+    <li><strong>A log is a queue that forgot to delete.</strong> That one change buys replay, independent consumers and cheap broker state, at the cost of per-partition ordering.</li>
+    <li><strong>Partition count is effectively permanent.</strong> Changing it breaks per-key ordering and every consumer holding per-key state. Over-provision.</li>
+    <li><strong>Lag is the health metric</strong>, in time not messages &mdash; and lag in one partition means something completely different from lag spread evenly.</li>
+  </ul>
+  <p>Chapter 12 goes underneath all of this: the append-only log that makes streaming fast is the same structure that makes an LSM-tree database fast, for exactly the same reason.</p>
+</div>
 </div>
 <div class="chapter" id="ch12">
   <div class="ch-num">Chapter 12</div>
@@ -5094,6 +5676,22 @@ shedding is what stops you crossing it.</div>
   <div class="ch-sub">What actually happens when you write a row — B-trees, LSM-trees, WAL, MVCC, and indexes.</div>
 </div>
 <div class="content">
+<div class="quickref">
+  <div class="label">&#9889; Quick reference</div>
+  <div class="qr-sub">The access pattern chooses the storage engine. Everything else is a consequence.</div>
+  <div class="tw"><table>
+    <thead><tr><th>If you need&hellip;</th><th>Reach for</th><th>Because</th><th>Used in</th></tr></thead>
+    <tbody>
+      <tr><td>Write-heavy ingest, sequential writes</td><td class="qr-pick">LSM-tree</td><td>Appends and compacts, so writes are sequential. Costs read amplification and compaction CPU.</td><td class="qr-seen">Cassandra, RocksDB, LevelDB, <span class="srcref">D11</span></td></tr>
+      <tr><td>Read-heavy with range scans</td><td class="qr-pick">B-tree</td><td>Predictable read cost and in-place updates; writes are random I/O.</td><td class="qr-seen">PostgreSQL, MySQL InnoDB, most relational DBs</td></tr>
+      <tr><td>Analytics over few columns of many rows</td><td class="qr-pick">Columnar storage</td><td>Reads only the columns needed and compresses far better on homogeneous data.</td><td class="qr-seen">BigQuery, ClickHouse, Parquet, Snowflake</td></tr>
+      <tr><td>Full-text or token search</td><td class="qr-pick">Inverted index</td><td>Maps term to document list &mdash; the opposite direction from a normal index.</td><td class="qr-seen">Elasticsearch, Lucene, <span class="srcref">D10</span></td></tr>
+      <tr><td>Nearest-neighbour over embeddings</td><td class="qr-pick">Vector index (HNSW)</td><td>Approximate search in sublinear time; exact search is infeasible at scale.</td><td class="qr-seen"><span class="srcref">D14</span>, pgvector, FAISS</td></tr>
+      <tr><td>Crash recovery without losing writes</td><td class="qr-pick">Write-ahead log</td><td>Durability is the log; the data files are an optimisation over replaying it.</td><td class="qr-seen">Every serious database, <span class="srcref">D11</span></td></tr>
+    </tbody>
+  </table></div>
+</div>
+
 <p>Understanding database internals is what separates a Staff Engineer from a senior engineer. When you say 'write to Postgres' — what actually happens on disk? When you add an index, why does writes get slower? When you read with a specific isolation level, how does the DB know what to show you?</p>
 
 <h3>Before the Engine: Choosing a Data Model</h3>
@@ -5508,6 +6106,250 @@ shedding is what stops you crossing it.</div>
     <li><a href="https://brooker.co.za/blog/publications.html" target="_blank" rel="noopener">Marc Brooker &mdash; publications and talks</a> &mdash; including <em>Try again: the tools and techniques behind resilient systems</em> (AWS re:Invent 2024, ARC403), which covers circuit breaking and stable-system theory.</li>
   </ul>
   <div class="vr-none">Note the overlap with Ch 10: retry budgets, jitter and metastable failure are developed there rather than here, because they belong next to load shedding.</div>
+</div>
+
+<div class="recall">
+  <div class="rc-icon">&#128279;</div>
+  <div>This chapter is the practical half of two earlier ones. From <strong>Ch 10</strong>: overload
+  is <em>metastable</em> &mdash; it sustains itself after its cause is gone, because the server is
+  busy computing answers for clients that already left. From <strong>Ch 1</strong>: you cannot tell
+  a slow dependency from a dead one, which is why every mechanism here is really a way of acting
+  safely without that knowledge.</div>
+</div>
+
+<div class="quickref">
+  <div class="label">&#9889; Quick reference</div>
+  <div class="qr-sub">The failure you are trying to stop, and the mechanism that actually stops it. Each closes a different axis &mdash; they are not alternatives.</div>
+  <div class="tw"><table>
+    <thead><tr><th>If you need&hellip;</th><th>Reach for</th><th>Because</th><th>Used in</th></tr></thead>
+    <tbody>
+      <tr><td>To stop a slow dependency consuming all your threads</td><td class="qr-pick">Bulkhead / concurrency limit</td><td>Isolates a pool per dependency, so one slow call cannot exhaust the shared pool and take down unrelated endpoints.</td><td class="qr-seen">Hystrix thread pools, Envoy max-connections, Go semaphores</td></tr>
+      <tr><td>To stop calling something that is clearly broken</td><td class="qr-pick">Circuit breaker</td><td>Fails fast past a failure threshold, freeing the caller and letting the callee recover instead of drowning.</td><td class="qr-seen"><code>resilience4j</code>, Envoy outlier detection, AWS SDKs</td></tr>
+      <tr><td>To stop retries multiplying load</td><td class="qr-pick">Retry budget</td><td>Caps retries at a small fraction of live traffic, so a systemic failure stops generating extra load entirely.</td><td class="qr-seen">gRPC retry throttling, Envoy <code>retry_budget</code></td></tr>
+      <tr><td>To stop clients retrying in lockstep</td><td class="qr-pick">Jitter</td><td>Randomises backoff so a synchronised failure does not become synchronised spikes.</td><td class="qr-seen">AWS SDKs, Kafka producer, most mature clients</td></tr>
+      <tr><td>To keep serving when you cannot serve everyone</td><td class="qr-pick">Priority load shedding</td><td>Rejecting cheaply at the edge preserves capacity for the requests that matter most.</td><td class="qr-seen">Envoy admission control, Netflix concurrency limits</td></tr>
+      <tr><td>To stop a partial outage becoming total</td><td class="qr-pick">Graceful degradation</td><td>A feed without recommendations still works; an error page does not.</td><td class="qr-seen">Netflix fallbacks, Amazon product pages</td></tr>
+      <tr><td>To bound how long anyone waits</td><td class="qr-pick">Deadline propagation</td><td>A deadline set at the edge travels down the chain, so nobody computes a reply whose caller has given up.</td><td class="qr-seen">gRPC deadlines, Go <code>context.Context</code></td></tr>
+      <tr><td>To find which service caused an incident</td><td class="qr-pick">Distributed tracing</td><td>Per-request spans turn &ldquo;the site is slow&rdquo; into &ldquo;this call is slow&rdquo;.</td><td class="qr-seen">OpenTelemetry, Jaeger &mdash; see Ch 14</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<h3>Cascading Failure, Derived &mdash; and Why One Fix Is Never Enough</h3>
+
+<p>Every engineer knows the words &ldquo;circuit breaker&rdquo; and &ldquo;exponential
+backoff&rdquo;. Far fewer can say which failure each one actually prevents, which is why systems
+routinely have three of the five mechanisms and still fall over. Build the failure up and the
+answer becomes obvious:</p>
+<div class="buildup">
+  <div class="label">&#128296; Build it wrong first &mdash; deriving the full resilience stack</div>
+  <div class="bu-step">
+    <div class="bu-n">1</div>
+    <div class="bu-body">
+      <div class="bu-try"><strong>Service B slows down</strong> &mdash; a slow query, a GC pause, a cold cache. Service A calls B with a timeout and retries three times, the sensible default everyone ships with.</div>
+      <div class="bu-break">&#10007; A now sends <strong>3&times; the traffic</strong> to a service that is already struggling. The retries are what finish B off.</div>
+      <div class="bu-learn">&rarr; Retries are a load multiplier applied at exactly the worst moment. That is the whole problem in one line.</div>
+    </div>
+  </div>
+  <div class="bu-step">
+    <div class="bu-n">2</div>
+    <div class="bu-body">
+      <div class="bu-try"><strong>Add exponential backoff.</strong> Wait 1s, then 2s, then 4s before retrying.</div>
+      <div class="bu-break">&#10007; Ten thousand clients failed at the same instant, so they all wait 1s together, retry together, wait 2s together, retry together. Continuous overload has become <strong>synchronised spikes</strong>, each big enough to re-break B.</div>
+      <div class="bu-learn">&rarr; Backoff controls <em>when one client</em> retries. It says nothing about what a population of clients does.</div>
+    </div>
+  </div>
+  <div class="bu-step">
+    <div class="bu-n">3</div>
+    <div class="bu-body">
+      <div class="bu-try"><strong>Add jitter.</strong> Randomise each wait between zero and the computed backoff.</div>
+      <div class="bu-break">&#10007; The spikes are gone; the <em>total volume</em> is not. Every client still eventually retries, and the sum still exceeds B&rsquo;s capacity for as long as B is broken.</div>
+      <div class="bu-learn">&rarr; Jitter fixes timing. It cannot fix volume, because it never removes a retry &mdash; it only moves it.</div>
+    </div>
+  </div>
+  <div class="bu-step">
+    <div class="bu-n">4</div>
+    <div class="bu-body">
+      <div class="bu-try"><strong>Add a retry budget.</strong> A client may retry only while retries stay under roughly 10% of its recent request volume.</div>
+      <div class="bu-break">&#10007; Volume is bounded and B gets room to recover. But A still <em>calls</em> B on every request and waits out the timeout, so A&rsquo;s threads are parked for the full duration each time.</div>
+      <div class="bu-learn">&rarr; The budget caps amplification. It does not stop A wasting its own capacity rediscovering, over and over, that B is down.</div>
+    </div>
+  </div>
+  <div class="bu-step">
+    <div class="bu-n">5</div>
+    <div class="bu-body">
+      <div class="bu-try"><strong>Add a circuit breaker.</strong> After a failure threshold, stop calling B at all for a cooling-off period, fail fast, and probe occasionally to see whether it recovered.</div>
+      <div class="bu-break">&#10007; A stops wasting threads on B. But A also calls C and D, and if they share one thread pool the requests already parked on B have starved those calls too.</div>
+      <div class="bu-learn">&rarr; The breaker protects the callee, and the caller&rsquo;s latency. It provides no <em>isolation</em> between dependencies.</div>
+    </div>
+  </div>
+  <div class="bu-step">
+    <div class="bu-n">6</div>
+    <div class="bu-body">
+      <div class="bu-try"><strong>Add bulkheads.</strong> Give each dependency its own bounded concurrency pool, so calls to B can only ever exhaust B&rsquo;s pool.</div>
+      <div class="bu-break">&#10007; Nothing further, for this failure. A degrades in exactly one feature and keeps serving everything else.</div>
+      <div class="bu-learn">&rarr; Isolation is the last axis. A failure in B is now a <em>partial</em> outage rather than a total one &mdash; which was the goal all along.</div>
+    </div>
+  </div>
+  <div class="bu-end"><strong>Five mechanisms, five different axes:</strong> jitter fixes <em>timing</em>, the budget fixes <em>volume</em>, the circuit breaker fixes <em>duration</em>, bulkheads fix <em>blast radius</em>, and timeouts bound <em>each attempt</em>. None substitutes for another, which is why &ldquo;we have retries with exponential backoff&rdquo; is an incomplete answer &mdash; it closes one axis out of five. Name the axis each mechanism covers and you have said something most candidates cannot.</div>
+</div>
+
+<div class="flow"><span class="fl-key">WHAT EACH MECHANISM ACTUALLY FIXES</span>
+
+  failure axis          mechanism              without it
+  ------------------    -------------------    ------------------------------
+  <span class="fl-key">per-attempt time</span>      timeout                <span class="fl-bad">threads parked indefinitely</span>
+  <span class="fl-key">retry timing</span>          jitter                 <span class="fl-bad">synchronised retry spikes</span>
+  <span class="fl-key">retry volume</span>          retry budget           <span class="fl-bad">unbounded amplification</span>
+  <span class="fl-key">failure duration</span>      circuit breaker        <span class="fl-bad">capacity burned rediscovering</span>
+                                               <span class="fl-bad">the same outage repeatedly</span>
+  <span class="fl-key">blast radius</span>          bulkhead               <span class="fl-bad">one dep takes down all deps</span>
+  <span class="fl-key">wasted work</span>           deadline propagation   <span class="fl-bad">computing replies nobody wants</span>
+  <span class="fl-key">who gets served</span>       priority shedding      <span class="fl-bad">everyone fails equally</span>
+
+  <span class="fl-note">A system with four of these seven has a specific, predictable way of falling</span>
+  <span class="fl-note">over. Working out WHICH one is missing is usually the whole postmortem.</span></div>
+<div class="flow-cap">These are not alternatives to choose between. Each closes one axis, and an axis you
+leave open is the one your next incident goes through.</div>
+
+<div class="misconception">
+  <div class="label">&#9888; Common misconception</div>
+  <div class="mc-wrong">&ldquo;We have retries with exponential backoff, so we are protected against cascading failure.&rdquo;</div>
+  <div class="mc-right">
+    <p>Backoff closes one axis &mdash; when a given client retries. It does nothing about total retry
+    volume, nothing about the caller burning its own threads rediscovering a known outage, and
+    nothing about isolation between dependencies. Without jitter it actively <em>creates</em> a new
+    failure mode by synchronising clients that failed together.</p>
+    <p>There is also a compounding trap: <strong>retries nest</strong>. If the client retries three
+    times, the gateway retries three times, and the service retries its dependency three times, the
+    bottom service sees up to <strong>27&times;</strong> amplification. The rule that follows is
+    counter-intuitive and worth stating plainly: <strong>retry at exactly one layer</strong> &mdash;
+    the one closest to the user that can still make a meaningful decision &mdash; and pass failures
+    straight through everywhere else.</p>
+  </div>
+</div>
+
+<h3>The Circuit Breaker, Precisely</h3>
+
+<p>It is a three-state machine, and being exact about the states matters because the half-open
+state is where the value actually is:</p>
+
+<ul>
+  <li><strong>Closed</strong> &mdash; calls pass through; failures are counted over a rolling window.
+  Count a <em>rate</em>, not an absolute: 50 failures out of 50 requests is an outage, 50 out of
+  50,000 is background noise.</li>
+  <li><strong>Open</strong> &mdash; calls fail immediately without touching the dependency. This is
+  what frees the caller's threads and gives the callee room to recover.</li>
+  <li><strong>Half-open</strong> &mdash; after a cooling period, allow a few trial requests. Success
+  closes the breaker; failure reopens it. <strong>Without half-open you have built an outage
+  detector that never recovers</strong>, and the probe must be limited to a handful of requests or
+  reopening simply re-floods a service that had almost recovered.</li>
+</ul>
+
+<p>The failure mode worth naming: a breaker with too sensitive a threshold trips on ordinary
+tail-latency noise and turns a healthy dependency into an unavailable one. A circuit breaker is a
+load-shedding device pointed at your own dependencies, and like all shedding it can shed too
+much.</p>
+
+<div class="exercise">
+  <div class="label">&#9998; Mini exercise 16</div>
+  <div class="ex-q">
+    <p>A checkout service calls payments (critical), inventory (critical), recommendations
+    (optional) and loyalty points (optional). All four share one 200-thread pool. Recommendations
+    degrades to 8-second responses &mdash; slow, not down, so its health checks still pass. Checkout
+    stops serving entirely, including pages that never used recommendations.</p>
+    <p><strong>Work out:</strong> the mechanism of the outage, and which four changes you would make,
+    in what order.</p>
+  </div>
+  <details><summary>Show the worked answer</summary><div class="ex-a">
+    <p><strong>The mechanism is thread-pool exhaustion, and the fact that recommendations is
+    <em>optional</em> is what makes it infuriating.</strong> At 8 seconds per call, even modest
+    traffic parks threads for 8 seconds each: roughly 25 requests/sec to recommendations is enough to
+    hold all 200 threads (25 &times; 8 = 200). Once the pool is empty, <em>every</em> endpoint blocks
+    waiting for a thread &mdash; including checkout paths that never call recommendations at all. A
+    slow dependency is more dangerous than a dead one, because a dead one fails fast and returns the
+    thread immediately.</p>
+    <p><strong>The order matters &mdash; cheapest and highest-impact first:</strong></p>
+    <ol>
+      <li><strong>Bulkhead.</strong> Cap recommendations at, say, 20 concurrent calls. This alone
+      ends the outage: recommendations can be as slow as it likes and 180 threads remain for
+      everything else. It is the single change that converts a total outage into a degraded
+      feature.</li>
+      <li><strong>Aggressive timeout on the optional calls.</strong> Eight seconds is far beyond any
+      sensible budget for a recommendation carousel. Give it 200&nbsp;ms, then give up. A timeout is
+      derived from what the caller can afford, never from what the callee usually takes.</li>
+      <li><strong>Circuit breaker on recommendations.</strong> Once it is reliably slow, stop calling
+      it at all for a while and stop paying even the 200&nbsp;ms.</li>
+      <li><strong>Graceful degradation.</strong> Render checkout with an empty recommendations panel.
+      The optional dependency should never have been able to fail the page.</li>
+    </ol>
+    <p><strong>The transferable principle:</strong> <em>an optional dependency that can fail your
+    request is not optional &mdash; it is a required dependency you have not admitted to.</em> The
+    architectural question is not &ldquo;is this call important?&rdquo; but &ldquo;what happens to
+    the response if this call never returns?&rdquo;, and the answer must be enforced by a bulkhead
+    rather than by intent. Same reasoning as <a class="qlink" href="#ch10">Ch 10</a>'s load
+    shedding: decide in advance what you are willing to lose, because under pressure you will lose
+    something.</p>
+  </div></details>
+</div>
+
+<div class="teach-qa">
+  <h3>&#129504; Checking your understanding &mdash; resilience</h3>
+  <div class="tq-sub">Answers supplied. These separate people who have configured a resilience library from people who have debugged an outage.</div>
+
+  <div class="tq">
+    <div class="tq-q">How should you actually choose a timeout value?</div>
+    <div class="tq-a">From the caller's budget downward, never from the callee's observed latency upward. Start with what the user-facing request can afford end to end, subtract what the rest of the chain needs, and give this call the remainder. Setting a timeout at &ldquo;p99 plus a margin&rdquo; is the common error: it guarantees that whenever the dependency degrades you wait as long as it takes to fail, which is exactly the wrong moment to be patient. The timeout must also be shorter than your caller's, or you will be computing a response nobody is waiting for &mdash; which is what deadline propagation enforces automatically.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">Why is a slow dependency more dangerous than a dead one?</div>
+    <div class="tq-a">A dead dependency fails immediately: connection refused, thread returned, breaker tripped on an obvious signal. A slow one holds resources for the full timeout on every call while continuing to pass shallow health checks. Concurrency is latency multiplied by rate, so an eightfold latency increase consumes eight times the threads at the same request rate. <strong>Almost every &ldquo;the whole site went down because of one service&rdquo; story is a slow dependency, not a dead one</strong> &mdash; which is why bulkheads and concurrency limits matter more than availability monitoring.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">Where should retries live in a chain of five services?</div>
+    <div class="tq-a">At exactly one layer, and it should be the one closest to the user that can still make a meaningful decision. Retries nest multiplicatively, so three layers each retrying three times is 27&times; amplification against the bottom service. Everything else should propagate the failure immediately. A useful convention: retries are permitted at the edge or in the client, and every internal service fails fast so the decision is made once, by whoever knows what the user is waiting for.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">What does a service mesh actually buy, and what does it cost?</div>
+    <div class="tq-a">It moves timeouts, retries, circuit breaking, mTLS and telemetry out of every application into a sidecar proxy, so policy is uniform and language-independent &mdash; genuinely valuable in a polyglot estate where otherwise every team reimplements the same five mechanisms differently and wrongly. The costs are real: an extra network hop each way, a sidecar's memory per pod, and a control plane now on the critical path for everything. Worth it with many services in many languages; overhead with six services in one. And note it does not decide <em>what</em> the timeouts should be &mdash; it only makes them consistent.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">Your service is healthy but the user-facing request fails. How do you find the cause?</div>
+    <div class="tq-a">This is exactly what distributed tracing exists for: a trace ID propagated through every hop, producing a span tree that shows where the time went and which call failed. Without it you are correlating dashboards across a dozen services by eye and the causal link is guesswork. Note the ordering lesson &mdash; <strong>tracing is a design decision, not an operational one</strong>. It has to be threaded through the code before the incident, which is why it belongs here and not only in <a class="qlink" href="#ch14">Ch 14</a>.</div>
+  </div>
+
+  <div class="tq">
+    <div class="tq-q">When are microservices the wrong choice?</div>
+    <div class="tq-a">When the organisation cannot yet pay their operational cost, which is most of the time at the start. Splitting a system converts fast, reliable in-process function calls into slow, unreliable network calls &mdash; each of which now needs a timeout, a retry policy, a breaker and a trace. You take on distributed transactions, eventual consistency and versioned interfaces in exchange for independent deployability and team autonomy. A good trade when teams block each other on deploys; a bad one when three engineers are trying to ship a product. <strong>Microservices are an organisational solution with a technical cost</strong>, so &ldquo;how many teams do you have?&rdquo; is more diagnostic than any architectural argument.</div>
+  </div>
+</div>
+
+<div class="usecase">
+  <div class="label">&#127919; Where each mechanism actually earns its keep</div>
+  <div class="uc-row"><div class="uc-sys">Optional enrichment calls</div><div class="uc-why"><strong>Bulkhead + short timeout + degrade.</strong> Recommendations, related items, social proof. The response must render without them, and only a concurrency limit makes that true under load.</div></div>
+  <div class="uc-row"><div class="uc-sys">Payments and other third parties</div><div class="uc-why"><strong>Circuit breaker + idempotency key.</strong> You do not control their capacity, and an ambiguous timeout must never become a double charge. <span class="srcref">Ch 7, D19</span></div></div>
+  <div class="uc-row"><div class="uc-sys">Client-to-edge traffic</div><div class="uc-why"><strong>Jitter + retry budget.</strong> Millions of independent clients failing simultaneously are the classic synchronised-retry population. <span class="srcref">Ch 10</span></div></div>
+  <div class="uc-row"><div class="uc-sys">Internal service-to-service</div><div class="uc-why"><strong>Deadline propagation + fail fast, no retry.</strong> Retry once, at the edge. Internal hops that each retry create multiplicative amplification.</div></div>
+  <div class="uc-row"><div class="uc-sys">Shared infrastructure (cache, database)</div><div class="uc-why"><strong>Concurrency limit + shed.</strong> Never let a caller send more concurrent work than the dependency can absorb &mdash; the cache-down stampede in <span class="srcref">Ch 9</span> is exactly this failure.</div></div>
+  <div class="uc-row"><div class="uc-sys">Fleet-wide changes</div><div class="uc-why"><strong>Staged rollout + automatic halt.</strong> Resilience against your own deploys, which cause more incidents than dependency failure does. <span class="srcref">D18</span></div></div>
+</div>
+
+<div class="takeaway">
+  <div class="label">&#127793; Takeaway &mdash; Microservices &amp; resilience</div>
+  <p><strong>Every mechanism here closes one axis of failure, and an axis you leave open is where your next incident goes.</strong></p>
+  <ul>
+    <li><strong>Timeouts come from the caller's budget</strong>, not the callee's p99. Deriving them upward from observed latency guarantees maximum patience at the worst possible moment.</li>
+    <li><strong>A slow dependency is worse than a dead one.</strong> It holds threads for the full timeout and passes shallow health checks. Concurrency is latency &times; rate.</li>
+    <li><strong>Retry at exactly one layer.</strong> Nesting multiplies: three layers of three attempts is 27&times; against the bottom service.</li>
+    <li><strong>Backoff, jitter, budget, breaker and bulkhead are not alternatives.</strong> They close timing, population timing, volume, duration and blast radius respectively.</li>
+    <li><strong>An optional dependency that can fail your request is not optional.</strong> Enforce it with a bulkhead, not with good intentions.</li>
+    <li><strong>Microservices are an organisational solution with a technical cost.</strong> &ldquo;How many teams?&rdquo; is the more diagnostic question.</li>
+  </ul>
+  <p>Chapter 14 turns all of this into something you can see: none of these mechanisms is trustworthy unless you can measure whether it fired, and how often.</p>
 </div>
 </div>
 <div class="chapter" id="ch14">

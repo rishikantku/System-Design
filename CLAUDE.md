@@ -38,9 +38,9 @@ distributed systems concepts from first principles.
 
 | | |
 |---|---|
-| **File** | `index.html` — single self-contained file, ~1.16 MB |
+| **File** | `index.html` — single self-contained file, ~1.5 MB |
 | **Backup** | `Distributed_Systems_Deep_Guide.backup.html` — the original before any enrichment |
-| **Content** | ~71,300 words |
+| **Content** | ~94,500 words |
 | **Deps** | None. One Google Fonts `@import`. No JS libraries. Opens offline from `file://` |
 | **Structure** | 1 `<style>` block, 5 `<script>` blocks (early state-restore in `<body>`, glossary data, glossary engine, search palette, left-nav engine, view-size engine) |
 
@@ -56,6 +56,9 @@ distributed systems concepts from first principles.
   #design-url, #design-twitter, #design-kv, #design-whatsapp, #design-youtube,
   #design-jobs, #design-kafka, #design-drive, #design-uber, #design-crawler,
   #design-metrics, #design-cache, #design-typeahead, #design-rag   ← D11–D14, the infra round
+  #design-ml-inference, #design-ml-platform, #design-maps, #design-fleet-upgrade,
+  #design-booking, #design-collab, #design-denylist, #design-sort,
+  #design-social-graph                                             ← D15–D23, the question-bank gaps
 #part3-toolkit               Part 3 banner
   #toolkit-framework, #toolkit-numbers, #toolkit-tradeoffs, #toolkit-behavioral
 #part3-mentalmodel
@@ -140,7 +143,10 @@ per company (`questions-meta.html`, `questions-amazon.html`, …). Each page:
    design" across *every* role, so 18 of the Google 78 are product-manager questions
    ("Design the US flag", "How would you price the Amazon Kindle?") and 5 are Fermi
    estimation. Only **55 are engineering questions**. Do not present the raw list unfiltered.
-4. Sorts by recency, never by popularity — answer counts grow with age, so a popularity
+4. **Every engineering question maps to a section.** D15-D23 were written specifically to
+   close the gaps this page exposed, so `kind: "eng"` with `ref: null` should now be empty.
+   If a new company page adds uncovered questions, that is the backlog.
+5. Sorts by recency, never by popularity — answer counts grow with age, so a popularity
    sort just surfaces the oldest questions.
 
 **Every `ref` must be a real id in `index.html`.** Nothing checks this automatically; the
@@ -408,11 +414,11 @@ though they exist. Drive the page by clicking real elements, not by calling its 
 **Baseline to regress against** (current, after the Google-question-bank work):
 
 ```
-totalWords 77011 · designs 14 (126 steps, all 1-9) · toolkitCards 7
-clarify 14 (71 questions) · assume 14 · concl 14 · tradeoff 14 · designSteps 105 · flows 45
+totalWords 94473 · designs 23 (207 steps, all 1-9) · toolkitCards 7
+clarify 23 · assume 23 · concl 23 · tradeoff 23 · glossaryTerms 199 · designSteps 105 · flows 45
 vidrefs 22 · externalLinks 63 (all target=_blank rel=noopener, all verified 200)
 flowsScrollingOnDesktop 0 (was 9; Fit is on by default) · gtInCtl 0
-questions-google.html: 78 questions · 55 eng · 39 cross-linked · 22 clusters
+questions-google.html: 78 questions · 55 eng · 60 cross-linked · 0 engineering gaps
 at 145% scale: 0 overflowing elements at 1440/430/390/360/320, navHeight unchanged
 exercises 14 · teachingQs 61 · misconceptions 21 · takeaways 14 · usecaseTables 8
 recalls 7 · glossaryTerms 199 · inlineLinks 1178 · tables 42 (all wrapped in .tw)

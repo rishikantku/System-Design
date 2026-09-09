@@ -51,7 +51,18 @@ h1 { font-family:'Lora',serif; font-size:34px; line-height:1.2; margin-bottom:10
 .caveat b { color:var(--ink); }
 
 .controls { position:sticky; top:47px; z-index:40; background:var(--bg); padding:12px 0 10px; border-bottom:1px solid var(--line); margin-bottom:6px; }
-#q { width:100%; font-family:inherit; font-size:15px; padding:11px 14px; border:1px solid var(--line); border-radius:10px; outline:none; background:#fff; color:var(--ink); }
+.searchrow { display:flex; gap:10px; align-items:stretch; }
+.sortwrap { display:flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--line); border-radius:10px; padding:0 12px 0 14px; flex-shrink:0; }
+.sortwrap:focus-within { border-color:var(--accent); box-shadow:0 0 0 3px rgba(92,107,192,.13); }
+.sortlbl { font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.9px; color:var(--muted); white-space:nowrap; }
+#sortsel {
+  appearance:none; -webkit-appearance:none; border:0; outline:none; background:transparent;
+  font-family:inherit; font-size:14px; font-weight:700; color:var(--ink);
+  padding:10px 22px 10px 0; cursor:pointer;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='11' height='7' viewBox='0 0 11 7'><path d='M1 1l4.5 4.5L10 1' fill='none' stroke='%237a7a9a' stroke-width='1.8' stroke-linecap='round'/></svg>");
+  background-repeat:no-repeat; background-position:right center;
+}
+#q { flex:1; min-width:0; font-family:inherit; font-size:15px; padding:11px 14px; border:1px solid var(--line); border-radius:10px; outline:none; background:#fff; color:var(--ink); }
 #q:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(92,107,192,.13); }
 .facets { display:flex; flex-wrap:wrap; gap:16px; margin-top:11px; align-items:flex-start; }
 .facet { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
@@ -95,6 +106,8 @@ h1 { font-family:'Lora',serif; font-size:34px; line-height:1.2; margin-bottom:10
 .foot a { color:var(--accent); }
 
 @media (max-width:700px) {
+  .searchrow { flex-direction:column; gap:8px; }
+  .sortwrap { justify-content:space-between; padding:0 12px; }
   .wrap { padding:24px 15px 60px; }
   h1 { font-size:26px; }
   .controls { top:45px; }
@@ -141,7 +154,18 @@ h1 { font-family:'Lora',serif; font-size:34px; line-height:1.2; margin-bottom:10
   </div>
 
   <div class="controls">
-    <input id="q" type="search" placeholder="Search questions&hellip;" autocomplete="off" aria-label="Search questions">
+    <div class="searchrow">
+      <input id="q" type="search" placeholder="Search questions&hellip;" autocomplete="off" aria-label="Search questions">
+      <label class="sortwrap">
+        <span class="sortlbl">Sort</span>
+        <select id="sortsel" aria-label="Sort questions">
+          <option value="recent">Most recent</option>
+          <option value="popular">Most discussed</option>
+          <option value="oldest">Oldest</option>
+          <option value="az">A&ndash;Z</option>
+        </select>
+      </label>
+    </div>
     <div class="facets" id="facets"></div>
     <div id="count"></div>
     <div id="sortnote" hidden></div>
@@ -170,10 +194,6 @@ function facetHtml(){
   h+='<div class="facet"><span class="fl">Type</span>';
   kinds.forEach(function(k){
     h+='<button class="chip k-'+k[0]+(state.kind===k[0]?' on':'')+'" data-f="kind" data-v="'+k[0]+'">'+k[1]+'</button>'; });
-  h+='</div>';
-  h+='<div class="facet"><span class="fl">Sort</span>';
-  [['recent','Most recent'],['popular','Most discussed'],['oldest','Oldest'],['az','A&ndash;Z']].forEach(function(s){
-    h+='<button class="chip'+(state.sort===s[0]?' on':'')+'" data-f="sort" data-v="'+s[0]+'">'+s[1]+'</button>'; });
   h+='</div>';
   h+='<div class="facet"><span class="fl">Coverage</span>';
   [['all','All'],['yes','In the guide'],['no','Gaps']].forEach(function(c){
@@ -245,6 +265,7 @@ document.getElementById('facets').addEventListener('click', function(e){
   state[b.dataset.f] = b.dataset.v; render();
 });
 document.getElementById('q').addEventListener('input', function(e){ state.q = e.target.value; render(); });
+document.getElementById('sortsel').addEventListener('change', function(e){ state.sort = e.target.value; render(); });
 
 document.getElementById('s-total').textContent = Q.length;
 document.getElementById('s-eng').textContent = Q.filter(function(r){return r.kind==='eng';}).length;

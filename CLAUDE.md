@@ -40,7 +40,7 @@ distributed systems concepts from first principles.
 |---|---|
 | **File** | `index.html` — single self-contained file, ~1.5 MB |
 | **Backup** | `Distributed_Systems_Deep_Guide.backup.html` — the original before any enrichment |
-| **Content** | ~107,800 words |
+| **Content** | ~114,900 words |
 | **Deps** | None. One Google Fonts `@import`. No JS libraries. Opens offline from `file://` |
 | **Structure** | 1 `<style>` block, 5 `<script>` blocks (early state-restore in `<body>`, glossary data, glossary engine, search palette, left-nav engine, view-size engine) |
 
@@ -60,6 +60,7 @@ distributed systems concepts from first principles.
   #design-ml-inference, #design-ml-platform, #design-maps, #design-fleet-upgrade,
   #design-booking, #design-collab, #design-denylist, #design-sort,
   #design-social-graph                                             ← D15–D23, the question-bank gaps
+  #design-push, #design-game, #design-adbilling                    ← D24–D26, reader-supplied Google questions
 #part3-toolkit               Part 3 banner
   #toolkit-framework, #toolkit-numbers, #toolkit-tradeoffs, #toolkit-behavioral
 #part3-mentalmodel
@@ -128,7 +129,7 @@ assert st == "123456789"
 
 ## 2b. The question-bank pages — one file per company
 
-`questions-google.html` is a standalone, self-contained page holding **78 Google-tagged**
+`questions-google.html` is a standalone, self-contained page holding **81 Google-tagged**
 system design questions. It is deliberately *not* part of `index.html`: the guide teaches
 concepts, the bank lists questions, and mixing them made T6 unreadable.
 
@@ -145,7 +146,7 @@ per company (`questions-meta.html`, `questions-amazon.html`, …). Each page:
 3. Defaults the Type facet to `eng`. This matters: the upstream bank filters by "system
    design" across *every* role, so 18 of the Google 78 are product-manager questions
    ("Design the US flag", "How would you price the Amazon Kindle?") and 5 are Fermi
-   estimation. Only **55 are engineering questions**. Do not present the raw list unfiltered.
+   estimation. **58 are engineering questions.** Do not present the raw list unfiltered.
 4. **Every engineering question maps to a section.** D15-D23 were written specifically to
    close the gaps this page exposed, so `kind: "eng"` with `ref: null` should now be empty.
    If a new company page adds uncovered questions, that is the backlog.
@@ -422,14 +423,15 @@ though they exist. Drive the page by clicking real elements, not by calling its 
 **Baseline to regress against** (current, after the Google-question-bank work):
 
 ```
-totalWords 102280 · designs 23 (207 steps, all 1-9) · toolkitCards 7
-quickref 15 (every chapter) · buildup 3 · drills 24 · toolkitCards 8
-anims 26 (191 packets, all with both captions; every design + ch4/ch7/ch10)
+totalWords 114940 · designs 26 (234 steps, all 1-9) · toolkitCards 8
+quickref 15 (every chapter) · buildup 3 · drills 24 · sidebarLinks 53
+anims 29 (215 packets, all with both captions; every design + ch4/ch7/ch10)
+animChips 29 (the Start-here jump index; regenerate it whenever an anim is added)
 all 15 chapters enriched · startcard 1
-clarify 23 · assume 23 · concl 23 · tradeoff 23 · glossaryTerms 199 · designSteps 105 · flows 45
+clarify 26 · assume 26 · concl 26 · tradeoff 26 · glossaryTerms 199 · flows 45
 vidrefs 22 · externalLinks 63 (all target=_blank rel=noopener, all verified 200)
 flowsScrollingOnDesktop 0 (was 9; Fit is on by default) · gtInCtl 0
-questions-google.html: 78 questions · 55 eng · 60 cross-linked · 0 engineering gaps
+questions-google.html: 81 questions · 58 eng · 63 cross-linked · 0 engineering gaps
 at 145% scale: 0 overflowing elements at 1440/430/390/360/320, navHeight unchanged
 exercises 14 · teachingQs 61 · misconceptions 21 · takeaways 14 · usecaseTables 8
 recalls 7 · glossaryTerms 199 · inlineLinks 1178 · tables 42 (all wrapped in .tw)
@@ -541,6 +543,18 @@ the field's most-misunderstood result.
 | `ch15` | 2,444 | usecase, quickref |
 | `ch8` | 3,289 | recall, usecase, quickref |
 | `ch5` | 3,608 | quickref |
+
+### Reader-supplied Google questions (D24–D26)
+
+Three designs came from questions the reader was actually asked, rather than from the
+scraped bank. Each leads with a decision that has **no recovery path if you get it wrong**,
+which is what makes them good interview questions:
+
+| | The decision everything hangs on |
+|---|---|
+| `D24` iOS push | One persistent connection per **device**, not per app. Per-app means 40 sockets and 40 keepalives on one phone, which is a battery cost users answer by disabling push |
+| `D25` browser game | All 35K concurrent games fit in ~180 MB, so this is **not a scale problem** — it is stateful routing plus durability, and the move log collapses replay, history and crash recovery into one dataset |
+| `D26` ad billing | The `impression_id` must be minted **on the TV** and reused across retries. Server-minted ids make a retry indistinguishable from a real impression *forever*, and no downstream engineering recovers from it |
 
 **Not done — the five Tier 1 questions still marked as gaps in T6:**
 

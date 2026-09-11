@@ -40,7 +40,7 @@ distributed systems concepts from first principles.
 |---|---|
 | **File** | `index.html` — single self-contained file, ~1.5 MB |
 | **Backup** | `Distributed_Systems_Deep_Guide.backup.html` — the original before any enrichment |
-| **Content** | ~114,900 words |
+| **Content** | ~116,900 words |
 | **Deps** | None. One Google Fonts `@import`. No JS libraries. Opens offline from `file://` |
 | **Structure** | 1 `<style>` block, 5 `<script>` blocks (early state-restore in `<body>`, glossary data, glossary engine, search palette, left-nav engine, view-size engine) |
 
@@ -90,6 +90,7 @@ steps entirely before this was enforced.
 
 | # | Class | Header | Notes |
 |---|---|---|---|
+| 0 | — | *(the prompt)* | An `.asked` block **before step 1**, outside the steps: the question as an interviewer would pose it, plus what makes it hard. A design that opens on "Clarify first" never shows the reader the question being answered |
 | 1 | `req` | Requirements | Opens with a `.clarify` block, then Functional / Non-Functional |
 | 2 | `est` | Capacity Estimation | Opens with an `.assume` block, then `.ng` number cells |
 | 3 | `api` | API Design | `.api-code` |
@@ -338,6 +339,8 @@ Reuse these. Do not invent new block types without a reason.
 | `.srcref` | Small inline chapter chip | `<span class="srcref">Ch 4, 12</span>` |
 | `.anim` | Animated architecture diagram — inline SVG + CSS keyframes, **never a GIF** (the file must stay self-contained and open from `file://`) | `.an-head` (title + Pause + "What goes wrong"), `<svg>`, `.an-legend`, then **two** captions: `.an-cap.ok-only` and `.an-cap.fail-only`. Elements marked `.fail-only` appear and `.ok-only` hide when the container gets `.is-fail`. **Generate the geometry** with `scratchpad/anim/mk.py` — hand-placed coordinates collide, exactly as with the ASCII diagrams |
 | `.drill` | Scenario drill — a `<details>` with a situational-judgement question and a revealed answer | `<summary>` holds `.dr-n` + `.dr-q` + `.dr-cue`; body is `.dr-a` ending in a `.dr-key` principle line. **Distinct from `.exercise`** (mechanism practice) and `.teach-qa` (understanding checks): these are decisions, and most have no single right answer |
+| `.asked` | The prompt, once per design, immediately inside `.dc-body` | Two columns: `.ak-q` (the question, italic, as asked) + `.ak-h` (what makes it hard — the tension, **without giving away the answer**, since the derivation is the point). Stacks under 760px |
+| `.method` | The nine-step method, explained **once** at the top of Part 2 | `.mrow` > `.mnum` + `.mwhat` + `.mwhy`, closing `.mnote`. Explaining the method once and keeping every design identical is what makes 26 designs navigable — repeating the explanation per design would be noise |
 | `.startcard` | The "Start here" orientation, once, after the cover | Three reading paths + a conventions table. Teaching the reader the document's conventions is what makes 104k words navigable |
 | `.quickref` | Scannable decision table at the **top** of a chapter, for a reader who already knows the material and just needs the answer | `.label`, `.qr-sub`, then a 4-column table: *If you need… / Reach for / Because / **Used in***. The last column carries real systems (`Envoy`, `resilience4j`, Kafka) and `<span class="srcref">` links to designs. Wrap the table in `.tw`. Collapses to stacked cards under 680px |
 | `.buildup` | Progressive derivation — build the naive design, break it, fix it, repeat | `.label`, then `.bu-step` > `.bu-n` + `.bu-body` containing `.bu-try` (the attempt), `.bu-break` (the exact failure, red), `.bu-learn` (what it teaches, green); closing `.bu-end`. **The best device in the toolkit for genuinely hard topics** — the reader arrives at the real answer having felt why every simpler answer fails |
@@ -423,7 +426,8 @@ though they exist. Drive the page by clicking real elements, not by calling its 
 **Baseline to regress against** (current, after the Google-question-bank work):
 
 ```
-totalWords 114940 · designs 26 (234 steps, all 1-9) · toolkitCards 8
+totalWords 116869 · designs 26 (234 steps, all 1-9) · toolkitCards 8
+asked 26 (one prompt per design) · method 1 · dsIcons 234 (zero bracket placeholders)
 quickref 15 (every chapter) · buildup 3 · drills 24 · sidebarLinks 53
 anims 29 (215 packets, all with both captions; every design + ch4/ch7/ch10)
 animChips 29 (the Start-here jump index; regenerate it whenever an anim is added)
@@ -431,7 +435,7 @@ all 15 chapters enriched · startcard 1
 clarify 26 · assume 26 · concl 26 · tradeoff 26 · glossaryTerms 199 · flows 45
 vidrefs 22 · externalLinks 63 (all target=_blank rel=noopener, all verified 200)
 flowsScrollingOnDesktop 0 (was 9; Fit is on by default) · gtInCtl 0
-questions-google.html: 81 questions · 58 eng · 63 cross-linked · 0 engineering gaps
+questions-google.html: 81 questions · 58 eng · 63 cross-linked · 63 with a crux line · 0 gaps
 at 145% scale: 0 overflowing elements at 1440/430/390/360/320, navHeight unchanged
 exercises 14 · teachingQs 61 · misconceptions 21 · takeaways 14 · usecaseTables 8
 recalls 7 · glossaryTerms 199 · inlineLinks 1178 · tables 42 (all wrapped in .tw)
@@ -603,9 +607,11 @@ and `overflow-wrap` on prose so long URLs cannot widen the page.
 Desktop is byte-for-byte unaffected in behaviour: 0 tables scroll at 1440 px, the nav is
 52 px with full labels, and the TOC is still 2 columns.
 
-**Still open, unrelated to mobile:** the `.ds-header` titles read `[list] 1. Requirements`,
-`[chart] 2. Capacity Estimation`, `[plug]`, `[db]`, `[build]` — literal bracketed
-placeholder text, present in the original backup. Never raised, never fixed.
+**Fixed:** the `.ds-header` titles used to read `[list] 1. Requirements`,
+`[chart] 2. Capacity Estimation`, `[plug]`, `[db]`, `[build]` — literal bracketed placeholder
+text inherited from the original backup, on **all 234 step headers**. They are now the icons
+they were named after, wrapped in `<span class="ds-ico">`. This was the single most visible
+source of the document looking unfinished.
 
 ---
 

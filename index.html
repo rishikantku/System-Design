@@ -14841,71 +14841,124 @@ person who needs the alert is the person looking at the model, not the person wh
     <h3 class="dc-title"><span id="design-maps">Design Google Maps for an Uncovered Region</span> (imagery ingestion, map tiles, routing, IP&rarr;geo lookup)</h3>
     <div class="dc-meta">Difficulty: <strong>Hard (Staff Expectation)</strong> &nbsp;.&nbsp; Target: <strong>45 min</strong></div>
   </div>
-  <div class="dc-body"><div class="asked">
+  <div class="dc-body">
+<div class="asked">
   <div class="ak-q"><span class="ak-l">&#128172; The question, as asked</span><p>&ldquo;There is a region with no map coverage. Design the system that surveys it, builds the map, and serves tiles and routing to users there.&rdquo;</p></div>
   <div class="ak-h"><span class="ak-l">&#9889; What makes it hard</span><p>Building the map and serving it are <strong>different systems</strong>. Capture produces hundreds of terabytes a day that cannot travel over the air, while serving is latency-bound and cannot wait for it.</p></div>
 </div>
-
 <div class="design-step req">
-  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Requirements</div>
-  <div class="ds-body"><div class="clarify">
+  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Understanding the question</div>
+  <div class="ds-body"><p>The prompt: <em>&ldquo;There is a region with no map coverage. Design the system that
+surveys it, builds the map, and serves tiles and routing to users there.&rdquo;</em></p>
+
+<p>That sentence contains two systems that share a name and almost nothing else.</p>
+
+<p><strong>Building the map</strong> is a data pipeline. Vehicles drive around with cameras and GPS,
+producing hundreds of terabytes a day, which is turned into road geometry and imagery over weeks. It is
+throughput-bound, it can lag, and nobody is waiting on any individual piece of it.</p>
+
+<p><strong>Serving the map</strong> is a read-heavy, latency-bound system. Someone opens the app and
+expects tiles in under a hundred milliseconds. It cannot wait for anything.</p>
+
+<div class="insight">
+  <div class="label">&#127919; The number that settles the ingestion design</div>
+  <p>A thousand capture vehicles producing about 15 MB/s each is roughly <strong>432 terabytes a
+  day</strong>.</p>
+  <p>That cannot travel over a mobile network. Not with better compression, not with a bigger budget.
+  At any plausible cellular uplink, one vehicle's daily output would take longer than a day to
+  upload.</p>
+  <p>So the data moves <em>physically</em>. Drives are swapped at a depot and shipped. Saying this
+  plainly &mdash; rather than drawing an arrow labelled &ldquo;upload&rdquo; &mdash; is the moment the
+  interviewer knows you did the arithmetic.</p>
+</div>
+
+<h4>And the thing that makes serving tractable</h4>
+
+<p>The map is <strong>immutable once published</strong>. A tile for a given version and coordinate
+never changes; a new survey produces a new version.</p>
+
+<p>That single property means tiles can be cached forever, at every layer, by every client and every
+edge, with no invalidation logic at all. A serving system for mutable geographic data would be
+enormously harder. Making the data immutable is a design decision that removes an entire category of
+problem.</p>
+
+<h4>What they are looking for</h4>
+
+<p><strong>Do you do the ingest arithmetic?</strong> And conclude that it is physical shipping?</p>
+
+<p><strong>Do you notice the client has no connectivity either?</strong> This is a region without map
+coverage, which usually means it is also a region without good network coverage &mdash; so offline
+packs are a requirement rather than a feature.</p>
+
+<p><strong>Do you know why routing is not just Dijkstra?</strong> Running a shortest-path search over a
+continental road graph per request does not fit in the latency budget.</p>
+<div class="clarify">
   <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
   <div class="cq-row"><div class="cq-q">Are we building the map, or serving it?</div><div class="cq-w">Wholly different systems. Capture and conflation is an offline data pipeline; serving tiles and routes is a read-heavy low-latency system. I would scope to both but design them separately.</div></div><div class="cq-row"><div class="cq-q">What is the source of truth for geometry?</div><div class="cq-w">Vehicle capture, satellite imagery, or crowd-sourced edits? Each has a different trust model, and crowd-sourcing makes moderation a first-class component rather than an afterthought.</div></div><div class="cq-row"><div class="cq-q">Does routing need live traffic?</div><div class="cq-w">Static routing is a precomputable shortest-path problem. Live traffic makes edge weights change every minute and invalidates precomputation.</div></div><div class="cq-row"><div class="cq-q">Offline use on-device?</div><div class="cq-w">Users in an uncovered region very likely have poor connectivity, so tile and routing-graph packs must be downloadable &mdash; which changes the client design entirely.</div></div><div class="cq-row"><div class="cq-q">What accuracy is required &mdash; street level or building level?</div><div class="cq-w">Drives capture density, storage, and whether a single pass by one vehicle is sufficient.</div></div>
   <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
 </div>
-<p><strong>Functional:</strong></p>
-<ul>
-  <li>Ingest imagery and GPS traces from capture vehicles; produce road geometry and imagery tiles</li>
-  <li>Serve map tiles by (z, x, y) and panoramic imagery by location</li>
-  <li>Route between two points, with turn-by-turn directions</li>
-  <li>Resolve a coordinate to an administrative region, and an <strong>IP range to a region</strong></li>
+</div>
+</div>
+<div class="design-step fr">
+  <div class="ds-header"><span class="ds-ico">&#128221;</span>2. Functional requirements</div>
+  <div class="ds-body"><ul>
+  <li><strong>Ingest imagery and GPS traces</strong> from capture vehicles, and turn them into road
+  geometry and image tiles.</li>
+  <li><strong>Serve map tiles</strong> addressed by zoom level and coordinates.</li>
+  <li><strong>Route between two points</strong>, with turn-by-turn directions.</li>
+  <li><strong>Resolve a coordinate to an administrative region</strong>, and an IP range to a region.</li>
+  <li><strong>Offline packs</strong> &mdash; downloadable tiles and routing graph for a region.</li>
 </ul>
-<p><strong>Non-Functional:</strong></p>
-<ul>
-  <li>Tile serve p99 under <strong>100&nbsp;ms</strong>; routing under <strong>500&nbsp;ms</strong></li>
-  <li>Map data is immutable once published and versioned, so clients can cache aggressively</li>
-  <li>Ingestion is throughput-bound and may lag by days; serving may not</li>
-</ul></div>
+
+<h4>Why the offline requirement is load-bearing</h4>
+
+<p>It follows from the premise. A region with no map coverage is very likely a region with patchy
+network coverage, and someone navigating there is precisely the person least able to rely on a
+connection.</p>
+
+<p>That changes the client from a thin viewer into something that holds real data: a tile pack and a
+routing graph for the area, downloaded while connected. Which in turn changes the server's job &mdash;
+it must be able to produce a bounded, self-contained bundle for a region, not just answer individual
+requests.</p>
+
+<h4>Conflation, which is the hard part of building</h4>
+
+<p>Worth naming as a requirement because it is where the real difficulty sits and it has an unhelpful
+name. Multiple vehicles drive the same road on different days. Their GPS traces disagree by several
+metres. Satellite imagery suggests a slightly different alignment. A crowd-sourced edit says the road
+is now one-way.</p>
+
+<p>Producing <em>one</em> road geometry from those disagreeing sources is conflation, and it is the
+step that actually determines whether the map is any good.</p></div>
 </div>
-<div class="design-step est">
-  <div class="ds-header"><span class="ds-ico">&#128202;</span>2. Capacity Estimation</div>
-  <div class="ds-body"><div class="assume">
-  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
-  <div class="as-row"><div class="as-a">1,000 capture vehicles, 8 hours/day, imagery at ~15&nbsp;MB/s each</div><div class="as-b">Halving the fleet halves ingest but doubles time to coverage. This is the schedule/cost trade the whole capture plan turns on.</div></div><div class="as-row"><div class="as-a">Tiles are pre-rendered, not rendered per request</div><div class="as-b">Vector tiles rendered on the client would cut storage enormously and move cost to the device; a reasonable alternative for modern clients.</div></div><div class="as-row"><div class="as-a">Routing is static, without live traffic</div><div class="as-b">Live traffic makes edge weights mutable and rules out full precomputation of shortest paths.</div></div>
-</div>
-<p><strong>Assumptions:</strong> 1,000 vehicles &times; 8&nbsp;h/day &times; 15&nbsp;MB/s of raw imagery; tiles to zoom 20.</p><div class="ng"><div class="ng-cell"><div class="ng-val">~432 TB</div><div class="ng-desc">raw imagery per day</div></div><div class="ng-cell"><div class="ng-val">~15 GB/s</div><div class="ng-desc">peak ingest if streamed live</div></div><div class="ng-cell"><div class="ng-val">~4.4 T</div><div class="ng-desc">tiles at z0&ndash;z20 worldwide</div></div><div class="ng-cell"><div class="ng-val">~10 KB</div><div class="ng-desc">average tile</div></div><div class="ng-cell"><div class="ng-val">~100 ms</div><div class="ng-desc">tile p99 budget</div></div><div class="ng-cell"><div class="ng-val">&lt;1%</div><div class="ng-desc">tiles ever requested</div></div></div><p><strong>The number that decides ingestion:</strong> 432&nbsp;TB/day cannot be uploaded over
-mobile networks &mdash; that is roughly 40&nbsp;Gbps sustained. <strong>Vehicles write to physical
-disks that are shipped or offloaded at depots.</strong> Saying this out loud is the point: the
-highest-bandwidth link in a planet-scale capture system is a van full of drives, and recognising
-when the network is not the answer is a staff-level instinct.</p>
-<p><strong>The number that decides serving:</strong> a full tile pyramid to zoom 20 is trillions of
-tiles, and almost none are ever requested &mdash; population is Zipfian on the map too. Render the
-low zooms eagerly and the deep zooms <strong>lazily on first request</strong>, then cache. This
-turns an impossible storage bill into a manageable one.</p></div>
-</div>
-<div class="design-step api">
-  <div class="ds-header"><span class="ds-ico">&#128268;</span>3. API Design</div>
-  <div class="ds-body"><div class="api-code"><span class="kw">GET</span>  /v1/tiles/{version}/{z}/{x}/{y}.{fmt}
-  Response: 200 image/webp | application/vnd.mapbox-vector-tile
-  Headers:  Cache-Control: public, max-age=31536000, immutable
-  <span class="cm">// version is in the PATH, so a new map release is a new URL.</span>
-  <span class="cm">// Immutable tiles need no invalidation -- the same trick as</span>
-  <span class="cm">// content-hashed asset URLs. This is why the CDN can hold everything.</span>
+<div class="design-step nfr">
+  <div class="ds-header"><span class="ds-ico">&#9201;</span>3. Non-functional requirements</div>
+  <div class="ds-body"><div class="tw"><table class="to">
+<thead><tr><th style="width:26%">Requirement</th><th style="width:22%">Target</th><th style="width:52%">Why</th></tr></thead>
+<tbody>
+<tr><td><strong>Tile latency</strong></td><td class="chosen">p99 &lt; 100 ms</td><td>Panning a map fetches dozens of tiles. Any slower and the map visibly tears as you drag it.</td></tr>
+<tr><td><strong>Routing latency</strong></td><td>&lt; 500 ms</td><td>Tolerable for a deliberate action, and it is still far too short for a naive graph search over a continent.</td></tr>
+<tr><td><strong>Map immutability</strong></td><td class="chosen">Versioned, never edited</td><td>The property that makes caching free. A published tile is valid forever.</td></tr>
+<tr><td><strong>Ingest lag</strong></td><td>Days is fine</td><td>Explicitly relaxed. It is what allows physical media transport and batch processing.</td></tr>
+<tr><td><strong>Offline</strong></td><td>Region packs</td><td>Because the users in an uncovered region have poor connectivity by definition.</td></tr>
+<tr><td><strong>Coverage accuracy</strong></td><td>Street level</td><td>Drives capture density &mdash; how many passes per road, at what spacing &mdash; and therefore the schedule and the cost.</td></tr>
+</tbody></table></div>
 
-<span class="kw">GET</span>  /v1/pano?lat=&amp;lng=&amp;heading=   -&gt; { pano_id, tiles[], links[] }
+<h4>The asymmetry to state out loud</h4>
 
-<span class="kw">POST</span> /v1/route
-  Body:     { origin, destination, mode, depart_at? }
-  Response: { distance_m, duration_s, legs[], polyline, alternatives[] }
+<p>Ingest may lag by days; serving may not lag by a hundred milliseconds. Those two requirements are
+separated by about six orders of magnitude, which is the clearest possible signal that they are
+different systems with different hardware, different scaling behaviour, and different on-call
+concerns.</p>
 
-<span class="kw">GET</span>  /v1/geocode/reverse?lat=&amp;lng=  -&gt; { country, admin1, locality }
-<span class="kw">GET</span>  /v1/geoip?ip=                  -&gt; { country, region, confidence }
-
-<span class="kw">POST</span> /internal/ingest/manifest      <span class="cm">// a depot registers an offloaded drive</span></div></div>
+<p>The only thing connecting them is a publication step: the pipeline produces a new immutable map
+version, and serving switches to it. Everything upstream of that boundary is batch; everything
+downstream is online.</p></div>
 </div>
 <div class="design-step schema">
-  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="cm">-- ROUTING GRAPH: nodes are intersections, edges are road segments.</span>
+  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Data model and API</div>
+  <div class="ds-body"><p>Three data shapes: tiles, the routing graph, and region boundaries.</p>
+<div class="schema-code"><span class="cm">-- ROUTING GRAPH: nodes are intersections, edges are road segments.</span>
 <span class="kw">TABLE</span> edges {
   edge_id    <span class="ty">BIGINT</span>  <span class="pk">PRIMARY KEY</span>,
   from_node, to_node <span class="ty">BIGINT</span>,
@@ -14927,12 +14980,148 @@ turns an impossible storage bill into a manageable one.</p></div>
 }
 <span class="cm">-- Ranges are disjoint and sorted, so the lookup is a binary search:</span>
 <span class="cm">-- the largest start_ip <= query. ~500K rows fits in memory; no</span>
-<span class="cm">-- database round trip is needed at all.</span></div></div>
+<span class="cm">-- database round trip is needed at all.</span></div>
+<h4>Tiles, and why the addressing scheme matters</h4>
+
+<p>The world is divided into a pyramid. Zoom 0 is one tile covering everything; each zoom level splits
+every tile into four. By zoom 20 a tile covers a few tens of metres.</p>
+
+<p>A tile is addressed by <code>(z, x, y)</code> and nothing else. That is the whole lookup: no
+geometric query, no spatial index at request time &mdash; the client computes which tiles it needs from
+the viewport and fetches them by name.</p>
+
+<p>It is the same move as <span class="srcref">D13</span>: <strong>precompute the answer and make the
+request path a lookup.</strong> Rendering a map region on demand would be far too slow; rendering every
+tile in advance makes serving a static file fetch.</p>
+
+<p>The count is alarming and misleading. Zoom 0 through 20 is around four trillion tiles worldwide,
+which at 10 KB each is unstorable. The rescue is that <strong>the tile pyramid is only fully populated
+where there is something to show</strong> &mdash; oceans and deserts have no detail at zoom 20, so those
+tiles are never generated. Under 1% of possible tiles exist, and under 1% of those are ever requested.</p>
+
+<h4>The routing graph</h4>
+
+<p>Intersections are nodes, road segments are edges, and each edge carries a traversal cost derived
+from length, speed limit, and road class. Turn restrictions live on the connections between edges, not
+on the edges themselves &mdash; which is why the graph is slightly more complex than the obvious
+model.</p>
+
+<p>It is partitioned geographically, because routing queries are overwhelmingly local and a query
+rarely needs a graph partition far from either endpoint.</p>
+
+<h4>Region boundaries and IP lookup</h4>
+
+<p>Two lookups that look similar and are completely different.</p>
+
+<p><strong>Coordinate to region</strong> is point-in-polygon against administrative boundaries, which
+can be complex shapes with islands and holes. Done naively it is expensive; done properly, a spatial
+index narrows to a handful of candidate polygons first and only those are tested exactly.</p>
+
+<p><strong>IP to region</strong> is a longest-prefix match over a table of address ranges &mdash; the
+same operation a router performs, and fast in memory. It is also an approximation of much lower quality
+than people assume: it locates the network, not the person, and it is routinely wrong for mobile
+carriers and VPNs. Worth saying so rather than presenting it as a location service.</p>
+
+<h4>The API</h4>
+<div class="api-code"><span class="kw">GET</span>  /v1/tiles/{version}/{z}/{x}/{y}.{fmt}
+  Response: 200 image/webp | application/vnd.mapbox-vector-tile
+  Headers:  Cache-Control: public, max-age=31536000, immutable
+  <span class="cm">// version is in the PATH, so a new map release is a new URL.</span>
+  <span class="cm">// Immutable tiles need no invalidation -- the same trick as</span>
+  <span class="cm">// content-hashed asset URLs. This is why the CDN can hold everything.</span>
+
+<span class="kw">GET</span>  /v1/pano?lat=&amp;lng=&amp;heading=   -&gt; { pano_id, tiles[], links[] }
+
+<span class="kw">POST</span> /v1/route
+  Body:     { origin, destination, mode, depart_at? }
+  Response: { distance_m, duration_s, legs[], polyline, alternatives[] }
+
+<span class="kw">GET</span>  /v1/geocode/reverse?lat=&amp;lng=  -&gt; { country, admin1, locality }
+<span class="kw">GET</span>  /v1/geoip?ip=                  -&gt; { country, region, confidence }
+
+<span class="kw">POST</span> /internal/ingest/manifest      <span class="cm">// a depot registers an offloaded drive</span></div></div>
+</div>
+<div class="design-step est">
+  <div class="ds-header"><span class="ds-ico">&#128202;</span>5. Capacity estimation</div>
+  <div class="ds-body"><p>The numbers, and the conclusions they force.</p>
+<div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">1,000 capture vehicles, 8 hours/day, imagery at ~15&nbsp;MB/s each</div><div class="as-b">Halving the fleet halves ingest but doubles time to coverage. This is the schedule/cost trade the whole capture plan turns on.</div></div><div class="as-row"><div class="as-a">Tiles are pre-rendered, not rendered per request</div><div class="as-b">Vector tiles rendered on the client would cut storage enormously and move cost to the device; a reasonable alternative for modern clients.</div></div><div class="as-row"><div class="as-a">Routing is static, without live traffic</div><div class="as-b">Live traffic makes edge weights mutable and rules out full precomputation of shortest paths.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">~432 TB</div><div class="ng-desc">raw imagery per day</div></div><div class="ng-cell"><div class="ng-val">~15 GB/s</div><div class="ng-desc">peak ingest if streamed live</div></div><div class="ng-cell"><div class="ng-val">~4.4 T</div><div class="ng-desc">tiles at z0&ndash;z20 worldwide</div></div><div class="ng-cell"><div class="ng-val">~10 KB</div><div class="ng-desc">average tile</div></div><div class="ng-cell"><div class="ng-val">~100 ms</div><div class="ng-desc">tile p99 budget</div></div><div class="ng-cell"><div class="ng-val">&lt;1%</div><div class="ng-desc">tiles ever requested</div></div></div>
+<h4>Ingest: the arithmetic that decides everything</h4>
+
+<p>A thousand vehicles, eight hours a day, at around 15 MB/s of imagery each. That is roughly
+<strong>432 TB per day</strong>, or about 15 GB/s if it were streamed live.</p>
+
+<p>Fifteen gigabytes per second over cellular is not a hard engineering problem; it is an impossible
+one. A single vehicle's 430 GB daily output over a good mobile uplink would take well over a day.</p>
+
+<p>So the pipeline starts with physical media. Vehicles return to a depot, drives are swapped, and the
+full drives are shipped or driven to an ingestion facility. The wire carries only the small things
+&mdash; GPS traces, health telemetry, coverage progress &mdash; which are kilobytes and genuinely do
+travel over the air.</p>
+
+<p>This is worth being comfortable stating. &ldquo;The data moves on a truck&rdquo; sounds like a joke
+and is the correct answer, and it is one of the clearest examples in this guide of an estimate
+producing an architecture rather than validating one.</p>
+
+<h4>Serving: small numbers, easy conclusions</h4>
+
+<p>Tiles are about 10 KB and immutable. A user panning a map fetches a few dozen. With caching at the
+client, the edge, and the CDN, the origin sees a tiny fraction of requests &mdash; and because tiles
+never change, cache hit rates are as high as caching ever gets.</p>
+
+<p>The tile set for a populated region is tens of terabytes. Trivially servable from object storage
+behind a CDN, with no database in the path at all.</p></div>
+</div>
+<div class="design-step tradeoff">
+  <div class="ds-header"><span class="ds-ico">&#9878;</span>6. The key trade-offs</div>
+  <div class="ds-body"><p>The choices, and their costs.</p>
+<div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Imagery upload</strong></td><td class='chosen'>Physical drive shipment</td><td class='rej'>Network upload</td><td>432 TB/day is ~40 Gbps sustained from vehicles on mobile networks. The bandwidth does not exist; a van of drives is the higher-throughput link.</td></tr><tr><td><strong>Tile identity</strong></td><td class='chosen'>Version in the URL path, immutable</td><td class='rej'>Mutable tiles + purge</td><td>Immutable tiles give a near-100% CDN hit rate and delete cache invalidation from the design. Purging trillions of URLs is not a thing you want to operate.</td></tr><tr><td><strong>Deep-zoom tiles</strong></td><td class='chosen'>Render lazily on first request</td><td class='rej'>Pre-render everything</td><td>Under 1% of tiles are ever requested. Pre-rendering the full pyramid is a vast bill for data nobody reads.</td></tr><tr><td><strong>Routing</strong></td><td class='chosen'>Hierarchical / contracted graph</td><td class='rej'>Plain Dijkstra</td><td>A continental route over the full graph explores millions of irrelevant residential edges and cannot meet a 500 ms budget.</td></tr><tr><td><strong>IP&rarr;region</strong></td><td class='chosen'>Sorted array + binary search, in process</td><td class='rej'>Database range query</td><td>Disjoint sorted intervals make this a few megabytes and a memory access. A database round trip per request is pure waste.</td></tr></tbody></table></div>
+<h4>Raster tiles or vector tiles</h4>
+
+<p><strong>Raster</strong> tiles are pre-rendered images. The server does all the work once; the client
+just displays pixels. Serving is a static file fetch and any client can render it.</p>
+
+<p>The costs: every style variant &mdash; light, dark, satellite, transit &mdash; is a complete separate
+render of the whole world, multiplying storage. Rotating or smoothly zooming looks poor, because you are
+transforming a bitmap. And text labels are baked in, so a label cannot be re-drawn in another language
+without re-rendering the tile.</p>
+
+<p><strong>Vector</strong> tiles ship the geometry and let the client render. One tile set serves every
+style, labels can be swapped per language, and rotation and zoom are smooth because the client redraws
+rather than stretches. Storage drops dramatically.</p>
+
+<p>The cost moves to the device: rendering takes CPU and battery, and old or low-end devices &mdash;
+which is what you should assume in an underserved region &mdash; do it poorly.</p>
+
+<p>The honest answer is vector where the device can handle it and raster as a fallback, which is what
+production systems actually do.</p>
+
+<h4>Why routing needs precomputation</h4>
+
+<p>A plain shortest-path search from Lisbon to Warsaw explores a large fraction of the European road
+graph &mdash; millions of nodes. Even efficiently implemented, that does not fit in 500 ms, and
+certainly not at scale.</p>
+
+<p>The standard fix exploits a property of real road networks: long journeys use motorways. So the
+graph is preprocessed into a hierarchy where important roads form a much smaller upper layer. A long
+route searches locally at both ends until it reaches the motorway layer, crosses in that small graph,
+then descends locally at the destination.</p>
+
+<p>The search space collapses by orders of magnitude and the answer is essentially the same route a
+full search would find.</p>
+
+<p>The cost is preprocessing: the hierarchy takes substantial compute to build and must be rebuilt when
+the graph changes. Fine here, because the map is immutable and versioned &mdash; the hierarchy is built
+once per map version alongside the tiles. This is why <em>&ldquo;does routing need live
+traffic?&rdquo;</em> is a clarifying question: mutable edge weights invalidate the preprocessing and
+force a different, much harder design.</p></div>
 </div>
 <div class="design-step arch">
-  <div class="ds-header"><span class="ds-ico">&#127959;</span>5. High-Level Architecture</div>
-  <div class="ds-body">
-<div class="anim" id="anim-maps">
+  <div class="ds-header"><span class="ds-ico">&#127959;</span>7. High-level design</div>
+  <div class="ds-body"><div class="anim" id="anim-maps">
   <div class="an-head">
     <div class="an-title">Build and serve the map &mdash; and the cold CDN every new version creates</div>
     <div class="an-btns">
@@ -14974,85 +15163,174 @@ turns an impossible storage bill into a manageable one.</p></div>
   <div class="an-cap ok-only"><strong>What is moving:</strong> 432&nbsp;TB/day of imagery arrives on <em>physical drives</em>, because that volume cannot go over the air. Conflation turns noisy GPS traces into centrelines, and a build publishes an immutable, versioned tile set that the CDN can cache for a year with no invalidation logic at all.</div>
   <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> immutability has a sting. Because the version is in the URL path, publishing vN+1 changes <em>every tile URL at once</em> &mdash; so the CDN is instantly cold and the origin takes the full load. Roll out <strong>by region</strong> and pre-warm the low zoom levels, which are the overwhelming majority of requests. <span class="srcref">Ch 9</span></div>
 </div>
-<div class="flow">  <span class="fl-key">OFFLINE: BUILD THE MAP</span>              <span class="fl-key">ONLINE: SERVE IT</span>
+<p>Two systems, joined only at publication.</p>
+<div class="flow">  <span class="fl-key">BUILD</span>  throughput-bound, may lag days
 
-  capture vehicles                       client
-  imagery + GPS + LiDAR                    |
-       |                                   v
-       |  <span class="fl-bad">physical drives shipped</span>          <span class="fl-hi">CDN</span>  immutable, versioned tiles
-       |  <span class="fl-dim">(432 TB/day cannot go</span>              |   <span class="fl-dim">~99% hit rate: tiles never change</span>
-       |   <span class="fl-dim">over the air)</span>                    v
-       v                                 <span class="fl-hi">TILE SERVICE</span>
-  <span class="fl-key">INGEST at depot</span>                       lazy render on miss, then cache
-       |                                   |
-       v                                   v
-  <span class="fl-key">ALIGN + CONFLATE</span>                    <span class="fl-hi">ROUTING SERVICE</span>
-  GPS traces -&gt; centrelines             hierarchical: local roads near
-  imagery -&gt; blur faces/plates          the ends, motorway graph in the
-  merge with existing geometry          middle
-       |                                   |
-       v                                   v
-  <span class="fl-key">VERSIONED MAP BUILD</span>  ------------&gt;  <span class="fl-hi">GEO LOOKUP</span> (in-memory interval
-  published atomically as vN            search for coord and IP ranges)
+  capture vehicles  <span class="fl-dim">1,000 &times; 8h &times; 15 MB/s = 432 TB/day</span>
+       |
+       |  <span class="fl-bad">this does not go over the air</span>
+       v
+  <span class="fl-hi">PHYSICAL MEDIA</span> &rarr; depot &rarr; shipped &rarr; ingestion facility
+       |                            <span class="fl-note">GPS traces and telemetry do travel over the network &mdash; they are KB</span>
+       v
+  <span class="fl-hi">CONFLATION</span>  many disagreeing sources &rarr; one geometry
+       |     traces + satellite + prior map + crowd edits
+       |     <span class="fl-note">this step decides whether the map is any good</span>
+       v
+  <span class="fl-hi">RENDER</span>  tiles z0..z20, only where there is detail
+  <span class="fl-hi">BUILD GRAPH</span>  + road hierarchy for fast routing
+       |
+       v
+  <span class="fl-key">PUBLISH</span>  map version v43   <span class="fl-hi">immutable from this moment</span>
+       |
+=======|=================================================
+       v
+  <span class="fl-key">SERVE</span>  latency-bound, cannot lag
 
-  <span class="fl-note">The two halves share nothing but the published artefact. Ingestion may lag</span>
-  <span class="fl-note">by days; serving may not. Coupling them would make a capture backlog into</span>
-  <span class="fl-note">a user-facing outage.</span></div>
-<div class="flow-cap">Immutable versioned tiles are the load-bearing decision: they make the CDN able to
-hold everything, and they remove cache invalidation from the design entirely.</div></div>
+  client &rarr; CDN &rarr; object storage
+       |       <span class="fl-hi">cache forever &mdash; tiles never change</span>
+       |
+       +-- GET /tiles/v43/{z}/{x}/{y}     <span class="fl-dim">a file fetch. no database.</span>
+       +-- POST /route                    <span class="fl-dim">hierarchy search, &lt;500ms</span>
+       +-- GET /region?lat=&amp;lng=          <span class="fl-dim">point-in-polygon</span>
+       +-- GET /offline-pack?bbox=        <span class="fl-note">tiles + graph, for no connectivity</span></div>
+<div class="flow-cap">The version number in the tile path is what makes infinite caching safe. A new
+survey publishes v44; nothing about v43 is ever invalidated, and clients migrate when they choose.</div></div>
+</div>
+<div class="design-step wflow">
+  <div class="ds-header"><span class="ds-ico">&#128260;</span>8. Workflows &mdash; what actually happens</div>
+  <div class="ds-body"><div class="wf">
+  <div class="wf-title">A capture vehicle's day, and where its data goes</div>
+  <div class="wf-sub">Following 430 GB from a camera to a published tile.</div>
+  <ol>
+    <li>The vehicle drives assigned routes for eight hours, recording imagery to local drives and logging GPS continuously. About <b>430 GB</b> by the end of the day.</li>
+    <li>Over the mobile network it sends only small things: its GPS trace, coverage progress, and health telemetry. A few megabytes. This is what the planning system uses to decide tomorrow's routes.</li>
+    <li>At the depot, drives are swapped for empty ones. The full drives are shipped to an ingestion facility.</li>
+    <li>Days later they are ingested. Imagery is decoded, GPS traces are aligned to it, and road geometry is extracted.</li>
+    <li><b>Conflation:</b> this road was driven by three vehicles on three days, whose traces disagree by several metres. Satellite imagery suggests a fourth alignment. These are reconciled into one geometry with a confidence score.</li>
+    <li>Tiles are rendered for the affected area at every zoom level, and the routing graph and its hierarchy are rebuilt.</li>
+    <li>Map version v43 is published. Tiles land in object storage and the region is live.</li>
+  </ol>
+  <div class="wf-out">The end-to-end latency from driving past a road to it appearing in the app is measured in weeks, and that is acceptable because it was declared acceptable in the requirements. Trying to make it real time would change every decision in the pipeline for no user benefit.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">Someone pans the map</div>
+  <div class="wf-sub">Dozens of requests in a second, and almost none reach us.</div>
+  <ol>
+    <li>The client computes which tiles the viewport needs &mdash; at this zoom and position, about 20 of them &mdash; and requests them by coordinate. No server-side spatial query happens at all.</li>
+    <li>Most are already in the client's own cache from a moment ago. Perhaps 6 are actually requested.</li>
+    <li>Those go to the nearest CDN edge. Five are cached there from other users in the same city. One is a miss.</li>
+    <li>The miss fetches from object storage &mdash; a file read, no database &mdash; and is cached at the edge for the next person.</li>
+    <li>The user keeps panning. Every subsequent tile is served from the client or the edge.</li>
+    <li>Because the version is in the path and the content never changes, the cache lifetime is effectively infinite. There is no invalidation logic anywhere in this system.</li>
+  </ol>
+  <div class="wf-out">Immutability is doing all the work. A design where tiles could be edited in place would need cache invalidation across every CDN edge and every client on earth &mdash; and would get it wrong sometimes, which on a map looks like a road that exists in one place and not another.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">A 2,000 km route request</div>
+  <div class="wf-sub">Why the hierarchy exists.</div>
+  <ol>
+    <li>Lisbon to Warsaw. A plain shortest-path search would expand outward from Lisbon until it reached Warsaw &mdash; exploring millions of nodes across most of Europe.</li>
+    <li>Instead, the search starts at both ends and works <b>upward</b> through the road hierarchy: local streets, then arterials, then motorways.</li>
+    <li>Within a few kilometres of each endpoint it reaches the motorway layer, which is a far smaller graph &mdash; thousands of nodes rather than millions.</li>
+    <li>The long middle section is solved entirely in that small upper graph.</li>
+    <li>The two ends are stitched on, and the result is expanded back down into real turn-by-turn instructions.</li>
+    <li>Total: <b>well under 500 ms</b>, and the route is the one the full search would have found, because long journeys genuinely do use motorways.</li>
+  </ol>
+  <div class="wf-out">The preprocessing is affordable precisely because the map is immutable &mdash; the hierarchy is built once per version. Live traffic would make edge weights change every minute and invalidate it continuously, which is a fundamentally harder problem and worth scoping explicitly.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">A user downloads the region for offline use</div>
+  <div class="wf-sub">The requirement that comes free with the premise.</div>
+  <ol>
+    <li>They are about to travel through the newly-mapped region, where they expect little or no signal.</li>
+    <li>They select an area. The client requests an offline pack for that bounding box at map version v43.</li>
+    <li>The server assembles the tiles for that area &mdash; but not at every zoom. Zoom 0&ndash;16 is included; zoom 17&ndash;20 would multiply the size for detail rarely needed offline.</li>
+    <li>It also includes the <b>routing graph</b> for the area, so directions can be computed on the device with no network at all.</li>
+    <li>The pack is a few hundred megabytes, downloaded once over a good connection.</li>
+    <li>Offline, the client renders from local tiles and routes from the local graph. Everything works except live search and anything outside the box.</li>
+    <li>When v44 publishes, the client is told a newer version exists and can download a delta rather than the whole pack.</li>
+  </ol>
+  <div class="wf-out">Versioned immutable data makes the delta possible: the client knows exactly which version it has, and the server can compute precisely what changed between two published versions. With mutable data, "what do I need to update?" has no clean answer.</div>
+</div></div>
 </div>
 <div class="design-step deep">
-  <div class="ds-header"><span class="ds-ico">&#128269;</span>6. Component Deep Dives</div>
-  <div class="ds-body"><p><strong>Routing does not search the whole graph.</strong> A naive Dijkstra from London to
-Rome explores millions of residential streets that no sensible route uses. Real systems exploit
-<em>hierarchy</em>: a long route uses local roads only near its two endpoints and a much smaller
-motorway-class graph in between. Contraction hierarchies formalise this by precomputing shortcut
-edges, turning a continental route into a search over a graph orders of magnitude smaller. The
-trade to state: precomputation assumes static edge weights, so <strong>live traffic and
-contraction hierarchies are in tension</strong> &mdash; production systems recompute periodically
-and apply live weights only near the route.</p>
-<p><strong>Conflation is the genuinely hard part of building the map.</strong> Ten vehicles driving
-the same road produce ten noisy GPS traces that must become one centreline, and next month&rsquo;s
-pass must merge into the existing geometry rather than create a parallel road. This is a clustering
-and map-matching problem, it is where the quality of a map actually comes from, and it is the part
-candidates skip. Mentioning it &mdash; even briefly &mdash; distinguishes someone who has thought
-about building a map from someone who has thought about serving one.</p>
-<p><strong>Immutable versioned tiles remove an entire problem.</strong> Because the map version is
-in the URL path, a tile is never updated in place; a new build is a new set of URLs. That means
-<code>Cache-Control: immutable</code> with a one-year lifetime, a CDN hit rate approaching 100%,
-and <strong>no invalidation logic anywhere</strong>. It is the same move as content-hashed asset
-URLs in <a class="qlink" href="#ch9">Ch 9</a>: make the identity change when the content changes,
-and staleness becomes impossible by construction.</p>
-<p><strong>IP&rarr;region is an interval problem, not a lookup problem.</strong> The naive design
-&mdash; a row per IP, or a <code>WHERE start &lt;= ip AND ip &lt;= end</code> scan &mdash; is
-either impossibly large or unindexable. Because the ranges are disjoint and sorted, the correct
-structure is a sorted array searched by binary search for the largest start below the query. At
-roughly 500K ranges the whole table is a few megabytes and lives in process memory, so the lookup
-never touches the network. Recognising &ldquo;this is interval search over a static sorted array&rdquo;
-turns a database question into an in-memory one.</p>
-<p><strong>Privacy is a hard requirement in capture, not a feature.</strong> Faces and number
-plates must be blurred before imagery is published, which means the blur pipeline sits on the
-critical path of publication and its failure mode must be to <em>block</em> the build. A missed
-blur is a legal incident, not a bug, so the correct behaviour on model uncertainty is to over-blur.</p></div>
-</div>
-<div class="design-step tradeoff">
-  <div class="ds-header"><span class="ds-ico">&#9878;</span>7. Trade-off Analysis</div>
-  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Imagery upload</strong></td><td class='chosen'>Physical drive shipment</td><td class='rej'>Network upload</td><td>432 TB/day is ~40 Gbps sustained from vehicles on mobile networks. The bandwidth does not exist; a van of drives is the higher-throughput link.</td></tr><tr><td><strong>Tile identity</strong></td><td class='chosen'>Version in the URL path, immutable</td><td class='rej'>Mutable tiles + purge</td><td>Immutable tiles give a near-100% CDN hit rate and delete cache invalidation from the design. Purging trillions of URLs is not a thing you want to operate.</td></tr><tr><td><strong>Deep-zoom tiles</strong></td><td class='chosen'>Render lazily on first request</td><td class='rej'>Pre-render everything</td><td>Under 1% of tiles are ever requested. Pre-rendering the full pyramid is a vast bill for data nobody reads.</td></tr><tr><td><strong>Routing</strong></td><td class='chosen'>Hierarchical / contracted graph</td><td class='rej'>Plain Dijkstra</td><td>A continental route over the full graph explores millions of irrelevant residential edges and cannot meet a 500 ms budget.</td></tr><tr><td><strong>IP&rarr;region</strong></td><td class='chosen'>Sorted array + binary search, in process</td><td class='rej'>Database range query</td><td>Disjoint sorted intervals make this a few megabytes and a memory access. A database round trip per request is pure waste.</td></tr></tbody></table></div></div>
-</div>
-<div class="design-step fault">
-  <div class="ds-header"><span class="ds-ico">&#128737;</span>8. Fault Tolerance</div>
-  <div class="ds-body"><div class="ft-row"><div class="ft-fail">A capture drive is lost or corrupt</div><div class="ft-fix">Vehicles checksum on write and retain data until the depot acknowledges ingestion. The affected road segments are simply re-queued for a future pass &mdash; capture is idempotent by design because roads do not move.</div></div><div class="ft-row"><div class="ft-fail">A bad map build is published</div><div class="ft-fix">Versions are immutable and published atomically, so rollback is repointing clients at the previous version. Gate publication on automated checks: total road length within a few per cent of the prior build, no region losing connectivity, zero unblurred faces in a sample.</div></div><div class="ft-row"><div class="ft-fail">Routing service unavailable</div><div class="ft-fix">Serve tiles regardless &mdash; a map you can look at is still useful. Clients that downloaded an offline routing pack keep routing locally, which is why the offline pack is a resilience feature and not only a connectivity one.</div></div><div class="ft-row"><div class="ft-fail">Conflation merges two roads wrongly</div><div class="ft-fix">Detect with topology invariants: a build that creates a dead end where a through road existed, or doubles the road length in a cell, is rejected. Geometry errors are far easier to catch as invariant violations than by inspection.</div></div><div class="ft-row"><div class="ft-fail">CDN origin overload after a new version publishes</div><div class="ft-fix">A new version invalidates every cached tile at once, which is a cold-cache stampede. Stagger the rollout by region and pre-warm the low zooms, which are the overwhelming majority of requests. <span class="srcref">Ch 9</span></div></div></div>
-</div>
-<div class="design-step concl">
-  <div class="ds-header"><span class="ds-ico">&#127937;</span>9. Conclusion &mdash; what I would say in the last three minutes</div>
-  <div class="ds-body"><div class="concl-grid">
+  <div class="ds-header"><span class="ds-ico">&#128269;</span>9. Deep dives, and what breaks</div>
+  <div class="ds-body"><h4>Conflation, and why it is the hard part</h4>
+
+<p>Everything else in the build pipeline is mechanical. This step is judgement, at scale.</p>
+
+<p>The inputs disagree by construction. GPS is accurate to a few metres at best and much worse near tall
+buildings. Three passes of the same road produce three different lines. Satellite imagery offers a
+fourth opinion with different error characteristics. A crowd-sourced edit claims a change nobody has
+driven.</p>
+
+<p>The output must be one geometry, and it must be topologically sound: roads meeting at an intersection
+have to actually connect in the graph, or routing produces impossible detours around a junction that
+exists in reality and not in the data.</p>
+
+<p>That topological requirement is what makes this hard rather than merely noisy. Averaging three traces
+gives a plausible line; ensuring the averaged lines still meet correctly at every junction is a
+different and much harder problem. Confidence scores per feature, and a review queue for low-confidence
+ones, are what makes it manageable &mdash; along with accepting that some areas are simply published at
+lower accuracy, flagged as such.</p>
+
+<h4>Planning the capture</h4>
+
+<p>An easy component to overlook and a genuinely interesting one. A thousand vehicles is a scheduling
+problem: which roads, in what order, and how do you know when a region is covered?</p>
+
+<p>The uploaded GPS traces are the feedback signal. Roads driven are marked covered; a coverage map is
+maintained and the gaps drive tomorrow's routes. Roads may need multiple passes &mdash; different
+lighting, different lanes, a first pass with poor GPS lock.</p>
+
+<p>Prioritisation matters for the same reason it did in <span class="srcref">D10</span>: with a fixed
+capture budget, the order determines what the map actually contains. Population density and road class
+dominate, so major roads in populated areas come first and the long tail of rural lanes comes later.</p>
+
+<h4>What IP-to-region actually gives you</h4>
+
+<p>Worth being precise about, because it is commonly overstated.</p>
+
+<p>The lookup itself is straightforward: a table of address ranges mapped to locations, resolved by
+longest-prefix match. Fast, small, easy.</p>
+
+<p>The <em>data</em> is the problem. It locates the network, not the person. A mobile carrier may route
+a whole country's traffic through a couple of gateways, so every user appears to be in one city. A VPN
+relocates the user entirely. Corporate networks appear at headquarters.</p>
+
+<p>So it is fine for coarse defaults &mdash; which country's map style, which language, which units
+&mdash; and unsuitable for anything requiring real accuracy. An interviewer asking about this is often
+checking whether you will overstate what it can do.</p>
+
+<h4>Publishing a new version safely</h4>
+
+<p>A new map version is an enormous, atomic-feeling change, and it deserves the same caution as a model
+rollout in <span class="srcref">D15</span>.</p>
+
+<p>Because versions are immutable and addressed separately, the switch is a configuration change: clients
+are told which version to request. So it can be staged &mdash; a small percentage of users first, then
+by region, then everyone &mdash; and rolled back instantly, since the previous version is still fully
+present.</p>
+
+<p>What to watch during the stage is not server metrics. The interesting regressions are things like a
+rise in re-routes, an increase in users abandoning navigation, or a drop in tile requests for an area
+that suggests something renders wrong. Those are product signals, and they are the only way to detect
+that a map version is worse rather than merely different.</p>
+
+<h4>What breaks</h4>
+
+<div class="ft-row"><div class="ft-fail">A capture drive is lost or corrupt</div><div class="ft-fix">Vehicles checksum on write and retain data until the depot acknowledges ingestion. The affected road segments are simply re-queued for a future pass &mdash; capture is idempotent by design because roads do not move.</div></div><div class="ft-row"><div class="ft-fail">A bad map build is published</div><div class="ft-fix">Versions are immutable and published atomically, so rollback is repointing clients at the previous version. Gate publication on automated checks: total road length within a few per cent of the prior build, no region losing connectivity, zero unblurred faces in a sample.</div></div><div class="ft-row"><div class="ft-fail">Routing service unavailable</div><div class="ft-fix">Serve tiles regardless &mdash; a map you can look at is still useful. Clients that downloaded an offline routing pack keep routing locally, which is why the offline pack is a resilience feature and not only a connectivity one.</div></div><div class="ft-row"><div class="ft-fail">Conflation merges two roads wrongly</div><div class="ft-fix">Detect with topology invariants: a build that creates a dead end where a through road existed, or doubles the road length in a cell, is rejected. Geometry errors are far easier to catch as invariant violations than by inspection.</div></div><div class="ft-row"><div class="ft-fail">CDN origin overload after a new version publishes</div><div class="ft-fix">A new version invalidates every cached tile at once, which is a cold-cache stampede. Stagger the rollout by region and pre-warm the low zooms, which are the overwhelming majority of requests. <span class="srcref">Ch 9</span></div></div><div class="concl-grid">
   <div class="cc"><div class="h">The dominant constraint</div><p><strong>Building the map and serving it are different systems.</strong> Ingestion is throughput-bound and may lag days; serving is latency-bound and may not. They share only an immutable published artefact, and coupling them would turn a capture backlog into a user-facing outage.</p></div>
   <div class="cc first"><div class="h">What I would build first</div><p>Immutable versioned tiles behind a CDN. That single decision gives a near-100% hit rate and removes cache invalidation from the design entirely.</p></div>
   <div class="cc"><div class="h">What I deliberately did not build</div><p>Live traffic, which makes edge weights mutable and fights the precomputation routing depends on, and crowd-sourced edits, which make moderation a whole subsystem.</p></div>
   <div class="cc risk"><div class="h">The biggest risk</div><p>Conflation quality. Nothing crashes when traces merge badly; the map is simply wrong, and wrong maps are discovered by users rather than by monitoring. Topology invariants on each build are the only cheap defence.</p></div>
 </div></div>
 </div>
-  
+
 <div class="followup">
   <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
   <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
@@ -15073,75 +15351,150 @@ blur is a legal incident, not a bug, so the correct behaviour on model uncertain
     <div class="fu-a"><p>Topology invariants, because geometry errors are far easier to catch as rule violations than by looking. Total road length within a few percent of the previous build. No region losing connectivity that previously had it. No through-road becoming a dead end.</p><p>Plus a privacy gate: zero unblurred faces or plates in a sample. That one blocks the build rather than warning, because a missed blur is a legal incident rather than a bug.</p></div>
   </details>
 </div>
+  </div>
 </div>
-</div>
+
 <div class="design-card">
   <div class="dc-header">
     <h3 class="dc-title"><span id="design-fleet-upgrade">Design a Fleet Upgrade System</span> (&ldquo;upgrade 5,000 servers&rdquo; &mdash; and the same question on the Moon)</h3>
     <div class="dc-meta">Difficulty: <strong>Hard (Staff Expectation)</strong> &nbsp;.&nbsp; Target: <strong>40 min</strong></div>
   </div>
-  <div class="dc-body"><div class="asked">
+  <div class="dc-body">
+<div class="asked">
   <div class="ak-q"><span class="ak-l">&#128172; The question, as asked</span><p>&ldquo;How would you upgrade 5,000 servers?&rdquo; &mdash; and its harder variant, &ldquo;how would you upgrade hundreds of thousands of machines on the Moon?&rdquo;</p></div>
   <div class="ak-h"><span class="ak-l">&#9889; What makes it hard</span><p>The second version is a <strong>latency question in costume</strong>. At a 1.3-second one-way light delay, every synchronous control protocol you know stops working, and the fix is architectural rather than a longer timeout.</p></div>
 </div>
-
 <div class="design-step req">
-  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Requirements</div>
-  <div class="ds-body"><div class="clarify">
+  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Understanding the question</div>
+  <div class="ds-body"><p>The prompt: <em>&ldquo;How would you upgrade 5,000 servers?&rdquo;</em> &mdash; and its
+harder variant, <em>&ldquo;how would you upgrade hundreds of thousands of machines on the
+Moon?&rdquo;</em></p>
+
+<p>The first version sounds like an operations task and is really a question about blast radius. The
+second is a latency question wearing a costume, and it is worth recognising that quickly.</p>
+
+<h4>The first version</h4>
+
+<p>Upgrading one server is trivial. Upgrading 5,000 is not 5,000 times harder &mdash; it is a different
+problem, because the failure you are designing against is not <em>&ldquo;a machine fails to
+upgrade&rdquo;</em> but <em>&ldquo;the new version is broken and we just put it everywhere.&rdquo;</em></p>
+
+<div class="insight">
+  <div class="label">&#127919; What you are really designing</div>
+  <p>Not a deployment mechanism &mdash; a <strong>controlled experiment with an abort condition</strong>.
+  Change a small number of machines, watch what happens, and only proceed if nothing got worse.</p>
+  <p>Which means the interesting components are the health check and the halt logic, not the part that
+  copies a binary.</p>
+</div>
+
+<h4>The Moon version</h4>
+
+<p>Light takes about 1.3 seconds to reach the Moon, so the minimum round trip is <strong>2.6
+seconds</strong>. That is physics; no network engineering reduces it.</p>
+
+<p>Now consider what an ordinary orchestrator does: tell a machine to upgrade, wait for acknowledgement,
+check health, tell it to proceed. Four round trips is over ten seconds of pure waiting per machine, per
+step. Across hundreds of thousands of machines, sequenced, the rollout takes years.</p>
+
+<p>The fix is not a longer timeout. It is <strong>architectural: move the decision to the
+machine.</strong> Instead of the orchestrator driving each step, it publishes a desired state &mdash;
+&ldquo;the target version is 4.2, wave 3 should be at it by now&rdquo; &mdash; and an autonomous agent
+on each machine reads it, decides what to do, does it, verifies locally, and reports asynchronously.</p>
+
+<p>The control loop closes on the machine. The orchestrator observes rather than commands, and the
+light delay becomes irrelevant because nothing is waiting on a round trip.</p>
+
+<p>That reframing &mdash; <strong>from imperative orchestration to declarative desired state</strong>
+&mdash; is the answer to the Moon question, and it happens to be the better design for the terrestrial
+version too.</p>
+
+<h4>What they are looking for</h4>
+
+<p><strong>Do you identify the irreversible steps first?</strong> A schema migration or a disk format
+change cannot be rolled back, and everything else in the plan assumes a rollback exists.</p>
+
+<p><strong>Do you make the orchestrator crash-safe?</strong> It will restart mid-rollout, and machines
+must not be stranded.</p>
+
+<p><strong>Do you ask whether the machines are stateful?</strong> It changes what bounds the rate.</p>
+<div class="clarify">
   <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
   <div class="cq-row"><div class="cq-q">Can the service tolerate any capacity loss during the upgrade?</div><div class="cq-w">If yes, rolling batches work. If not, you need spare capacity or blue-green, which roughly doubles hardware cost for the duration.</div></div><div class="cq-row"><div class="cq-q">Is the upgrade reversible?</div><div class="cq-w">A binary rollback is easy; a schema migration or a disk-format change often is not. <strong>Irreversible steps must be identified before the first machine is touched</strong>, because they remove the safety net everything else assumes.</div></div><div class="cq-row"><div class="cq-q">Are the machines stateful?</div><div class="cq-w">Stateless replacement is trivial. Stateful nodes need data to be drained or re-replicated first, and the upgrade rate is then bounded by re-replication bandwidth, not by machine count.</div></div><div class="cq-row"><div class="cq-q">What is the round-trip latency to the fleet?</div><div class="cq-w">This is the Moon variant, and it is a real question. At a 1.3-second one-way delay, no synchronous orchestration protocol works and the agent must be autonomous.</div></div><div class="cq-row"><div class="cq-q">What is the maintenance window, and is there one at all?</div><div class="cq-w">A global service has no quiet hour, which forces the design toward continuous safe rollout rather than a scheduled event.</div></div>
   <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
 </div>
-<p><strong>Functional:</strong></p>
-<ul>
-  <li>Roll a new version across N machines with a controlled, observable blast radius</li>
-  <li>Halt automatically on a health regression, and roll back without human intervention</li>
-  <li>Track per-machine state: pending, draining, upgrading, verifying, done, failed</li>
-  <li>Resume correctly after the orchestrator itself restarts mid-rollout</li>
+</div>
+</div>
+<div class="design-step fr">
+  <div class="ds-header"><span class="ds-ico">&#128221;</span>2. Functional requirements</div>
+  <div class="ds-body"><ul>
+  <li><strong>Roll a new version across N machines</strong> with a controlled, observable blast
+  radius.</li>
+  <li><strong>Halt automatically on a health regression</strong>, and roll back without a human.</li>
+  <li><strong>Track per-machine state:</strong> pending, draining, upgrading, verifying, done,
+  failed.</li>
+  <li><strong>Resume correctly after the orchestrator restarts</strong> mid-rollout.</li>
 </ul>
-<p><strong>Non-Functional:</strong></p>
-<ul>
-  <li>Never take more than a configured fraction of capacity out of service at once</li>
-  <li>Complete 5,000 machines within a working day; tolerate weeks for a high-latency fleet</li>
-  <li>The orchestrator must be <strong>crash-safe</strong> &mdash; its own failure must not strand machines mid-upgrade</li>
-</ul></div>
-</div>
-<div class="design-step est">
-  <div class="ds-header"><span class="ds-ico">&#128202;</span>2. Capacity Estimation</div>
-  <div class="ds-body"><div class="assume">
-  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
-  <div class="as-row"><div class="as-a">5,000 machines, ~4 minutes per machine end to end</div><div class="as-b">If a machine took an hour &mdash; a large database re-replicating &mdash; batch size stops being the limit and data movement does.</div></div><div class="as-row"><div class="as-a">Stateless services; capacity is fungible</div><div class="as-b">Stateful nodes make the rate bound re-replication bandwidth, and the whole plan changes.</div></div><div class="as-row"><div class="as-a">The fleet can lose 5% of capacity safely</div><div class="as-b">If it can only lose 1%, the rollout takes five times as long, which may exceed the window and force blue-green instead.</div></div>
-</div>
-<p><strong>Assumptions:</strong> 5,000 machines, 4 min per machine, 5% concurrent budget.</p><div class="ng"><div class="ng-cell"><div class="ng-val">250</div><div class="ng-desc">machines per wave at 5%</div></div><div class="ng-cell"><div class="ng-val">20</div><div class="ng-desc">waves</div></div><div class="ng-cell"><div class="ng-val">~80 min</div><div class="ng-desc">theoretical minimum</div></div><div class="ng-cell"><div class="ng-val">~4 h</div><div class="ng-desc">realistic with bake time</div></div><div class="ng-cell"><div class="ng-val">1.3 s</div><div class="ng-desc">one-way light delay, Moon</div></div><div class="ng-cell"><div class="ng-val">~2.6 s</div><div class="ng-desc">minimum RPC round trip there</div></div></div><p><strong>The number that changes everything in the Moon variant:</strong> a 2.6-second minimum
-round trip makes any synchronous control loop unusable &mdash; a health check, a lock renewal or a
-heartbeat that assumes millisecond RTT will time out constantly. The correct response is not a
-longer timeout. It is to <strong>invert control</strong>: the orchestrator publishes a desired
-state, and autonomous agents on each machine pull it, act, verify locally, and report back
-asynchronously. <em>The Moon question is a test of whether you notice that latency changes the
-architecture, not the configuration.</em></p></div>
-</div>
-<div class="design-step api">
-  <div class="ds-header"><span class="ds-ico">&#128268;</span>3. API Design</div>
-  <div class="ds-body"><div class="api-code"><span class="kw">POST</span>   /v1/rollouts
-  Body:     { target_selector, artifact, strategy:{ batch_pct, bake_s,
-              halt_on:{ error_rate_delta, latency_p99_delta } } }
-  Response: 201 { rollout_id, state:"planning" }
 
-<span class="kw">POST</span>   /v1/rollouts/{id}:pause | :resume | :abort
-  <span class="cm">// abort rolls back completed batches; pause freezes in place</span>
+<h4>Identify the irreversible steps before touching anything</h4>
 
-<span class="kw">GET</span>    /v1/rollouts/{id}  -&gt; { state, waves_done, in_flight,
-                            failed[], health_delta }
+<p>The most important requirement, and the one most often discovered too late.</p>
 
-<span class="cm">// AGENT-FACING -- pull, not push. This is what makes the design work</span>
-<span class="cm">// across a high-latency link and survive an orchestrator restart.</span>
-<span class="kw">GET</span>    /v1/agent/desired?machine_id=  -&gt; { version, action, token }
-<span class="kw">POST</span>   /v1/agent/report                Body: { machine_id, state,
-                                              version, health, token }</div></div>
+<p>A binary swap is reversible: put the old one back. A configuration change is reversible. But a
+<strong>database schema migration, an on-disk format change, or a protocol version bump that the old
+code cannot read</strong> is not. Once a machine has upgraded, it cannot go back, and neither can
+anything that now depends on it.</p>
+
+<p>This matters because the entire rollout strategy rests on &ldquo;if it goes wrong, roll back&rdquo;.
+Where that is false, you need a different strategy &mdash; typically splitting the change into
+reversible stages: first deploy code that can read <em>both</em> formats, then migrate the data, then
+remove the old path. Each stage is individually reversible even though the sequence is not.</p>
+
+<p>Saying <em>&ldquo;before I design the rollout, which steps cannot be undone?&rdquo;</em> is the
+clearest staff signal in this question.</p>
+
+<h4>Crash-safe, which is a real requirement not a nicety</h4>
+
+<p>A rollout takes hours. The orchestrator will be restarted during one &mdash; a deploy, a node
+failure, a routine rotation.</p>
+
+<p>If its state lives in memory, a restart means it no longer knows which machines are mid-upgrade.
+Machines sit drained and out of service with nothing coming to finish them, and the only recovery is
+manual. The state must therefore be durable and the orchestrator must be able to reconstruct exactly
+where it was &mdash; which makes this a database-backed state machine rather than a script.</p></div>
+</div>
+<div class="design-step nfr">
+  <div class="ds-header"><span class="ds-ico">&#9201;</span>3. Non-functional requirements</div>
+  <div class="ds-body"><div class="tw"><table class="to">
+<thead><tr><th style="width:26%">Requirement</th><th style="width:24%">Target</th><th style="width:50%">What it forces</th></tr></thead>
+<tbody>
+<tr><td><strong>Capacity loss</strong></td><td class="chosen">&le; 5% at once</td><td>The core safety constraint. It sets the wave size and therefore the total duration &mdash; the two are inversely linked and you cannot improve both.</td></tr>
+<tr><td><strong>Duration</strong></td><td>5,000 in a working day</td><td>Comfortable at 5% waves. It stops being comfortable at 1%, which is exactly the tension to surface.</td></tr>
+<tr><td><strong>Halt on regression</strong></td><td>Automatic</td><td>No human in the loop. A rollout at 3am must stop itself, because the alternative is discovering it at 9am.</td></tr>
+<tr><td><strong>Orchestrator crash</strong></td><td class="chosen">Must not strand machines</td><td>Durable state, idempotent steps, and reconstruct-on-restart.</td></tr>
+<tr><td><strong>Control latency</strong></td><td>Up to 2.6 s round trip</td><td>The Moon variant. It rules out synchronous orchestration entirely and forces autonomous agents.</td></tr>
+<tr><td><strong>Rollback</strong></td><td>Automatic where possible</td><td>And explicitly identified where it is not, which is the more important half.</td></tr>
+</tbody></table></div>
+
+<h4>The arithmetic linking wave size and duration</h4>
+
+<p>At 5% concurrency, 5,000 machines is 250 per wave and 20 waves. At about four minutes per machine,
+the theoretical minimum is around 80 minutes.</p>
+
+<p>In practice it is several hours, because each wave needs a <strong>bake period</strong> &mdash; time
+after upgrading to observe whether anything degrades. Problems do not appear the instant a process
+restarts; a memory leak or a slow resource exhaustion takes tens of minutes to show. Waves that proceed
+immediately would have all 5,000 machines upgraded before the first bad symptom appears, which defeats
+the entire purpose.</p>
+
+<p>Now drop to 1% concurrency: 50 machines per wave, 100 waves, and the rollout no longer fits in a day.
+At that point the answer is not a faster rollout but a <strong>different strategy</strong> &mdash;
+blue-green, where a parallel fleet is built and traffic switched, at roughly double the hardware cost
+for the duration. Naming that threshold is better than assuming either approach.</p></div>
 </div>
 <div class="design-step schema">
-  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="kw">TABLE</span> rollouts {
+  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Data model and API</div>
+  <div class="ds-body"><p>The whole system is a durable state machine, and the state table is the design.</p>
+<div class="schema-code"><span class="kw">TABLE</span> rollouts {
   rollout_id <span class="ty">UUID</span> <span class="pk">PRIMARY KEY</span>, artifact <span class="ty">TEXT</span>,
   strategy <span class="ty">JSONB</span>, state <span class="ty">ENUM</span>(planning, running, paused, halted,
   rolled_back, done), started_at <span class="ty">TIMESTAMP</span>
@@ -15161,12 +15514,146 @@ architecture, not the configuration.</em></p></div>
   updated_at   <span class="ty">TIMESTAMP</span>
 }
 <span class="cm">-- INDEX: (rollout_id, state) -- "how many are in flight?" is the</span>
-<span class="cm">-- query the concurrency budget is enforced with, every tick.</span></div></div>
+<span class="cm">-- query the concurrency budget is enforced with, every tick.</span></div>
+<p>Every machine has a row with its current state and target version. The orchestrator's job is to move
+rows through states, and because the state is durable, a restart loses nothing: it reads the table and
+continues.</p>
+
+<p>The states are worth walking through, because each exists for a reason:</p>
+
+<ul>
+  <li><strong>pending</strong> &mdash; not yet in a wave.</li>
+  <li><strong>draining</strong> &mdash; removed from the load balancer, finishing in-flight work. The
+  step people forget, and the one that turns a rollout into an error spike when omitted.</li>
+  <li><strong>upgrading</strong> &mdash; the change is being applied.</li>
+  <li><strong>verifying</strong> &mdash; the machine is up and checking itself before taking traffic.</li>
+  <li><strong>done</strong> &mdash; serving on the new version.</li>
+  <li><strong>failed</strong> &mdash; needs attention, and critically, is <em>not</em> retried
+  indefinitely.</li>
+</ul>
+
+<h4>Every step must be idempotent</h4>
+
+<p>The orchestrator can crash between deciding to do something and recording that it did. On restart it
+will see a machine in <code>upgrading</code> and not know whether the upgrade happened.</p>
+
+<p>The only safe resolution is for every step to be safe to repeat. &ldquo;Install version 4.2&rdquo; on
+a machine already running 4.2 must be a no-op, not an error and not a reinstall. &ldquo;Drain&rdquo; on
+an already-drained machine likewise.</p>
+
+<p>With idempotent steps the recovery is trivial: re-issue whatever the state says is in progress. Without
+them it requires reconciliation logic that is almost always subtly wrong.</p>
+
+<h4>Desired state, for the high-latency case</h4>
+
+<p>For the Moon variant, the orchestrator does not issue commands at all. It publishes a small document:
+the target version, which wave each machine belongs to, and which waves are cleared to proceed.</p>
+
+<p>Agents poll it on their own schedule, compare it to their local state, and act. Their reports flow
+back asynchronously and update the table. The 2.6-second round trip affects <em>how stale the
+orchestrator's view is</em>, not how fast anything proceeds &mdash; which is the whole point.</p>
+
+<h4>The API</h4>
+<div class="api-code"><span class="kw">POST</span>   /v1/rollouts
+  Body:     { target_selector, artifact, strategy:{ batch_pct, bake_s,
+              halt_on:{ error_rate_delta, latency_p99_delta } } }
+  Response: 201 { rollout_id, state:"planning" }
+
+<span class="kw">POST</span>   /v1/rollouts/{id}:pause | :resume | :abort
+  <span class="cm">// abort rolls back completed batches; pause freezes in place</span>
+
+<span class="kw">GET</span>    /v1/rollouts/{id}  -&gt; { state, waves_done, in_flight,
+                            failed[], health_delta }
+
+<span class="cm">// AGENT-FACING -- pull, not push. This is what makes the design work</span>
+<span class="cm">// across a high-latency link and survive an orchestrator restart.</span>
+<span class="kw">GET</span>    /v1/agent/desired?machine_id=  -&gt; { version, action, token }
+<span class="kw">POST</span>   /v1/agent/report                Body: { machine_id, state,
+                                              version, health, token }</div></div>
+</div>
+<div class="design-step est">
+  <div class="ds-header"><span class="ds-ico">&#128202;</span>5. Capacity estimation</div>
+  <div class="ds-body"><p>The numbers, and the trade they expose.</p>
+<div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">5,000 machines, ~4 minutes per machine end to end</div><div class="as-b">If a machine took an hour &mdash; a large database re-replicating &mdash; batch size stops being the limit and data movement does.</div></div><div class="as-row"><div class="as-a">Stateless services; capacity is fungible</div><div class="as-b">Stateful nodes make the rate bound re-replication bandwidth, and the whole plan changes.</div></div><div class="as-row"><div class="as-a">The fleet can lose 5% of capacity safely</div><div class="as-b">If it can only lose 1%, the rollout takes five times as long, which may exceed the window and force blue-green instead.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">250</div><div class="ng-desc">machines per wave at 5%</div></div><div class="ng-cell"><div class="ng-val">20</div><div class="ng-desc">waves</div></div><div class="ng-cell"><div class="ng-val">~80 min</div><div class="ng-desc">theoretical minimum</div></div><div class="ng-cell"><div class="ng-val">~4 h</div><div class="ng-desc">realistic with bake time</div></div><div class="ng-cell"><div class="ng-val">1.3 s</div><div class="ng-desc">one-way light delay, Moon</div></div><div class="ng-cell"><div class="ng-val">~2.6 s</div><div class="ng-desc">minimum RPC round trip there</div></div></div>
+<p>Five thousand machines at 5% concurrency is 250 per wave, 20 waves. Four minutes per machine
+end-to-end &mdash; drain, upgrade, restart, verify, return to service &mdash; gives a theoretical 80
+minutes.</p>
+
+<p>Add a bake period of 10&ndash;15 minutes per wave and it becomes four hours or so. That bake time is
+the majority of the rollout and it is not waste; it is the only thing that makes the safety mechanism
+work. <strong>A rollout with no bake period has a blast radius of 100% regardless of its wave
+size</strong>, because every machine is upgraded before the first symptom appears.</p>
+
+<h4>The stateful case changes the bound entirely</h4>
+
+<p>The above assumes stateless machines where capacity is fungible. If the machines hold data &mdash;
+database nodes, storage nodes &mdash; then taking one out means its replicas carry the load and, if it
+is out long enough, its data must be re-replicated elsewhere.</p>
+
+<p>Re-replicating a node holding several terabytes takes hours and consumes network bandwidth shared
+with production traffic. <strong>The rollout rate is now bounded by re-replication bandwidth, not by
+machine count</strong>, and a fleet of 500 storage nodes may take longer to upgrade than 5,000 stateless
+ones.</p>
+
+<p>This is why &ldquo;are the machines stateful?&rdquo; is a clarifying question rather than a detail:
+it changes which quantity you are estimating.</p>
+
+<h4>And the Moon</h4>
+
+<p>Hundreds of thousands of machines at 2.6 seconds round trip. Sequenced synchronously, at four round
+trips per machine, the arithmetic gives years.</p>
+
+<p>With autonomous agents, the constraint disappears. Agents act in parallel without waiting for anyone,
+and the round trip only delays <em>reporting</em>. The rollout duration becomes a function of wave size
+and bake time, exactly as on Earth &mdash; measured in days or weeks because the fleet is larger, not
+because the link is slow.</p></div>
+</div>
+<div class="design-step tradeoff">
+  <div class="ds-header"><span class="ds-ico">&#9878;</span>6. The key trade-offs</div>
+  <div class="ds-body"><p>The choices, and their costs.</p>
+<div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Control direction</strong></td><td class='chosen'>Agents pull desired state</td><td class='rej'>Orchestrator pushes commands</td><td>Pull makes the orchestrator stateless and crash-safe, handles offline machines for free, and is the only thing that works at multi-second RTT.</td></tr><tr><td><strong>Wave sizing</strong></td><td class='chosen'>Exponential: 1, 10, 100, 250</td><td class='rej'>Equal batches</td><td>Equal batches risk as much on the first wave as the last, and discard the cheapest information available.</td></tr><tr><td><strong>Verification</strong></td><td class='chosen'>Local, on the agent</td><td class='rej'>Central health check</td><td>A central check needs a round trip per machine and cannot act during a network partition. Local verification lets a machine roll itself back unattended.</td></tr><tr><td><strong>Rollout state</strong></td><td class='chosen'>In a database, one row per machine</td><td class='rej'>In orchestrator memory</td><td>In-memory state means an orchestrator crash strands machines mid-upgrade with no record of intent.</td></tr><tr><td><strong>Regression baseline</strong></td><td class='chosen'>Concurrent not-yet-upgraded machines</td><td class='rej'>Yesterday&rsquo;s metrics</td><td>Comparing against history confuses diurnal patterns and unrelated incidents with a real regression, in both directions.</td></tr></tbody></table></div>
+<h4>Rolling or blue-green</h4>
+
+<p><strong>Rolling</strong> upgrades machines in waves within the existing fleet. It needs no extra
+hardware and it is gradual, so a problem is caught with a small fraction affected. The costs: the fleet
+runs mixed versions for hours, which means both versions must interoperate; rollback is another slow
+rolling operation; and you are always running at reduced capacity.</p>
+
+<p><strong>Blue-green</strong> builds a complete parallel fleet on the new version and switches traffic
+at once. Rollback is instant &mdash; switch back &mdash; there is no mixed-version period, and the new
+fleet can be fully validated before it takes any traffic.</p>
+
+<p>The cost is roughly double the hardware for the duration, and the switch is all-or-nothing: if the
+problem only appears under real production traffic, you have discovered it with 100% exposure rather
+than 5%.</p>
+
+<p>The choice usually comes down to the capacity budget. If you can only lose 1%, rolling takes too long
+and blue-green is the answer despite the cost. A canary stage in front of a blue-green switch recovers
+most of the gradual-exposure benefit.</p>
+
+<h4>Version skew, which rolling forces you to handle</h4>
+
+<p>For hours, some machines run 4.1 and some run 4.2, and they talk to each other. This is not an edge
+case; it is the guaranteed state of the fleet during every rolling deploy.</p>
+
+<p>Which means <strong>every change must be compatible with the version before it</strong>. A new field
+must be optional. A removed field must be deprecated in one release and removed in the next. A protocol
+change must be negotiated, not assumed.</p>
+
+<p>The discipline that makes this work is <strong>expand then contract</strong>: first release code that
+handles both old and new, deploy it everywhere, then release code that only produces the new form. Two
+deploys instead of one, and it is what makes rollback possible at every intermediate point.</p>
+
+<p>It is also why irreversible changes are so dangerous: they usually arise from skipping this and doing
+both halves at once.</p></div>
 </div>
 <div class="design-step arch">
-  <div class="ds-header"><span class="ds-ico">&#127959;</span>5. High-Level Architecture</div>
-  <div class="ds-body">
-<div class="anim" id="anim-fleet-upgrade">
+  <div class="ds-header"><span class="ds-ico">&#127959;</span>7. High-level design</div>
+  <div class="ds-body"><div class="anim" id="anim-fleet-upgrade">
   <div class="an-head">
     <div class="an-title">Staged rollout &mdash; and the halt that stops 10 machines becoming 5,000</div>
     <div class="an-btns">
@@ -15204,89 +15691,164 @@ architecture, not the configuration.</em></p></div>
   <div class="an-cap ok-only"><strong>What is moving:</strong> the orchestrator writes a <em>desired version</em> into a table and agents <strong>pull</strong> it &mdash; nothing is ever pushed. Waves grow exponentially (1, then 10, then 100) with bake time between them, because the first machine buys the cheapest information you will ever get.</div>
   <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong &mdash; and is caught:</span> wave 2 shows an error-rate regression against the <em>concurrently running</em> old version. The rollout halts automatically and rolls back the completed waves; wave 3 never starts. <strong>Ten machines were affected instead of five thousand</strong> &mdash; which is the entire purpose of the design. Note the comparison must be against a live baseline, not yesterday, or a diurnal dip reads as a regression.</div>
 </div>
-<div class="flow">  <span class="fl-key">ORCHESTRATOR</span>  (stateless; all state is in the table)
-      |
-      |  every tick:
-      |    1. count machines not in {done, failed}   <span class="fl-dim">-- the budget</span>
-      |    2. if under budget, promote N pending -&gt; desired_ver
-      |    3. compare canary health vs baseline; halt if regressed
-      v
-  <span class="fl-key">DESIRED STATE TABLE</span>   one row per machine, fencing token per order
-      ^
-      |  <span class="fl-hi">agents PULL</span>  (never pushed to)
-      |
-  +---+-----------+-----------+-----------+
-  |               |           |           |
-  <span class="fl-hi">agent</span>           <span class="fl-hi">agent</span>       <span class="fl-hi">agent</span>       <span class="fl-hi">agent</span>     ... x5000
-  drain -&gt; upgrade -&gt; verify locally -&gt; report
-  <span class="fl-dim">|</span>
-  <span class="fl-dim">+-- if verification fails: roll back ITSELF, report failed</span>
-      <span class="fl-note">The agent does not wait to be told. On a 2.6 s round trip, an agent</span>
-      <span class="fl-note">that asks permission before rolling back is an agent that stays broken.</span>
+<p>A state machine, a health signal, and an abort condition.</p>
+<div class="flow">  <span class="fl-key">ORCHESTRATOR</span>   holds durable per-machine state; survives its own restart
 
-  <span class="fl-key">WAVE SHAPE</span>   1 -&gt; 10 -&gt; 100 -&gt; 250 -&gt; 250 ...   <span class="fl-dim">exponential, then capped</span>
-  <span class="fl-note">The first machine catches "the binary does not start". The first ten catch</span>
-  <span class="fl-note">"it starts and is broken". Only then is it worth going fast.</span></div>
-<div class="flow-cap">Pull-based agents with local verification and self-rollback. The orchestrator
-expresses intent; it never drives a machine, which is what makes it crash-safe and
-latency-tolerant.</div></div>
+    for each wave (5% of the fleet):
+        |
+        +-- 1. <span class="fl-hi">DRAIN</span>      remove from LB, let in-flight work finish
+        |                 <span class="fl-note">skip this and the rollout is an error spike</span>
+        +-- 2. <span class="fl-hi">UPGRADE</span>    apply the change   <span class="fl-dim">idempotent: already-4.2 is a no-op</span>
+        +-- 3. <span class="fl-hi">VERIFY</span>     machine checks itself before taking traffic
+        +-- 4. <span class="fl-hi">RETURN</span>     back into the LB
+        |
+        +-- 5. <span class="fl-key">BAKE</span>  10-15 min, watching <span class="fl-hi">fleet</span> health
+        |          <span class="fl-note">not machine health &mdash; the machine is fine, the version may not be</span>
+        |
+        +--&gt; regression?  <span class="fl-bad">HALT. roll back this wave. page.</span>
+        +--&gt; healthy?     next wave
+
+
+  <span class="fl-key">HIGH LATENCY</span>  (the Moon)  &mdash; invert the control flow
+
+    orchestrator publishes <span class="fl-hi">DESIRED STATE</span>:
+        target_version: 4.2
+        waves cleared: 1, 2, 3
+
+    agent on each machine:
+        poll it  &rarr;  am I in a cleared wave and not yet at 4.2?
+                  &rarr;  drain, upgrade, verify  <span class="fl-hi">locally, deciding for itself</span>
+                  &rarr;  report asynchronously
+
+    <span class="fl-note">the 2.6s round trip now delays reporting, not progress.</span></div>
+<div class="flow-cap">The terrestrial and lunar designs differ only in who holds the control loop. Pushing
+it to the agent costs you a slightly stale central view and buys immunity to link latency &mdash; which
+is why it is the better design in both cases.</div></div>
+</div>
+<div class="design-step wflow">
+  <div class="ds-header"><span class="ds-ico">&#128260;</span>8. Workflows &mdash; what actually happens</div>
+  <div class="ds-body"><div class="wf">
+  <div class="wf-title">One machine through one wave</div>
+  <div class="wf-sub">The unit the whole rollout is made of.</div>
+  <ol>
+    <li>Machine 3,041 is selected for wave 13. State goes <code>pending &rarr; draining</code>.</li>
+    <li>It is removed from the load balancer. Existing connections are allowed to finish &mdash; typically 30 seconds. <b>Skipping this step is what turns a deploy into an error spike</b>, because in-flight requests are killed mid-response.</li>
+    <li>State <code>&rarr; upgrading</code>. The new binary is installed and the process restarted. The step is idempotent: if it is already at 4.2, this does nothing.</li>
+    <li>State <code>&rarr; verifying</code>. The machine checks itself &mdash; process up, port listening, dependencies reachable, a synthetic request succeeding &mdash; <b>before</b> accepting real traffic.</li>
+    <li>Verification passes. State <code>&rarr; done</code>, and it re-enters the load balancer.</li>
+    <li>Total: about four minutes, of which the actual upgrade was thirty seconds.</li>
+  </ol>
+  <div class="wf-out">Drain and verify bracket the change and are where most of the time goes. They are also the two steps most often omitted, which is why so many deploys produce a brief error spike that everyone has learned to ignore.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">Wave 3 introduces a memory leak</div>
+  <div class="wf-sub">The failure the whole design exists to catch.</div>
+  <ol>
+    <li>Waves 1 and 2 complete cleanly. 500 machines are on 4.2 and everything looks fine, because a leak takes time to matter.</li>
+    <li>Wave 3 completes. 750 machines on the new version. Every individual machine reports healthy &mdash; the process is up and serving.</li>
+    <li>During the <b>bake period</b> the fleet-level signal moves: p99 latency on upgraded machines is climbing, and memory use is trending upward on all of them.</li>
+    <li>The comparison that matters is <b>upgraded versus not-yet-upgraded</b>, on the same traffic, at the same time. The not-yet-upgraded machines are flat. This is a regression, not a traffic change.</li>
+    <li>The halt condition trips. <b>Wave 4 does not start.</b> 4,250 machines are still on 4.1.</li>
+    <li>Wave 3 is rolled back automatically. A human is paged with a clear statement of what regressed.</li>
+    <li>Blast radius: 15% of the fleet, briefly, at 3am, with nobody having to notice.</li>
+  </ol>
+  <div class="wf-out">Two things made this work. The bake period, because the symptom needed time to appear &mdash; with no bake, all 5,000 would have been upgraded before the first sign. And comparing upgraded against not-yet-upgraded, which is the only way to distinguish "the new version is worse" from "traffic changed".</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">The orchestrator crashes mid-wave</div>
+  <div class="wf-sub">Why the state is in a database and every step is idempotent.</div>
+  <ol>
+    <li>Halfway through wave 8, the orchestrator process dies. 120 machines are done, 4 are mid-upgrade, 126 are pending.</li>
+    <li>If state lived in memory, those 4 machines are now <b>drained, out of service, and abandoned</b>. Nothing is coming to finish them. Recovery is manual and nobody knows to start it.</li>
+    <li>Because state is durable, the restarted orchestrator reads the table and sees exactly that: 4 machines in <code>upgrading</code>.</li>
+    <li>It cannot tell whether each upgrade completed before the crash. It does not need to &mdash; it simply re-issues the step.</li>
+    <li>For machines where it had completed, the install is a no-op and verification passes. For the others, the upgrade happens. Both paths converge.</li>
+    <li>The wave finishes. Nothing was stranded and nothing was upgraded twice in any harmful sense.</li>
+  </ol>
+  <div class="wf-out">Durable state plus idempotent steps means recovery is "re-issue whatever is in progress" rather than a reconciliation algorithm. The alternative &mdash; working out what actually happened &mdash; is where this kind of system usually has its worst bugs.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">The same rollout, 384,000 km away</div>
+  <div class="wf-sub">Where synchronous orchestration stops working entirely.</div>
+  <ol>
+    <li>200,000 machines, 2.6 seconds minimum round trip. A synchronous orchestrator issuing four round trips per machine would take over ten seconds of waiting per machine, sequenced.</li>
+    <li>So nothing is issued. The orchestrator publishes a desired-state document: <i>target 4.2; waves 1 through 3 are cleared</i>.</li>
+    <li>Each machine's agent polls it every few minutes. An agent in wave 2 sees it is cleared and not yet at 4.2.</li>
+    <li>It drains, upgrades, and verifies <b>entirely locally</b>. No instruction is awaited, and the light delay is irrelevant because nothing is waiting.</li>
+    <li>If verification fails, the agent rolls itself back and reports. It does not wait 2.6 seconds to be told to &mdash; a machine that cannot fix itself autonomously is a machine that stays broken for a round trip.</li>
+    <li>Reports flow back asynchronously. The orchestrator's view is a few seconds stale, which does not matter, and it clears the next wave when enough of the current one reports healthy.</li>
+  </ol>
+  <div class="wf-out">The design is identical to the terrestrial one except for who holds the control loop. This is worth internalising: the fix for high latency is almost never a longer timeout &mdash; it is moving the decision to where the information already is.</div>
+</div></div>
 </div>
 <div class="design-step deep">
-  <div class="ds-header"><span class="ds-ico">&#128269;</span>6. Component Deep Dives</div>
-  <div class="ds-body"><p><strong>Exponential wave sizing is the whole safety story.</strong> Upgrading in equal
-batches of 250 means the first 250 machines carry the same risk as the last 250, which wastes the
-cheapest information you will ever get. Start with one machine, then ten, then a hundred: the first
-catches &ldquo;the binary does not start&rdquo;, the first ten catch &ldquo;it starts and is
-broken&rdquo;, the first hundred catch problems that only appear under real traffic mix. Each stage
-buys confidence proportional to what it risks, and the total time cost of the small early waves is
-minutes against a rollout measured in hours.</p>
-<p><strong>Bake time is not a delay, it is the measurement.</strong> A machine that has been
-running the new version for thirty seconds has told you almost nothing; many regressions &mdash;
-memory leaks, connection-pool exhaustion, cache warm-up effects, a slow-growing queue &mdash; take
-minutes to appear. A rollout with no bake time between waves is a fast way to break the entire
-fleet with confidence. The comparison must also be <em>against a concurrent baseline</em>, not
-against yesterday: compare upgraded machines with not-yet-upgraded ones serving the same traffic at
-the same moment, so a diurnal pattern or an unrelated incident cannot be mistaken for a
-regression.</p>
-<p><strong>Pull beats push, and not only for the Moon.</strong> A push-based orchestrator must
-track connections to 5,000 machines, retry the ones that are down, and cope with the fact that a
-timeout tells it nothing about whether the command was executed (<a class="qlink" href="#ch1">Ch 1</a>).
-A pull-based agent asks &ldquo;what should I be running?&rdquo;, acts, and reports. Machines that
-were offline pick up the desired state when they return. The orchestrator becomes stateless and its
-own crash becomes a non-event &mdash; it restarts and reads the table. <strong>The fencing token
-matters here</strong>: an agent that was paused mid-upgrade and resumes must not act on a
-superseded order, exactly the stale-actor problem from <a class="qlink" href="#ch6">Ch 6</a>.</p>
-<p><strong>The Moon variant is a latency question in costume.</strong> At 2.6&nbsp;seconds
-round-trip, three things break: synchronous health checks, lock leases, and any protocol that
-assumes a timely acknowledgement. The design must move verification <em>to</em> the machine &mdash;
-the agent decides locally whether the upgrade worked and rolls itself back if not &mdash; and
-tolerate reports arriving seconds or minutes late. It also raises a question worth asking aloud:
-with that delay, is a human able to intervene at all? If not, the automatic halt criteria are the
-only safety mechanism, and they need to be conservative.</p>
-<p><strong>Identify the irreversible steps first.</strong> Rolling back a binary is easy. Rolling
-back a schema migration, a disk reformat or a protocol change that peers have already adopted often
-is not. Those steps must be separated, ordered so that the reversible parts ship first, and
-protected by expand-and-contract: add the new column, dual-write, migrate readers, and only drop
-the old column in a later, separate rollout.</p></div>
-</div>
-<div class="design-step tradeoff">
-  <div class="ds-header"><span class="ds-ico">&#9878;</span>7. Trade-off Analysis</div>
-  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Control direction</strong></td><td class='chosen'>Agents pull desired state</td><td class='rej'>Orchestrator pushes commands</td><td>Pull makes the orchestrator stateless and crash-safe, handles offline machines for free, and is the only thing that works at multi-second RTT.</td></tr><tr><td><strong>Wave sizing</strong></td><td class='chosen'>Exponential: 1, 10, 100, 250</td><td class='rej'>Equal batches</td><td>Equal batches risk as much on the first wave as the last, and discard the cheapest information available.</td></tr><tr><td><strong>Verification</strong></td><td class='chosen'>Local, on the agent</td><td class='rej'>Central health check</td><td>A central check needs a round trip per machine and cannot act during a network partition. Local verification lets a machine roll itself back unattended.</td></tr><tr><td><strong>Rollout state</strong></td><td class='chosen'>In a database, one row per machine</td><td class='rej'>In orchestrator memory</td><td>In-memory state means an orchestrator crash strands machines mid-upgrade with no record of intent.</td></tr><tr><td><strong>Regression baseline</strong></td><td class='chosen'>Concurrent not-yet-upgraded machines</td><td class='rej'>Yesterday&rsquo;s metrics</td><td>Comparing against history confuses diurnal patterns and unrelated incidents with a real regression, in both directions.</td></tr></tbody></table></div></div>
-</div>
-<div class="design-step fault">
-  <div class="ds-header"><span class="ds-ico">&#128737;</span>8. Fault Tolerance</div>
-  <div class="ds-body"><div class="ft-row"><div class="ft-fail">Orchestrator crashes mid-rollout</div><div class="ft-fix">It holds no state, so a replacement reads machine_state and continues. Agents in flight finish and report; the fencing token stops a resumed agent acting on a superseded order.</div></div><div class="ft-row"><div class="ft-fail">A machine fails to come back</div><div class="ft-fix">It is marked failed, counts against the concurrency budget, and the rollout halts once failures exceed a threshold rather than grinding through the whole fleet. Halting on an absolute count is a common bug: it should be a rate.</div></div><div class="ft-row"><div class="ft-fail">The new version is subtly worse</div><div class="ft-fix">Automatic halt on a health delta against the concurrent baseline, then automatic rollback of completed waves. This is why bake time exists; without it the fleet is upgraded before the regression is visible.</div></div><div class="ft-row"><div class="ft-fail">Network partition to a subset of the fleet</div><div class="ft-fix">Pull-based agents simply do not receive new desired state and keep running the current version, which is the safe outcome. Machines mid-upgrade verify locally and self-roll-back on failure.</div></div><div class="ft-row"><div class="ft-fail">An irreversible step has already run</div><div class="ft-fix">Rollback cannot help, so the design must prevent it: irreversible steps are separated into their own rollout, gated on the reversible one having fully baked, and use expand-and-contract so the old and new forms coexist.</div></div></div>
-</div>
-<div class="design-step concl">
-  <div class="ds-header"><span class="ds-ico">&#127937;</span>9. Conclusion &mdash; what I would say in the last three minutes</div>
-  <div class="ds-body"><div class="concl-grid">
+  <div class="ds-header"><span class="ds-ico">&#128269;</span>9. Deep dives, and what breaks</div>
+  <div class="ds-body"><h4>What the health check should actually measure</h4>
+
+<p>The most common mistake is checking whether the machine is up. It is up. The process started, the
+port is listening, and the version is broken anyway.</p>
+
+<p>Three levels, and each catches something the previous one misses:</p>
+
+<ul>
+  <li><strong>Liveness</strong> &mdash; is the process running? Catches crashes and nothing else.</li>
+  <li><strong>Readiness</strong> &mdash; can it serve a real request end to end, including its
+  dependencies? Catches a service that starts but cannot do its job.</li>
+  <li><strong>Fleet health</strong> &mdash; are error rate and latency, <em>on upgraded machines
+  compared to not-yet-upgraded ones</em>, unchanged? This is the one that catches the leak, the subtle
+  regression, the change that works perfectly and is 20% slower.</li>
+</ul>
+
+<p>Only the third can distinguish &ldquo;the new version is worse&rdquo; from &ldquo;something else
+changed&rdquo;, because it is a controlled comparison: same time, same traffic, two versions. That makes
+the rollout a genuine A/B test rather than a hopeful sequence of restarts.</p>
+
+<h4>How to pick the order</h4>
+
+<p>Not randomly, and not alphabetically.</p>
+
+<p><strong>Spread across failure domains.</strong> Two hundred and fifty machines in one rack or one
+availability zone is not 5% of your capacity &mdash; it may be 100% of one zone's. The wave must be
+drawn across racks, zones and regions so that concurrent upgrade never aligns with a correlated failure
+boundary.</p>
+
+<p><strong>Start with the least important.</strong> The first wave should be machines whose failure
+matters least &mdash; a canary region, internal traffic, a low-value tier.</p>
+
+<p><strong>Vary the wave composition.</strong> A rollout that upgrades all the machines of one type
+first will not expose problems that only appear when two types interact. Mixing within waves finds
+interaction bugs earlier.</p>
+
+<h4>Bake time, and the trap of shortening it</h4>
+
+<p>It is pure waiting, it dominates the rollout duration, and it is under constant pressure to be
+reduced.</p>
+
+<p>The correct length is set by <em>how long the problems you are looking for take to appear</em>. A
+crash appears in seconds. A memory leak takes tens of minutes. A resource exhaustion &mdash; file
+descriptors, connections &mdash; can take hours. A daily batch job interacting badly with the new
+version may take a day.</p>
+
+<p>So there is no single right number, and a useful pattern is <strong>graduated bake</strong>: long
+early waves and shorter later ones. The first wave bakes for an hour because it is where problems are
+most likely and cheapest to catch; by wave 15, most classes of problem would already have surfaced, so
+ten minutes is defensible.</p>
+
+<p>The thing not to do is shorten the early waves, which is exactly where the pressure is applied.</p>
+
+<h4>What breaks</h4>
+
+<div class="ft-row"><div class="ft-fail">Orchestrator crashes mid-rollout</div><div class="ft-fix">It holds no state, so a replacement reads machine_state and continues. Agents in flight finish and report; the fencing token stops a resumed agent acting on a superseded order.</div></div><div class="ft-row"><div class="ft-fail">A machine fails to come back</div><div class="ft-fix">It is marked failed, counts against the concurrency budget, and the rollout halts once failures exceed a threshold rather than grinding through the whole fleet. Halting on an absolute count is a common bug: it should be a rate.</div></div><div class="ft-row"><div class="ft-fail">The new version is subtly worse</div><div class="ft-fix">Automatic halt on a health delta against the concurrent baseline, then automatic rollback of completed waves. This is why bake time exists; without it the fleet is upgraded before the regression is visible.</div></div><div class="ft-row"><div class="ft-fail">Network partition to a subset of the fleet</div><div class="ft-fix">Pull-based agents simply do not receive new desired state and keep running the current version, which is the safe outcome. Machines mid-upgrade verify locally and self-roll-back on failure.</div></div><div class="ft-row"><div class="ft-fail">An irreversible step has already run</div><div class="ft-fix">Rollback cannot help, so the design must prevent it: irreversible steps are separated into their own rollout, gated on the reversible one having fully baked, and use expand-and-contract so the old and new forms coexist.</div></div><div class="concl-grid">
   <div class="cc"><div class="h">The dominant constraint</div><p><strong>The blast radius has to be bounded before speed matters.</strong> Everything here &mdash; exponential waves, bake time, a concurrency budget, automatic halt &mdash; exists to make sure a bad version reaches ten machines rather than five thousand.</p></div>
   <div class="cc first"><div class="h">What I would build first</div><p>The desired-state table with pull-based agents. It makes the orchestrator stateless, survives its own crash, handles offline machines for free, and is the only shape that works at multi-second latency.</p></div>
   <div class="cc"><div class="h">What I deliberately did not build</div><p>A push-based orchestrator and central health verification. Both are the obvious designs and both fail exactly when the network is the thing that is broken.</p></div>
   <div class="cc risk"><div class="h">The biggest risk</div><p>Irreversible steps. Rollback is the safety net the whole design assumes, and a schema change or disk reformat quietly removes it &mdash; which is why identifying those first is a clarifying question, not an implementation detail.</p></div>
 </div></div>
 </div>
-  
+
 <div class="followup">
   <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
   <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
@@ -15307,8 +15869,9 @@ the old column in a later, separate rollout.</p></div>
     <div class="fu-a"><p>Rollback is the safety net everything else assumes, so an irreversible step quietly removes it. Those steps have to be identified <em>before</em> the first machine is touched, which is why it is a clarifying question rather than an implementation detail.</p><p>Then separate them: ship the reversible parts first, let them bake, and do the irreversible step as its own rollout. Use expand-and-contract so old and new forms coexist &mdash; add the column, dual-write, migrate readers, and only drop the old column much later.</p></div>
   </details>
 </div>
+  </div>
 </div>
-</div>
+
 <div class="design-card">
   <div class="dc-header">
     <h3 class="dc-title"><span id="design-booking">Design a Reservation &amp; Booking System</span> (airline seats, parking bays, tickets &mdash; inventory under contention)</h3>

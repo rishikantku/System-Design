@@ -40,7 +40,7 @@ distributed systems concepts from first principles.
 |---|---|
 | **File** | `index.html` — single self-contained file, ~1.5 MB |
 | **Backup** | `Distributed_Systems_Deep_Guide.backup.html` — the original before any enrichment |
-| **Content** | ~116,900 words |
+| **Content** | ~120,100 words |
 | **Deps** | None. One Google Fonts `@import`. No JS libraries. Opens offline from `file://` |
 | **Structure** | 1 `<style>` block, 5 `<script>` blocks (early state-restore in `<body>`, glossary data, glossary engine, search palette, left-nav engine, view-size engine) |
 
@@ -100,6 +100,16 @@ steps entirely before this was enforced.
 | 7 | `tradeoff` | Trade-off Analysis | `table.to` with `td.chosen` / `td.rej` |
 | 8 | `fault` | Fault Tolerance | `.ft-row` > `.ft-fail` + `.ft-fix` |
 | 9 | `concl` | Conclusion | `.concl-grid` &mdash; four cards, see the vocabulary table |
+| &mdash; | &mdash; | *(follow-ups)* | A `.followup` block **after step 9**, outside the steps: what the interviewer pushes on once the design is on the board, 4&ndash;5 per design, answers supplied |
+
+**D19 is the prototype of a revised order**, requested by the reader because the old one
+read as machine-generated. It runs: *understanding the question &rarr; functional &rarr;
+non-functional &rarr; data model and API &rarr; capacity &rarr; trade-offs &rarr; high-level
+design &rarr; **workflows** &rarr; deep dives and what breaks*, using three new step classes
+(`fr`, `nfr`, `wflow`). The other 25 still use the table above. **If rolling the new order
+out, read D19 first** — the voice matters as much as the order: short sentences mixed with
+long, concrete before abstract, no bolded aphorism opening every paragraph, and named people
+with clock times rather than "exactly one writer sees one row affected".
 
 ```python
 st = "".join(x[1] for x in re.findall(r'class="ds-header">\[(\w+)\] (\d)\.', design_html))
@@ -346,6 +356,8 @@ Reuse these. Do not invent new block types without a reason.
 | `.buildup` | Progressive derivation — build the naive design, break it, fix it, repeat | `.label`, then `.bu-step` > `.bu-n` + `.bu-body` containing `.bu-try` (the attempt), `.bu-break` (the exact failure, red), `.bu-learn` (what it teaches, green); closing `.bu-end`. **The best device in the toolkit for genuinely hard topics** — the reader arrives at the real answer having felt why every simpler answer fails |
 | `.assume` | Stated assumptions **with the consequence of each being wrong**, inside step 2 | `.label`, then `.as-row` > `.as-a` (the assumption) + `.as-b` (what breaks). A bare list of numbers is not an assumptions section |
 | `.concl-grid` | Step 9 closing summary | Four `.cc` cards: dominant constraint, what I would build first (`.cc.first`), what I deliberately did not build, biggest risk (`.cc.risk`) |
+| `.followup` | **Interviewer pushback** after you present, one block per design, at the end of `.dc-body` | `.fu-title` + `.fu-sub`, then `<details class="fu">` per question: `<summary>` holds `.fu-q` (the question, italic, in quotes) + `.fu-cue`; body is `.fu-a`. **Distinct from `.clarify`** — clarify is what *you* ask at the start, this is what *they* ask at the end. Answers are always supplied, per §1 |
+| `.wf` | Workflow walkthrough — what actually happens, step by step, with real names and clock times | `.wf-title` + `.wf-sub`, then `<ol>` of steps, closing `.wf-out` (what actually happened). `.wf.alt` for the non-happy paths. **The most readable thing in a design**; the guide had nothing like it before D19 |
 | `.clarify` | The clarifying questions to ask in the first five minutes, one per design, inside step 1 | `.label`, then `.cq-row` > `.cq-q` (the question) + `.cq-w` (**what the answer changes** — not what the answer is), closing `.cq-note`. The rationale column is the point: a list of questions without consequences teaches nothing |
 | `.vidref` | Video/lecture references, red left border | `.label`, then `<ul><li>` with `<a target="_blank" rel="noopener">` + `.vr-meta` runtime span + one sentence on *why that video*. Optional closing `.vr-none` for "no good video exists, read this instead" |
 
@@ -366,7 +378,17 @@ h3 / h4 + prose      — the mechanism
 
 ## 6. Editing workflow — read this before touching the file
 
-**The file is ~960 KB. Never rewrite it wholesale.** Use surgical anchored insertion:
+**The file is ~1.5 MB. Never rewrite it wholesale.** Use surgical anchored insertion.
+
+**Assert div balance before writing, whenever you replace a block rather than append one.**
+A non-greedy `<div class="ds-body">(.*?)</div>` truncated every body containing nested divs,
+which made one design card swallow the next seven. It renders without an error, so nothing
+catches it but the count:
+
+```python
+assert new_segment.count('<div') - new_segment.count('</div>') == 0
+```
+
 
 ```python
 python3 - <<'PYEOF'
@@ -426,8 +448,9 @@ though they exist. Drive the page by clicking real elements, not by calling its 
 **Baseline to regress against** (current, after the Google-question-bank work):
 
 ```
-totalWords 116869 · designs 26 (234 steps, all 1-9) · toolkitCards 8
+totalWords 120146 · designs 26 (234 steps, all 1-9) · toolkitCards 8
 asked 26 (one prompt per design) · method 1 · dsIcons 234 (zero bracket placeholders)
+followup 26 · followupQs 108 (0 open by default) · wf 4 (D19 only, so far)
 quickref 15 (every chapter) · buildup 3 · drills 24 · sidebarLinks 53
 anims 29 (215 packets, all with both captions; every design + ch4/ch7/ch10)
 animChips 29 (the Start-here jump index; regenerate it whenever an anim is added)

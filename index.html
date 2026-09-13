@@ -1177,6 +1177,31 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
   .drill .dr-cue { flex-basis: 100%; margin-top: 6px; }
 }
 
+/* Interviewer follow-ups — the pushback after you present. Distinct from
+   .clarify (questions YOU ask at the start). Answers are always supplied. */
+.followup { background: var(--bgcool); border-radius: 12px; padding: 20px 22px; margin: 24px 0 4px; }
+.fu-title { font-size: calc(15.5px * var(--fscale, 1)); font-weight: 700; color: var(--ink); margin-bottom: 3px; }
+.fu-sub { font-size: calc(13.4px * var(--fscale, 1)); color: var(--muted); margin-bottom: 14px; }
+.fu { background: #fff; border: 1px solid var(--line); border-radius: 9px; margin-bottom: 9px; overflow: hidden; }
+.fu:last-child { margin-bottom: 0; }
+.fu > summary {
+  cursor: pointer; list-style: none; padding: 13px 16px; display: flex; gap: 12px; align-items: flex-start;
+  font-size: calc(14.8px * var(--fscale, 1)); line-height: 1.6; color: var(--ink);
+}
+.fu > summary::-webkit-details-marker { display: none; }
+.fu > summary:hover { background: var(--bgwarm); }
+.fu-q { flex: 1; font-style: italic; }
+.fu-cue {
+  flex: 0 0 auto; font-size: calc(10.8px * var(--fscale, 1)); font-weight: 800;
+  text-transform: uppercase; letter-spacing: .8px; color: var(--muted); align-self: center; white-space: nowrap;
+}
+.fu[open] > summary { background: var(--bgwarm); border-bottom: 1px solid var(--line); }
+.fu[open] .fu-cue { color: var(--accent); }
+.fu-a { padding: 14px 16px 16px; font-size: calc(14.5px * var(--fscale, 1)); line-height: 1.72; color: var(--soft); }
+.fu-a p { margin-bottom: 10px; } .fu-a p:last-child { margin-bottom: 0; }
+.fu-a strong { color: var(--ink); }
+@media (max-width: 680px) { .followup { padding: 15px 14px; } .fu > summary { flex-wrap: wrap; } .fu-cue { flex-basis: 100%; margin-top: 5px; } }
+
 /* Workflow walkthrough — what actually happens, step by step, with names
    and numbers. The single most readable thing in a design. */
 .wf { background: #fff; border: 1px solid var(--line); border-radius: 11px; padding: 18px 20px; margin: 18px 0; }
@@ -7423,6 +7448,31 @@ much.</p>
   </div>
   </div>
 </div>
+
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;What if a single short link goes viral and gets 50,000 requests a second?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Almost all of that never reaches us. The redirect is a <code>301</code>, so browsers and the CDN cache it, and a hot link is served at the edge. That is the main reason to prefer 301 over 302 wherever you can.</p><p>The case that hurts is a viral link right after a cache purge, when everything misses through at once. The fix is request coalescing: the first miss does the lookup and everyone else waits for that one result, rather than 50,000 identical queries hitting the database.</p><p>If the customer needs per-click analytics we cannot use 301, because we never see the hit. Then the link genuinely is hot on our side, and it wants its own cache entry with a short TTL.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;How do you stop someone scraping every short link you have ever made?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>A sequential counter in base62 makes this trivial for an attacker: <code>abc123</code> is next to <code>abc124</code>. They can walk the whole space, and along the way they learn exactly how many links you create per day.</p><p>The usual fix is to keep the counter (it is what gives you collision-free ids) but obscure the output, either by encrypting the counter with a block cipher before encoding, or by allocating ranges to servers out of order. Either way you keep uniqueness without publishing your growth rate.</p><p>Rate limiting per IP helps a little but does not solve it, because the space is enumerable by anybody patient.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;What happens when you run out of 7-character codes?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Base62 with 7 characters is about 3.5 trillion combinations. At 100 million new links a day that is roughly 95 years, so in practice you do not run out.</p><p>What you should say is what happens if the assumption is wrong. Because ids come from a counter, the length grows naturally: when the counter passes 62<sup>7</sup> the encoding produces 8 characters and nothing else changes. No migration, no reshuffle. That is a nice property of counter-based ids that hash-based ones do not have.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Can you support custom aliases like <code>/black-friday</code>?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Yes, but it changes the shape of the problem. Generated codes never collide because the counter guarantees it. Custom aliases are chosen by users, so two people can want the same one, and now you need a uniqueness check at write time.</p><p>That is a conditional insert on the alias, not a read-then-write, or two people racing both see it free and both think they won. It also needs a reserved list, because you do not want somebody claiming <code>/login</code> or <code>/api</code>.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;How do you delete a link, given it is cached everywhere?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>You cannot pull it out of every browser cache, which is the honest answer and worth saying. A 301 you have handed out may be cached for a year.</p><p>So deletion is best-effort: remove it from the database, purge the CDN, and accept that clients who already cached it will keep redirecting for a while. If a customer genuinely needs revocation to be immediate, they cannot have 301s at all, and the cost is that every hit now reaches your origin.</p></div>
+  </details>
+</div>
 </div>
 </div>
 <div class="design-card">
@@ -7623,6 +7673,31 @@ much.</p>
   </div>
   </div>
 </div>
+
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;A user with 40 million followers posts. What actually happens?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>If we fanned out, we would be writing 40 million rows for one tweet, and every ordinary user's post would queue behind it. So above a follower threshold we stop fanning out entirely.</p><p>Their posts stay in their own timeline only. When you load your feed, we fetch your precomputed timeline and then separately fetch recent posts from the handful of celebrities you follow, and merge the two at read time.</p><p>Most users follow few or no celebrities, so most reads stay cheap. The merge is bounded because it only touches accounts above the threshold.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;What is the right follower threshold, and how did you pick it?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>I would not pick it in the interview; I would make it a tunable and say what I would watch. The number that matters is fan-out lag: how long between a post being accepted and it appearing in the last follower's timeline.</p><p>Set it too high and one account can stall the queue for everybody. Too low and you push lots of accounts onto the read-time merge path, which makes feed loads slower for the users who follow them.</p><p>Start somewhere around tens of thousands, watch lag per tier, and move it. The important part is that it is observable and adjustable, not that it is right on day one.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;How do you handle a deleted tweet that has already been fanned out to 500,000 timelines?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>This is the real cost of fan-out-on-write, and it is worth naming. The post now exists in half a million places.</p><p>Rather than deleting half a million rows synchronously, keep timelines as lists of post ids and filter at read time against a small set of deleted ids. The delete is then one write plus a cache entry, and cleanup of the timeline rows happens lazily in the background.</p><p>The trade is that reads do slightly more work. That is the right side to pay on, because deletes are rare and reads are constant.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Would this design work for a chronological feed or a ranked one?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>As described it is chronological, and that is what makes precomputation worth it: the timeline is a sorted list you can append to.</p><p>Ranking breaks that. If the order depends on a model score computed from recency, engagement and your own history, the timeline is no longer a stable list, and precomputing it means recomputing it constantly.</p><p>The usual compromise is to precompute the candidate set and rank at read time over a few hundred candidates rather than the whole corpus. You keep the cheap fan-out and accept a scoring service on the read path.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;What if a user follows 50,000 accounts?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>The mirror image of the celebrity problem, and much rarer. Fan-out-on-write is fine for them, because it costs the <em>writers</em>, not the reader. Their timeline is just a longer list.</p><p>Where it hurts is the read-time merge for any celebrities in that set. If someone follows 5,000 accounts that are all above the threshold, their feed load is 5,000 fetches.</p><p>In practice you cap it: merge only the most recent N celebrity posts, and accept that a user following thousands of large accounts sees an approximate feed.</p></div>
+  </details>
+</div>
 </div>
 </div>
 <div class="design-card">
@@ -7793,6 +7868,31 @@ much.</p>
     <div class="cc risk"><div class="h">The biggest risk</div><p>Silent divergence. Without Merkle-tree anti-entropy running and being monitored, replicas drift and nobody finds out until a read repair surfaces it years later.</p></div>
   </div>
   </div>
+</div>
+
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Two clients write the same key at the same time on different nodes. What does a later read see?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>It can see both values. That is the honest answer with leaderless replication, and pretending otherwise is the mistake.</p><p>Each write carries a version vector describing what it saw. When the two versions are concurrent, neither descends from the other, so the system cannot pick a winner without guessing. It returns both to the client as siblings.</p><p>The application resolves them, and how depends on the data. A shopping cart merges by union. A counter merges by addition. A profile name probably takes the later timestamp and accepts occasional loss. The key point is that resolution is a business decision, not a storage one.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Why not just use last-write-wins and avoid all that?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>You can, and plenty of systems do. But understand what you are buying: last-write-wins silently discards data, and the &ldquo;last&rdquo; is decided by clocks on different machines which disagree.</p><p>So a write that genuinely happened later can be thrown away because that node's clock was slow. Nothing errors and nobody notices until a customer complains that their change vanished.</p><p>It is the right choice when losing the occasional write is acceptable and simplicity matters more. It is the wrong choice for anything a user would be upset to lose.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;What does R + W &gt; N actually guarantee, and when does it stop holding?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>With N replicas, writing to W and reading from R where R + W &gt; N means the read set and write set must overlap by at least one node. So a read is guaranteed to see at least one replica that has the latest write.</p><p>It stops holding the moment you allow sloppy quorums. If a replica is unreachable and you accept the write on some other node with a hint to hand off later, you kept availability but the overlap guarantee is gone. A subsequent read of R nodes can miss the value entirely.</p><p>That is a deliberate trade, not a bug, but you should be able to say which one you have chosen.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;How do replicas that missed writes ever catch up?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Three mechanisms, and you want all of them. Read repair fixes divergence opportunistically: when a read notices replicas disagree, it writes the newer value back. Hinted handoff covers short outages, replaying writes that were parked elsewhere.</p><p>Neither is sufficient, because a key nobody reads is never repaired. So there is anti-entropy: replicas periodically compare Merkle trees and exchange only the subtrees that differ, which lets you compare huge datasets cheaply.</p><p>Without anti-entropy running and being monitored, &ldquo;eventual&rdquo; consistency quietly means &ldquo;never&rdquo; for cold data.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;What if I need a range scan, like all keys between two values?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>You cannot, and that is by design. Keys are hashed onto the ring, so adjacent keys land on unrelated nodes and a range query becomes a scatter-gather over every partition.</p><p>If range queries are a real requirement, hash partitioning is the wrong choice and you want range partitioning instead. But that reintroduces hot spots, because sequential keys like timestamps all land on one node.</p><p>The usual answer is to keep the KV store for point lookups and maintain a separate index for range access.</p></div>
+  </details>
 </div>
 </div>
 </div>
@@ -7968,6 +8068,27 @@ much.</p>
     <div class="cc risk"><div class="h">The biggest risk</div><p>Presence. It has a far higher write rate than messaging and, if co-located, its load will take the messaging path down with it.</p></div>
   </div>
   </div>
+</div>
+
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;A group has 100,000 members. Someone sends a message. What happens?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>The naive loop writes 100,000 delivery records for one message, and at any real message rate that saturates the write path.</p><p>So above a size threshold, groups stop behaving like fan-out and start behaving like a feed: the message is written once to the conversation log, and members <em>pull</em> from it when they connect. Small groups keep push, because push is what makes a two-person chat feel instant.</p><p>The same threshold idea as the celebrity problem in D2, for the same reason: one strategy cannot serve both ends of a skewed distribution.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;A user has been offline for two weeks. What do they get on reconnect?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Their client says &ldquo;I have everything up to sequence 4,812&rdquo; and we send what came after. That is the whole protocol, and it is why per-conversation sequence numbers matter more than timestamps.</p><p>The limit is retention. We do not hold undelivered messages forever, so past some window they are gone. That is a product decision and it should be stated: a phone that has been off for a month may miss messages, and the alternative is unbounded per-user storage.</p><p>If the client acknowledged but the ack was lost, it will be sent messages it already has &mdash; which is why the client deduplicates on message id.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;If it is end-to-end encrypted, how does search work?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>It does not, on the server. That is the cost of E2E and it is worth saying plainly rather than hedging.</p><p>Search has to happen on the device, over the messages that device holds. That means each client maintains its own local index, search results differ between your phone and your laptop depending on what each has, and a newly installed device can search nothing until it syncs history.</p><p>If the product needs server-side search across all history, it cannot be end-to-end encrypted. Those two requirements are in direct conflict and someone has to choose.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;How do you show &ldquo;typing&hellip;&rdquo; without melting the system?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Presence is a much higher write rate than messaging &mdash; a typing indicator changes several times per message sent &mdash; so it must not share the messaging path.</p><p>Keep it entirely in memory, never persist it, give it a short TTL so a crashed client stops appearing to type, and send it only to people currently looking at that conversation rather than all members.</p><p>The reason to separate it is blast radius: if presence falls over, messaging should be completely unaffected. Co-locating them means the noisiest feature can take down the important one.</p></div>
+  </details>
 </div>
 </div>
 </div>
@@ -8160,6 +8281,27 @@ much.</p>
   </div>
   </div>
 </div>
+
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;A video gets 10 million views in an hour. Where does it hurt?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Almost nowhere, and that is the point of the design. Playback is served from the CDN, and a popular video is the best possible case for a cache &mdash; one object, requested constantly, cached at every edge.</p><p>What does hurt is the first few minutes, when the video is not yet on the edges and every request goes to origin. That is a cold-start stampede, and the mitigation is to pre-push popular uploads to edges proactively rather than waiting for demand.</p><p>The view counter is the other pressure point, and it is why counts are aggregated from a stream rather than incremented per view.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Why not transcode every rendition immediately?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Because most videos are never watched. Transcoding the full ladder for every upload means paying the full compute cost for a catalogue where a small fraction gets any traffic at all.</p><p>So transcode the low renditions eagerly, because they are cheap and cover most devices, and generate higher ones lazily on first request. A viewer who wants 4K waits a little the first time; everyone after that gets it from cache.</p><p>The trade is a slower first play for rare, high-quality requests, in exchange for not paying for renditions nobody ever asks for.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;How do you make view counts accurate?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>You do not make them exactly accurate, and you should say so. A view event is fired from the client, which means it can be replayed, faked or lost.</p><p>Counts go through the same pipeline shape as D26: events into a durable log, deduplicated by a client-generated id, aggregated in batch. The number you show is provisional and the number you use for creator payouts is the batch one, computed after a close window.</p><p>Trying to increment a counter synchronously on the playback path would put a hot write on every view and still be wrong.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;What changes if this is live streaming instead?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Almost everything. Live removes the batch transcode window: you cannot take five minutes to produce renditions when the event is happening now, so transcoding becomes a low-latency pipeline running alongside the broadcast.</p><p>Segments are produced continuously and pushed to the CDN as they are made, so the CDN caches a rolling window rather than a complete file. Latency becomes the headline metric instead of throughput.</p><p>It is a different design, and the right move in an interview is to scope it out explicitly rather than pretend the same architecture covers both.</p></div>
+  </details>
+</div>
 </div>
 </div>
 <div class="design-card">
@@ -8334,6 +8476,27 @@ This SQL atomically locks selected rows. A second scheduler running the same que
     <div class="cc risk"><div class="h">The biggest risk</div><p>The catch-up stampede. After an outage, every missed window fires at once against a system that is already unhealthy; the backlog needs rate limiting, not just replay.</p></div>
   </div>
   </div>
+</div>
+
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;A worker claims a job, then its process freezes for 40 seconds. What stops the job running twice?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Nothing stops it from being <em>attempted</em> twice, and that is the honest framing. The lease expires, the scheduler hands the job to another worker, and then the frozen worker wakes up still believing it owns it. It cannot tell that time passed.</p><p>What saves you is the fencing token. Each claim carries a number that only increases. The second worker got a higher one. When the frozen worker finally calls the handler, the handler sees an older token than one it has already accepted and rejects it.</p><p>So the stale worker is not prevented, it is made harmless. That distinction is the whole idea.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;What if a job needs to run for six hours?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Then the lease has to be renewed rather than granted once. The worker heartbeats while it runs, extending its claim, and if the heartbeats stop the lease lapses and someone else picks the job up.</p><p>Long jobs also change the failure economics. Losing a six-hour job at hour five is expensive, so you want checkpointing inside the job itself, which means the handler needs to be resumable rather than merely idempotent.</p><p>At that point you are close to needing a workflow engine, and it is worth saying that out loud as a scope boundary.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;The system was down for two hours. Ten thousand jobs missed their window. Now what?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>This is the catch-up stampede, and the default behaviour is usually wrong. If every missed job fires the moment the scheduler recovers, you hit an already-fragile system with ten thousand simultaneous executions.</p><p>The policy has to be explicit per job. Some jobs should skip entirely &mdash; a report for a window that has passed is useless. Some must catch up, but at a controlled rate rather than all at once.</p><p>So: a per-job catch-up policy, and a rate limit on the replay. Firing everything immediately is how a recovery becomes a second outage.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Why <code>SKIP LOCKED</code> rather than just selecting pending jobs?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Because without it, workers block on each other. Ten workers all run &ldquo;select the next pending jobs and lock them&rdquo;, and nine of them wait behind the first transaction rather than getting on with other work.</p><p><code>SKIP LOCKED</code> tells the database to ignore rows another transaction has locked and move on. So each worker picks up a disjoint batch and nobody queues.</p><p>It turns what looks like a contention problem into parallel work, using a feature the database already has, which is much better than building a distributed queue on top of it.</p></div>
+  </details>
 </div>
 </div>
 </div>
@@ -8536,6 +8699,27 @@ This SQL atomically locks selected rows. A second scheduler running the same que
     <div class="cc risk"><div class="h">The biggest risk</div><p>Partition count. It is effectively permanent once keys are hashed to partitions, and under-provisioning it caps your throughput in a way you cannot fix without a migration.</p></div>
   </div>
   </div>
+</div>
+
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Why can you not just guarantee global ordering across all messages?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>You can, and it costs you the entire point of the system. Global order means a single partition, and a single partition means one machine's worth of throughput with no way to scale.</p><p>So ordering is per partition, and you choose the partition key to make that useful: if everything about one user must be ordered, partition by user id, and that user's events are ordered even though the topic as a whole is not.</p><p>The right response to &ldquo;we need global ordering&rdquo; is usually to ask what actually needs ordering. It is almost never everything.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;A consumer is 4 hours behind. What do you do?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>First find out which shape it is, because the two have opposite fixes. If lag is spread evenly across partitions, the consumer group is simply too slow, and you add consumers &mdash; but only up to the partition count, because a partition is consumed by exactly one member of a group.</p><p>If lag is concentrated in one partition, adding consumers does nothing. That is a hot key, and the fix is repartitioning or changing the key.</p><p>Also check retention. If the consumer falls behind further than retention holds, data is deleted before it is read, and the lag turns into silent loss.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;How do you add partitions to a topic later?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Carefully, and ideally never. Messages are routed by <code>hash(key) mod partitions</code>, so changing the partition count sends the same key somewhere new. Its old and new messages now sit in two partitions with no ordering relationship between them.</p><p>Any consumer holding per-key state &mdash; a running total, a state machine &mdash; is now wrong, and nothing tells you.</p><p>So the practical advice is to over-provision partitions from the start, because they are cheap and a migration is not. If you must change it, you are doing a dual-write migration into a new topic, not an in-place resize.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;What does <code>acks=all</code> actually cost?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Latency on every write, in exchange for durability. With <code>acks=all</code> the producer waits for every in-sync replica to have the record, so a slow replica slows every producer.</p><p>With <code>acks=1</code> only the leader confirms, which is faster and means an acknowledged record can be lost if the leader dies before replicating &mdash; exactly the failure in the Ch 4 animation.</p><p>The right setting depends on what the topic carries. Payments take the latency. Click telemetry does not need to.</p></div>
+  </details>
 </div>
 </div>
 </div>
@@ -8754,6 +8938,27 @@ This SQL atomically locks selected rows. A second scheduler running the same que
     <div class="cc risk"><div class="h">The biggest risk</div><p>Conflict handling on offline edits. Last-writer-wins is simple and silently destroys work; the honest answer is to keep both versions and tell the user.</p></div>
   </div>
   </div>
+</div>
+
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Two devices edit the same file while both are offline. What happens?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>You get two versions where neither descends from the other, and there is no correct automatic merge. Any answer that claims to merge them is either lying or is actually solving a narrower problem.</p><p>Last-writer-wins is simple and silently destroys somebody's work, which for a document people care about is the worst possible outcome because nobody finds out.</p><p>So keep both. Produce a conflicted copy, tell the user, and let them decide. Every production file-sync product does this, which is a good sign it is the right answer rather than a cop-out.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Someone changes one line in a 2 GB video file. How much gets uploaded?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Ideally a few kilobytes. The file is split using content-defined boundaries rather than fixed offsets, so an edit in the middle only changes the chunks it touches &mdash; it does not shift every subsequent boundary the way fixed-size chunking would.</p><p>The client computes hashes for its chunks, asks the server which it already has, and uploads only the missing ones.</p><p>For a video file specifically the answer may be worse than that, because a small logical edit can rewrite container metadata throughout. Worth acknowledging rather than claiming it is always a few kilobytes.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Should you deduplicate identical chunks across different users?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>It is a large storage win and a genuine privacy leak, so this is a policy question rather than a technical one.</p><p>If chunks are shared globally, I can test whether a file already exists by uploading it and watching whether the upload is instant. That tells me somebody else has that file, which for some files is information you have no right to reveal.</p><p>The usual compromise is to deduplicate within an account or within an organisation, where the members already share a trust boundary, and not across the whole population.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;How does a new device get 100 GB of files without a thundering herd?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>It pulls the manifest first &mdash; the list of files and chunk hashes &mdash; which is small, then fetches chunks it lacks. Because chunks are content-addressed, they come from object storage or a CDN rather than from a service, so this is bandwidth rather than load on the metadata tier.</p><p>Prioritise by what the user is likely to open: recently modified files first, everything else in the background. Cold-syncing alphabetically is how you make a user wait an hour to see the document they just edited.</p></div>
+  </details>
 </div>
 </div>
 </div>
@@ -8978,6 +9183,27 @@ This SQL atomically locks selected rows. A second scheduler running the same que
   </div>
   </div>
 </div>
+
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Drivers report location every 4 seconds. Is that write volume a problem?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>It is the largest stream in the system by a wide margin, and it is what breaks first as the fleet grows. A million active drivers at one update every four seconds is 250,000 writes a second doing nothing but overwriting a previous position.</p><p>The key realisation is that these writes are disposable. We never need location history for matching, only the current value, so this belongs in memory keyed by driver, not in a durable store.</p><p>If history is needed for billing or disputes, that is a separate, much cheaper stream sampled at a lower rate.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;What if a driver's phone loses signal for two minutes?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Their position goes stale, and stale is dangerous here because the system will happily match a rider to a driver who has since moved or gone offline. Nothing errors; the rider just waits for a car that is not coming.</p><p>So every position carries a timestamp and the matcher ignores anything older than a threshold. A driver who stops reporting drops out of the candidate set rather than lingering as a ghost.</p><p>Monitor index staleness directly, not just matcher latency, because matching stays fast while quietly getting worse.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;How do you match at an airport where 300 drivers are waiting in one place?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>A dense cell breaks the assumption that a cell contains a handful of candidates. Scanning 300 drivers per request is wasteful, and it also produces unfair outcomes because the same nearby drivers keep winning.</p><p>Two adjustments: subdivide dense cells so resolution adapts to density rather than being fixed, and add a queue discipline at known venues so drivers who have waited longest are offered rides first. Airports usually have an explicit queue for exactly this reason.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Why greedy matching rather than optimal assignment?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Because optimal assignment needs a batch. To compute a globally best pairing you must hold requests for a window, then solve an assignment problem across all of them, and that window is latency the rider feels.</p><p>Greedy matches immediately and is measurably worse in aggregate &mdash; slightly longer pickups, slightly more deadheading. Batched matching over a few seconds does better on paper and adds a few seconds to every request.</p><p>Which is right depends on the market. Dense cities can afford a short batch window; thin markets cannot, because there is rarely more than one candidate anyway.</p></div>
+  </details>
+</div>
 </div>
 </div>
 
@@ -9179,6 +9405,27 @@ This SQL atomically locks selected rows. A second scheduler running the same que
     <div class="cc risk"><div class="h">The biggest risk</div><p>Spider traps and infinite URL spaces. Without per-domain budgets and depth caps, one badly behaved site consumes the whole fleet.</p></div>
   </div>
   </div>
+</div>
+
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;A site generates infinite URLs &mdash; a calendar with a next-month link forever. What stops you?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Nothing, unless you build for it, and this is the classic way a crawler wastes an entire fleet. Every page is new, every page yields more links, and none of it is new content.</p><p>Three defences together: a per-domain budget so no single site can consume more than its share, a depth cap so you stop following a chain that keeps going, and near-duplicate detection before indexing so the trap becomes visible as thousands of nearly identical pages.</p><p>The budget is the important one. The others catch it; the budget bounds the damage while you do.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;How do you decide what to recrawl, and how often?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>You cannot maximise freshness and coverage at once under a fixed budget, so it is a scheduling policy rather than a setting.</p><p>The signal that works is observed change rate: crawl a page, compare it to what you had, and adjust its interval. A news homepage changes hourly and earns frequent recrawls. An archived PDF has not changed in three years and does not.</p><p>Weight by importance too, because a page nobody ever sees in results is not worth refreshing regardless of how often it changes.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Why partition by host rather than by URL?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Because politeness is defined per host. If one host's URLs are spread across every worker, then every worker needs to coordinate to avoid hitting that host too fast, and you have built a distributed rate limiter.</p><p>Partition by host and the constraint becomes local: one worker owns that host, applies the delay itself, and needs to talk to nobody.</p><p>This is the same move as putting the booking invariant on one row. Choose the partition key so the rule you must enforce lives inside a single partition.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Do you render JavaScript?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>It depends on how much of the web you are willing to miss, and it is a cost question rather than a technical one. Headless rendering is 10 to 100 times more expensive per page than fetching HTML.</p><p>The practical approach is tiered: fetch HTML for everything, and render only pages where it is likely to matter &mdash; sites known to be client-rendered, or pages whose HTML is suspiciously empty.</p><p>Rendering everything is how a crawler's cost goes up by two orders of magnitude for a modest gain in coverage.</p></div>
+  </details>
 </div>
 </div>
 </div>
@@ -9382,6 +9629,27 @@ temporarily out of capacity without loss.</div></div>
   </div>
   </div>
 </div>
+
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;A team adds a <code>user_id</code> label to a counter. What happens?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>One metric becomes millions of time series, one per user. Each series carries its own index entry and compression state in memory, so the ingester's memory grows until the process is killed.</p><p>Nothing about traffic changed. An application deploy did this, which is why the control cannot be a review process &mdash; it has to be a hard limit at ingest.</p><p>A per-tenant series budget rejects the new series with a named error and alerts the owning team, so the blast radius is one team rather than everybody's monitoring.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;How do you detect this before it kills you?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Alert on series <em>churn</em> &mdash; new series created per minute &mdash; not on absolute series count. Churn moves the instant a bad deploy ships; the absolute count only crosses a threshold once the damage is done.</p><p>The absolute count is still worth a dashboard, but as a capacity number rather than an alert.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Why keep metrics and logs separate? It seems like more work.&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Because they have opposite cost curves. A metric datapoint compresses to about 1.4 bytes; a log line is a few hundred. Logs are roughly twenty times the volume for a fraction of the query traffic.</p><p>Store them together and you price metrics like logs, which makes 13-month retention unaffordable. Or you price logs like metrics and cannot keep them long enough to be useful.</p><p>They share the ingest path, which is where the operational work actually is. Only the storage engines differ, and that is the cheap part to duplicate.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;An outage starts. Dashboards are down because the system is overloaded. Now what?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>This is the failure mode that matters most, and the answer has to be in the design rather than in the runbook.</p><p>Ingest and query run on separate capacity, so a dashboard stampede during an incident cannot starve ingestion. You would rather lose the ability to look than lose the data you will need to look at afterwards.</p><p>Alerting evaluates against recent data held in memory, so it keeps working even when historical queries are failing. And agents are capped by cgroup so telemetry can never compete with the application it observes.</p></div>
+  </details>
+</div>
 </div>
 </div>
 
@@ -9579,6 +9847,27 @@ coordinator. Consensus is confined to membership, which changes a few times a we
   </div>
   </div>
 </div>
+
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;The whole cache tier restarts. What happens to the database?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>It takes the full read load with a 0% hit rate, which is typically 20 to 100 times what it is provisioned for. Latency climbs, clients time out and retry, and the retries keep it saturated even after the cache warms &mdash; a metastable failure it will not recover from on its own.</p><p>Mitigations: stagger restarts so no more than a small fraction of the fleet is cold at once, and put a concurrency limit on origin fills so the cache cannot forward more than the database can serve.</p><p>If the database cannot survive a cold cache at all, you do not have a cache in front of a database. You have a database whose availability depends on the cache.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;One key is getting a million requests a second. What breaks?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>The NIC, before the CPU. A million requests a second at 1 KB per value is a gigabyte a second to one node, which saturates an 8 Gbps link. Hot keys are a bandwidth problem first.</p><p>The cheapest fix is a client-side L1 with a very short TTL. A key that hot is read constantly, so even a 10 ms TTL collapses a million requests into about a hundred per client.</p><p>Beyond that, replicate the key under salted names and have clients pick one at random. Detect which keys need this with a count-min sketch rather than a static list, because static lists are always stale by the time they matter.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Why consistent hashing rather than <code>hash mod N</code>?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Because of what happens when N changes. Going from 200 nodes to 201 with <code>mod N</code> remaps about 99.5% of keys, which is a full cache flush and an instant origin stampede &mdash; at exactly the moment you were adding capacity.</p><p>A hash ring remaps only the keys owned by the node that joined or left, roughly 1/N. Virtual nodes make that share even, so removing a node spreads its keys across all survivors instead of dumping them on one neighbour.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Should you replicate cache data for durability?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>No, and being able to say why is the point. The data is reconstructible from the origin by definition &mdash; that is what makes it a cache.</p><p>Replicating doubles your cost to protect data you can regenerate. That memory buys far more as additional cache capacity, because a bigger cache means a higher hit rate, which is worth more than surviving one node loss.</p><p>The exception is hot keys, where replication is about spreading load rather than durability.</p></div>
+  </details>
+</div>
 </div>
 </div>
 
@@ -9768,6 +10057,27 @@ cheaper than rebuilding 150 GB every minute.</div></div>
     <div class="cc risk"><div class="h">The biggest risk</div><p>Publishing a bad table. Suggestions are editorial content, so I would gate the swap on canary prefixes and a safety scan, and keep serve-time filtering as a same-minute kill switch.</p></div>
   </div>
   </div>
+</div>
+
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Why not just query the search index as the user types?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Because of what a prefix means. Finding everything starting with &ldquo;a&rdquo; and ranking it is effectively ranking the whole corpus, on every keystroke, inside 100 milliseconds. No index makes that work.</p><p>The realisation is that this is not a search problem at all. There are a finite number of prefixes people type, and the top ten for each one barely change hour to hour. So compute them all offline and serve a lookup.</p><p>The whole table is about 150 GB, which fits in memory. The serving path becomes one hash lookup with no ranking at all.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;How do you show something trending within minutes, if the table is built hourly?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Two lanes. The hourly batch build gives you quality and a safety review. A streaming lane tracks rising terms with a count-min sketch and produces a small overlay, which is merged at read time on top of the batch result.</p><p>Rebuilding 150 GB every minute to capture a handful of changed entries is enormous waste. Merging a small overlay gets the freshness for a fraction of the cost.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;What if suggestions need to be personalised?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>That breaks the core assumption, and it is worth saying so directly rather than hand-waving. Precomputation works because there is one answer per prefix. Personalisation means there is one answer per prefix <em>per user</em>, which you cannot precompute.</p><p>The workable compromise is a global precomputed list blended at read time with a small personal signal &mdash; your recent searches, held client-side. You keep the fast path and personalise the last few percent.</p><p>Full personalisation means a scoring service on the read path and a very different latency budget.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;A bad table gets published and suggestions go blank. How do you notice?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>You will not notice from error rates, because the endpoint returns 200 with an empty list by design &mdash; that is how it fails invisibly when a shard is unhealthy.</p><p>So gate the swap rather than watching afterwards: table size within a few percent of the previous build, canary prefixes still returning expected results, zero safety-filter violations in a sample. If any check fails, do not swap.</p><p>And alert on suggestion <em>volume</em>, not errors. A sudden drop in suggestions shown is the signal.</p></div>
+  </details>
 </div>
 </div>
 </div>
@@ -9972,6 +10282,27 @@ cost 10&times; as much and answer worse.</div></div>
     <div class="cc risk"><div class="h">The biggest risk</div><p>Confident wrong answers. Without a reranker score threshold and an explicit 'I could not find this', the system invents plausible text and the user cannot tell.</p></div>
   </div>
   </div>
+
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;The model answers confidently but the answer is wrong. How do you find out why?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>First separate the two possible causes, because they have unrelated fixes. Either retrieval did not find the right passage, or it did and generation ignored it.</p><p>Measure them separately. For retrieval, take a labelled set and check whether the passage containing the answer was in the top k. For generation, check whether the answer is supported by the passages that were actually supplied.</p><p>Teams that only measure end-to-end accuracy get a number they cannot act on. Retrieval failures mean fixing chunking or the reranker; generation failures mean fixing the prompt or the model.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;A user asks something the documents do not cover. What happens?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>The dangerous default is that the model answers anyway, from what it learned in training, and it sounds exactly as confident as a grounded answer. The user cannot tell the difference, which makes this the worst failure mode in the whole category.</p><p>So threshold on the reranker score. If nothing clears the bar, return &ldquo;I could not find this in your documents&rdquo; rather than generating.</p><p>&ldquo;I don't know&rdquo; has to be an acceptable and required output, and that needs to be a stated requirement or nobody builds it.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Why not just put all the documents in the context window, now that they are large?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Cost and quality, in that order. A large context costs proportionally more per query, and query volume multiplies it. But the quality argument is the more interesting one: long contexts dilute attention, and models reliably do worse at finding a specific fact in a very long context than in a short, well-chosen one.</p><p>Retrieval is not a workaround for small context windows. It is a relevance filter, and it improves answers even when everything would fit.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;A document's permissions change. How fast does that take effect?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>It has to be immediate for removals, which is why permissions are resolved at query time against the live service rather than trusted from the index.</p><p>The denormalised ACL on each chunk is a pre-filter that keeps the ANN search efficient. It is not the authority. If it were, revoking access would only take effect at the next re-index, and a removed employee would keep reading documents in the meantime.</p><p>Additions can lag. Removals cannot.</p></div>
+  </details>
+</div>
 </div>
 </div>
 <div class="design-card">
@@ -10195,7 +10526,28 @@ the design rather than an operational afterthought.</p></div>
   <div class="cc risk"><div class="h">The biggest risk</div><p>Silent accuracy decay. Nothing alerts, latency stays flat, and the answers quietly stop being right. That is why prediction-distribution monitoring is in the design rather than in a follow-up.</p></div>
 </div></div>
 </div>
-  </div>
+  
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;What happens if you remove the batcher?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>You need roughly ten times the GPUs for identical traffic. At 350 requests a second and 40 ms per unbatched inference, that is 14 GPU-seconds of work per second. Batched at 32, the same load is about 1.4.</p><p>So batching is not a tuning knob, it is the difference between an affordable system and an unaffordable one.</p><p>The window is the dial: longer waits mean fuller batches and lower cost, at the price of tail latency. Make it adaptive to queue depth, because a fixed window is wrong at both ends of the load curve.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;The model's accuracy drops but nothing errors. How would you know?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>This is drift, and it has no error message. Latency is fine, nothing crashes, the answers are just gradually less right because the input distribution moved.</p><p>You cannot wait for ground truth, because labels arrive days later if at all. So monitor the <em>prediction</em> distribution and the confidence histogram. If the share of low-confidence results jumps, or the class mix shifts, something changed even before any label confirms it.</p><p>That is why the inference log is part of the design rather than an operational afterthought.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;How do you ship a new model without risking a regression?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Shadow first, then canary. Run the new version on a copy of live traffic, discard its output, and compare its predictions against the current model. Disagreements are where you look.</p><p>Offline evaluation only tells you how the model does on data you already had. Shadow traffic tells you how it does on the data you actually get, which is the only question that matters.</p><p>Only once the disagreement rate is understood does it start serving anyone, and traffic split lives in a registry so rollback is a percentage change rather than a deploy.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Where does the confidence threshold come from?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>From the cost of each kind of error, not from maximising accuracy. Accuracy weights false positives and false negatives equally, which is almost never what anybody wants.</p><p>For X-ray triage a missed finding is a serious harm and a false alarm costs a few minutes of review, so the threshold should be low and route aggressively to a human. For a landmark-recognition feature a wrong label is mildly embarrassing, so the threshold can be much higher.</p><p>It is a product decision, and answering &ldquo;we would optimise accuracy&rdquo; is the wrong answer.</p></div>
+  </details>
+</div>
+</div>
 </div>
 <div class="design-card">
   <div class="dc-header">
@@ -10417,7 +10769,28 @@ least about whether the pipeline is doing its job.</p></div>
   <div class="cc risk"><div class="h">The biggest risk</div><p>Lineage that is recorded but never exercised. It looks complete until an incident, when you discover the dataset reference points at a mutable table that has since changed.</p></div>
 </div></div>
 </div>
-  </div>
+  
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;The tracking service goes down mid-training. What should happen?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>The training run should carry on and the metrics should be dropped. That is the correct behaviour and it should be a stated design property rather than an accident.</p><p>A run can last forty hours on expensive hardware. Losing it because a metadata service returned 503 is unacceptable; losing a few points from a loss curve costs nothing.</p><p>So the client buffers in memory and drops rather than blocking or retrying forever. Same inversion as D11: the observability system must never be able to kill the thing it observes.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Someone asks you to reproduce a result from six months ago. Can you?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Only if you recorded four things, and the one people forget is the data. Code version, environment, hyperparameters and <em>dataset version</em>.</p><p>&ldquo;Trained on the users table&rdquo; is not a reference, because that table has changed since. The dataset needs an immutable identity: a content hash, a table snapshot, or a time-travel timestamp.</p><p>Without it, lineage is decorative. It looks complete right up until somebody actually tries to rerun something.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;A model in production is misbehaving. What do you need to answer?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>The useful query runs backwards: which data produced this model, and what else came from that data?</p><p>That is a reverse traversal of the lineage graph, so design for that direction rather than the forward one. And it is a graph rather than a tree, because models beget models through fine-tuning and distillation &mdash; one bad dataset can taint a whole subgraph of descendants that all need finding and retiring together.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;What metrics would you actually track for pipeline health?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Three layers, and naming all three is the signal. <strong>System</strong>: stage latency, throughput, failure and retry rates, cost per run. <strong>Data</strong>: freshness, row volume against the same window last week, null rates, schema drift. <strong>Model</strong>: prediction distribution, confidence histogram, and precision and recall once labels arrive.</p><p>Most people give only the first layer, which is the one that tells you least. Nearly every &ldquo;the model got worse&rdquo; incident is really an upstream data incident, and the middle layer catches it days before model metrics can.</p></div>
+  </details>
+</div>
+</div>
 </div>
 <div class="design-card">
   <div class="dc-header">
@@ -10635,7 +11008,28 @@ blur is a legal incident, not a bug, so the correct behaviour on model uncertain
   <div class="cc risk"><div class="h">The biggest risk</div><p>Conflation quality. Nothing crashes when traces merge badly; the map is simply wrong, and wrong maps are discovered by users rather than by monitoring. Topology invariants on each build are the only cheap defence.</p></div>
 </div></div>
 </div>
-  </div>
+  
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;You publish a new map version. What happens to the CDN?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>It goes cold instantly. Because the version is in the URL path, every tile has a new address, so nothing in the cache matches and the origin takes the full load.</p><p>That is the sting of immutability: it removed cache invalidation entirely, and in exchange every publish is a cold-start stampede.</p><p>So roll out by region rather than globally, and pre-warm the low zoom levels first &mdash; they are a tiny fraction of the tiles and the overwhelming majority of requests.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Why ship physical drives instead of uploading?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Because the bandwidth does not exist. A thousand vehicles producing imagery all day is around 432 terabytes daily, which is roughly 40 Gbps sustained from vehicles on mobile networks.</p><p>A van of drives has enormously higher throughput than any network those vehicles can reach. Latency is terrible &mdash; days &mdash; and that is fine, because map building is allowed to lag.</p><p>Recognising when the network is not the answer is the point of the question.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Ten cars drive the same road. How do you turn that into one road?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>This is conflation, and it is where map quality actually comes from. Ten noisy GPS traces have to become one centreline, and next month's pass must merge into the existing geometry rather than creating a parallel road beside it.</p><p>It is a clustering and map-matching problem, and it is the part candidates skip. Even mentioning it separates someone who has thought about <em>building</em> a map from someone who has only thought about serving one.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;How do you check a map build is not broken before publishing?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Topology invariants, because geometry errors are far easier to catch as rule violations than by looking. Total road length within a few percent of the previous build. No region losing connectivity that previously had it. No through-road becoming a dead end.</p><p>Plus a privacy gate: zero unblurred faces or plates in a sample. That one blocks the build rather than warning, because a missed blur is a legal incident rather than a bug.</p></div>
+  </details>
+</div>
+</div>
 </div>
 <div class="design-card">
   <div class="dc-header">
@@ -10848,7 +11242,28 @@ the old column in a later, separate rollout.</p></div>
   <div class="cc risk"><div class="h">The biggest risk</div><p>Irreversible steps. Rollback is the safety net the whole design assumes, and a schema change or disk reformat quietly removes it &mdash; which is why identifying those first is a clarifying question, not an implementation detail.</p></div>
 </div></div>
 </div>
-  </div>
+  
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Why not just upgrade 250 machines at a time until you are done?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Because equal batches risk as much on the first wave as the last, and throw away the cheapest information you will ever get.</p><p>Start with one machine. That catches &ldquo;the binary does not start&rdquo;. Then ten, which catches &ldquo;it starts and is broken&rdquo;. Then a hundred, which catches problems that only show under real traffic mix.</p><p>Each stage buys confidence proportional to what it risks, and the small early waves cost minutes against a rollout measured in hours.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;How do you know the new version is actually worse?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Compare upgraded machines against machines that have <em>not</em> been upgraded yet, serving the same traffic at the same moment.</p><p>Comparing against yesterday is the common mistake: a diurnal dip or an unrelated incident reads as a regression, and a real regression during a quiet period reads as fine. A concurrent baseline removes both.</p><p>You also need bake time between waves, because memory leaks, pool exhaustion and cache warm-up effects take minutes to appear. A rollout with no bake is a fast way to break the whole fleet with confidence.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;The orchestrator crashes halfway through. What state are you in?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Recoverable, because it holds no state. Every machine's desired and actual version lives in a table, so a replacement orchestrator reads it and carries on.</p><p>Agents in flight finish what they were doing and report. The fencing token stops a resumed agent acting on an order that has since been superseded.</p><p>If rollout state lived in orchestrator memory, its crash would strand machines mid-upgrade with no record of intent &mdash; which is the actual argument for pull-based agents.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;What about a change you cannot roll back, like a schema migration?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Rollback is the safety net everything else assumes, so an irreversible step quietly removes it. Those steps have to be identified <em>before</em> the first machine is touched, which is why it is a clarifying question rather than an implementation detail.</p><p>Then separate them: ship the reversible parts first, let them bake, and do the irreversible step as its own rollout. Use expand-and-contract so old and new forms coexist &mdash; add the column, dual-write, migrate readers, and only drop the old column much later.</p></div>
+  </details>
+</div>
+</div>
 </div>
 <div class="design-card">
   <div class="dc-header">
@@ -11226,7 +11641,28 @@ access. It is a much better experience than the site falling over, which is the 
 </div>
 </div>
 </div>
-  </div>
+  
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Why not use a distributed lock to stop double-selling?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Because you do not need one, and adding it makes things worse. The rule is about a single row, and a database already settles single-row updates one writer at a time.</p><p>A lock service is a separate component that can be unreachable. Its leases expire while you are mid-operation, so now you need fencing tokens. It adds a network round trip to every booking.</p><p>You have taken a local problem, made it distributed, and acquired several new failure modes &mdash; to solve something a conditional <code>UPDATE</code> already solved.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;100,000 people hit the on-sale at the same second. Do you just add servers?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>No, and this is the trap. The contention is on the rows, not the CPU. A hundred servers all trying to update seat 14A means a hundred servers queueing behind each other, and everybody gets a timeout instead of an answer.</p><p>The fix is a waiting room in front: admit people at a rate the database can absorb, show everyone their position, and be honest about the wait.</p><p>Sharding the inventory works when units are interchangeable &mdash; any parking bay &mdash; and not when they are not, because seat 14A exists in exactly one place.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;How long should a hold last?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>It is a product decision with a direct inventory cost, and it is worth framing it that way. Too short and people lose the seat while typing their card. Too long and inventory sits unavailable for customers who would have bought it.</p><p>Ten minutes is common for tickets, two or three for a high-demand on-sale where inventory turnover matters more than convenience.</p><p>The number to watch is what fraction of holds expire unpaid. If it is very high, the window is too long or checkout is too slow.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;What if the payment succeeds but your confirm step crashes before writing the booking?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>The customer has been charged and has no seat, which is the worst outcome, so this is worth designing for rather than hoping about.</p><p>The hold expires and the seat returns to sale. Separately, reconciliation compares your bookings against the provider's charges and finds a charge with no booking.</p><p>At that point you either issue the booking if the seat is still free, or refund. Either is recoverable. The reason this works is the idempotency key: the customer retrying does not create a second charge.</p></div>
+  </details>
+</div>
+</div>
 </div>
 
 <div class="design-card">
@@ -11441,7 +11877,28 @@ edit to, the inverse must be transformed into a no-op rather than resurrecting t
   <div class="cc risk"><div class="h">The biggest risk</div><p>Split-brain on document ownership. Two sequencers means two orderings and silently divergent documents, which is why ownership needs a fenced lease rather than a best-effort lock.</p></div>
 </div></div>
 </div>
-  </div>
+  
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Two people type at the same position at the same instant. What does each see?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Both edits apply locally first, so each person sees their own character appear immediately &mdash; waiting for a round trip per keystroke would be unusable.</p><p>The server assigns an order, transforms the second edit against the first, and sends the rebased operation back. Each client then reconciles its local state with the server's order, which may mean adjusting a character it already drew.</p><p>The result is that both converge to the same document, and neither person felt any lag while typing.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Should you use OT or CRDTs?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>It depends on one requirement: how strong is offline editing? With a live server sequencing everything, OT is simpler and its operations are much smaller on the wire.</p><p>CRDTs give every character an immutable identity so operations commute and merge without any server. That is what you need for peer-to-peer or for merging after days offline, and you pay for it in per-character metadata and tombstones that never go away.</p><p>The strong answer names the condition: OT with a server for live editing, CRDTs the moment serious offline merge is required.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;The server holding a document crashes. What happens to people editing it?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Another node takes ownership, replays the operation log from the last snapshot, and rebuilds the document. Clients reconnect and resync from their last acknowledged sequence number, replaying anything they had pending.</p><p>Because operations are appended to the log <em>before</em> being acknowledged, nothing acknowledged can be lost.</p><p>The dangerous case is two nodes both believing they own the document, which produces two orderings and silently forks the file. That needs a fenced lease, not a best-effort lock.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;How does undo work when someone else has edited since?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Undo means &ldquo;invert <em>my</em> last operation&rdquo;, not &ldquo;revert the last thing that happened&rdquo; &mdash; otherwise you would undo a colleague's work, which is the bug people actually hit.</p><p>So you take your operation, construct its inverse, and transform that inverse against everything that has happened since.</p><p>If a colleague deleted the text you are undoing an edit to, the transformed inverse becomes a no-op rather than resurrecting the text. That is the correct outcome and it falls out of the transform.</p></div>
+  </details>
+</div>
+</div>
 </div>
 <div class="design-card">
   <div class="dc-header">
@@ -11648,7 +12105,28 @@ target is met comfortably by a 10-second poll of a small delta.</p></div>
   <div class="cc risk"><div class="h">The biggest risk</div><p>The upstream feed. It is untrusted input with the power to block everyone, and the sanity limits on ingestion are the only thing standing between a bad publish and a total outage.</p></div>
 </div></div>
 </div>
-  </div>
+  
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Why not just call a denylist service on each request?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Because it puts a network round trip on 100% of traffic and creates a dependency that can take the whole site down &mdash; for a component whose entire job is protective.</p><p>A million CIDR rules compress to about 8 MB as a radix trie, which fits in every edge process's memory. So the check becomes a function call with zero network hops.</p><p>Recognising that the dataset is small enough to replicate everywhere is the whole answer to this question.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;The feed publishes a rule that blocks the entire internet. Then what?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Applied faithfully, you have taken your own site down with somebody else's data. So the feed is untrusted input and ingestion is a validation step, not a copy.</p><p>Reject any delta that would ban more than a small fraction of address space, or that removes most existing rules, or that contains a prefix broader than a configured maximum. Subtract the allowlist last.</p><p>Edges keep the last good snapshot, so a rejected feed is an alert rather than an outage.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Should it fail open or fail closed?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Fail open, almost always, and the reasoning is blast radius. Failing closed means an outage in an auxiliary protective component becomes a total outage of your service, which is a far bigger harm than a window of unblocked abuse.</p><p>The exception is when the block is a legal control &mdash; a sanctions list &mdash; where serving a blocked party is the greater harm.</p><p>That is a business decision and should be surfaced as one rather than assumed by the engineer.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;How do you audit blocks without drowning in data?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>At 500,000 requests a second, even a 1% block rate is 5,000 audit rows a second, which is a bigger data problem than the traffic you are protecting.</p><p>So sample the high-volume automated blocks, and keep <em>every</em> block that came from a manual rule, because those are the ones a human will be asked to justify.</p><p>Per-rule counters give you the operational picture without a row per event.</p></div>
+  </details>
+</div>
+</div>
 </div>
 <div class="design-card">
   <div class="dc-header">
@@ -11867,7 +12345,28 @@ skewed data.</p></div>
   <div class="cc risk"><div class="h">The biggest risk</div><p>Key skew that sampling cannot fix. A single value larger than a partition budget cannot be split, and no amount of boundary tuning helps &mdash; it needs special handling or an accepted straggler.</p></div>
 </div></div>
 </div>
-  </div>
+  
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Why sample first? It sounds like wasted work.&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>It costs minutes and routinely saves hours. Dividing the key space into equal ranges assumes a uniform distribution that real data never has.</p><p>If 40% of keys share a prefix, one reducer receives 40% of the data and the job takes as long as that single worker. Reading a small random sample and choosing boundaries at its quantiles gives partitions of roughly equal <em>size</em>, which is what actually matters.</p><p>Skipping the sample is the single most common way this question is answered badly.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;What if one key alone is bigger than a partition?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Then no boundary choice helps, and saying so is better than pretending sampling solves everything. A single key cannot be split across partitions without breaking the sort.</p><p>The options are to handle that key specially &mdash; sort its records separately and concatenate, since they are all equal on the sort key anyway &mdash; or to accept the straggler.</p><p>It is the same hot-key problem as Ch 5, with the same shape: partitioning distributes keys, not load.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;A worker is slow but not dead. Do you wait?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>No. Near the end of a phase, when most tasks are done and a few are lagging, start duplicate copies of the slow ones and take whichever finishes first.</p><p>This is cheap precisely because tasks are already idempotent: each attempt writes to its own output path and the coordinator records which one won, so the loser's bytes are inert.</p><p>It protects against the far more common cause of a slow task, which is a degraded machine rather than skewed data.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Why not hash partition? It balances perfectly.&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>It does, and it destroys the ordering that the job exists to produce. Hashing scatters adjacent keys across unrelated partitions, so the output is sorted within each partition but the partitions have no relationship to each other.</p><p>Range partitioning is what makes the global order fall out of the boundaries: each partition is sorted independently, and concatenating them in order gives a sorted result with no cross-worker comparison at all.</p></div>
+  </details>
+</div>
+</div>
 </div>
 <div class="design-card">
   <div class="dc-header">
@@ -12074,7 +12573,28 @@ removals must be applied immediately.</p></div>
   <div class="cc risk"><div class="h">The biggest risk</div><p>High-degree members. They break the neighbourhood arithmetic the whole design rests on, and without an explicit switch to expand from the smaller side, a handful of users can dominate the cluster&rsquo;s load.</p></div>
 </div></div>
 </div>
-  </div>
+  
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Why not precompute everyone's third-degree set?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>At around 500 connections each, third degree is roughly 125 million people per viewer. Even as a compressed bitmap that is hundreds of megabytes per user, and storing it for a billion members is absurd.</p><p>It also changes constantly: every new connection anywhere in the network invalidates it.</p><p>So third degree is computed, never stored &mdash; by expanding two hops from the viewer, which you can cache, and one hop from each target, which is tiny, then intersecting.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;A viewer has 30,000 connections. Now what?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Their second-degree set is in the tens of millions, which is too large to cache and constantly invalidated. The design's central assumption has broken for them.</p><p>The fix uses symmetry: if V is within three hops of P, then P is within three hops of V. So when the viewer is a high-degree member, compute from the <em>target's</em> side instead, where the neighbourhood is ordinary.</p><p>Choosing which end to expand from based on degree is the most valuable optimisation here, and without it a handful of users dominate the cluster.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Someone makes a new connection. How much cache does that invalidate?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>More than you would like. It changes the second-degree set not only for the two people involved but for everyone connected to either of them &mdash; roughly a thousand cached sets per new connection.</p><p>Eagerly recomputing them is wasteful because most will change again before anyone reads them. So invalidate lazily: stamp each bitmap with the edge version it was built from and rebuild on read when it is stale.</p><p>That trades a slower first read for far less write amplification, which the staleness tolerance permits.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Is it acceptable to show the wrong degree?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>In one direction only, and the asymmetry matters. Showing 3rd where the truth is now 2nd is harmless &mdash; the data is just a little stale.</p><p>Showing 2nd where the truth is 3rd is a privacy problem, because degree gates what profile information is visible.</p><p>So the cache may only ever <em>miss</em> new edges, never invent them. Additions can lag; removals must be applied immediately.</p></div>
+  </details>
+</div>
+</div>
 </div>
 <div class="design-card">
   <div class="dc-header">
@@ -12314,7 +12834,28 @@ it, is what keeps the system from slowly filling with garbage.</p></div>
   <div class="cc risk"><div class="h">The biggest risk</div><p>The reconnect storm. Losing one gateway means a million devices reconnect at once, and without jittered backoff and real headroom that cascades through the tier faster than it can absorb.</p></div>
 </div></div>
 </div>
-  </div>
+  
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;A phone has 40 push-enabled apps. How many connections?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>One. That is the decision the whole design rests on, and it is made for battery rather than throughput.</p><p>Forty connections means forty TLS handshakes, forty sets of keepalives and forty radio wake-ups, and on a mobile network the radio is the dominant power cost. Users answer that by turning push off, which is a product failure.</p><p>So the connection belongs to the device, each notification carries a topic identifying the app, and the phone demultiplexes locally. The session registry and the routing hop exist to support that.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;A gateway holding a million connections dies. What happens next?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>A million devices notice within seconds and reconnect. If they reconnect immediately they arrive as a synchronised wall of TLS handshakes and knock over whichever gateway they land on next, which cascades.</p><p>So devices must back off with randomised delay, and the tier needs enough headroom to absorb a whole node's worth of reconnections.</p><p>This is the same synchronised-retry problem as Ch 10, and jitter is what turns a wall into a ramp.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;A phone is off for a week. How many notifications does it get on reconnect?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>About one per app, not thousands. Notifications for offline devices are upserted into a pending store keyed by device, app and collapse id, so a newer one replaces the older.</p><p>That bounds storage by devices times apps &mdash; a fixed quantity &mdash; rather than by traffic times outage length.</p><p>It is also better product behaviour. Nobody wants 400 &ldquo;you have a new message&rdquo; alerts; they want the latest one.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;One publisher has a bug and sends ten million notifications a second. Who notices?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Only that publisher, if the design is right. A per-publisher quota at ingest rejects the excess with 429 before it consumes routing or gateway capacity.</p><p>Quota at the door is the cheapest place to shed, because the notification has not cost anything yet.</p><p>Without it, one app's bug consumes capacity shared with every other app, and the failure looks like a platform outage rather than a customer problem.</p></div>
+  </details>
+</div>
+</div>
 </div>
 <div class="design-card">
   <div class="dc-header">
@@ -12540,7 +13081,28 @@ designed against the adversarial case, not the sympathetic one.</p></div>
   <div class="cc risk"><div class="h">The biggest risk</div><p>Split-brain ownership of a game. Two servers holding the same game produce two boards and no error, which is why ownership needs an epoch fence at the log rather than a best-effort lock.</p></div>
 </div></div>
 </div>
-  </div>
+  
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;How do you stop a modified client from cheating?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Structurally rather than by detection. The client sends <em>intents</em> &mdash; &ldquo;move this piece to e4&rdquo; &mdash; and the server validates against the rules and computes the result.</p><p>An edited client can then only send illegal moves, which get rejected. If instead the client sent &ldquo;the board now looks like this&rdquo;, no amount of anomaly detection reliably saves you.</p><p>The same applies to information: never send a player state they should not see. In a game with hidden information, possession of the opponent's cards is the vulnerability, even encrypted.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;A player's connection drops mid-game. What happens?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>You cannot tell a rage-quit from a train entering a tunnel, so this is a product decision rather than a technical one.</p><p>The game continues to exist on the server. There is a grace window during which their clock keeps running but the game waits, then a forfeit.</p><p>Running the clock is what stops disconnection being used as a stalling tactic &mdash; the mechanism has to be designed against the adversarial case, not the sympathetic one. On reconnect they resync from their last applied sequence number.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Why does each game need a single owning server?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Because ordering moves is trivial with one writer and genuinely hard with two. A single authoritative process assigns sequence numbers and validates in order, with no coordination at all.</p><p>A shared state store instead would put a round trip on every move, which cannot meet a 150 ms budget, and two servers holding the same game is a correctness bug rather than a scaling win.</p><p>Consensus is needed only to decide <em>who owns</em> a game, which changes rarely, not for the moves themselves.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Top players wait ten minutes for a match. Why, and what do you do?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Because a strict rating match has almost nobody to match them with at the tails. A narrow window is easy to specify and produces unbounded waits for exactly the players who care most.</p><p>So widen over time: start at roughly &plusmn;25 rating and relax toward &plusmn;400 over thirty seconds. Almost everyone matches quickly and fairly, and the tail matches slightly unfairly rather than waiting forever.</p><p>Expose the widening curve, because it is the dial between match quality and wait time and product will want to move it.</p></div>
+  </details>
+</div>
+</div>
 </div>
 <div class="design-card">
   <div class="dc-header">
@@ -12815,6 +13377,31 @@ the difference and here is the credit.&rdquo;</em></p></div>
 </div></div>
 </div>
   </div>
+
+<div class="followup">
+  <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
+  <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;A TV never receives your acknowledgement and resends the same batch three times. Are you billing three times?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>No, because the impression id was minted on the TV and reused on every retry. All three copies carry the same id, the log is partitioned by hash of that id so they land on the same partition, and batch deduplication takes the distinct set.</p><p>The TV can resend as often as it likes and the count does not move.</p><p>If the id were minted on arrival instead, those three would be genuinely distinct events that nothing downstream could tell apart, and there is no recovery from that.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Why not bill from the streaming layer? It is much fresher.&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Because streaming deduplication is bounded by its state window. It can hold a few hours of ids in RocksDB; a TV that comes back after four days sends events whose ids left the window, so the retry sails through and double-counts.</p><p>Batch has no such limit: sorting a day's partition by impression id and taking distinct is exact by construction, at any lateness within retention.</p><p>So streaming is for pacing and dashboards, batch is for money, and every report says which one it came from.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;A TV uploads a week of events after the billing period closed. What do you do?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>Not drop them, and not retro-insert them into a sent invoice. Both are wrong in different ways &mdash; one under-bills silently, the other mutates a document the advertiser already reconciled.</p><p>They are billed in the current period as an explicit adjustment, carrying their original event time so reporting stays accurate.</p><p>That keeps invoices immutable while still charging for real impressions, and it makes late volume a metric you can watch rather than a silent loss.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;You find a bug that over-counted last month, after invoicing. Now what?&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>You do not rewrite the invoice. Re-run the affected partitions under a new ruleset version, compute the delta, and issue a credit row in the ledger that supersedes the original.</p><p>This works because aggregates are upserted on a natural key, so a re-run replaces rather than adds. If it added, every retried job would silently inflate the bill &mdash; the exact failure the system exists to prevent.</p><p>The lineage endpoint then explains both numbers, which is what auditability actually means.</p></div>
+  </details>
+  <details class="fu">
+    <summary><span class="fu-q">&ldquo;Could you use a Bloom filter for deduplication? It would be much cheaper.&rdquo;</span><span class="fu-cue">Answer</span></summary>
+    <div class="fu-a"><p>For a dashboard, yes. For an invoice, no, and the arithmetic is worth stating.</p><p>A filter sized for five billion daily ids at a 1% false-positive rate is around 6 GB. But a false positive means treating a real impression as a duplicate and <em>dropping</em> it &mdash; so 1% error is a 50-million-impression under-bill every day.</p><p>That is a rounding error on a chart and a material misstatement on a bill. Exactness comes free from the batch sort, so there is no reason to accept it.</p></div>
+  </details>
+</div>
 </div>
 </div>
 

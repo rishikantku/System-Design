@@ -16277,67 +16277,140 @@ access. It is a much better experience than the site falling over, which is the 
     <h3 class="dc-title"><span id="design-collab">Design Collaborative Editing</span> (Google Docs, and the same engine for a shared canvas or photo editor)</h3>
     <div class="dc-meta">Difficulty: <strong>Hard (Staff Expectation)</strong> &nbsp;.&nbsp; Target: <strong>45 min</strong></div>
   </div>
-  <div class="dc-body"><div class="asked">
+  <div class="dc-body">
+<div class="asked">
   <div class="ak-q"><span class="ak-l">&#128172; The question, as asked</span><p>&ldquo;Design collaborative editing &mdash; Google Docs, or the same engine for a shared canvas or photo editor. Multiple people edit simultaneously and everyone converges.&rdquo;</p></div>
   <div class="ak-h"><span class="ak-l">&#9889; What makes it hard</span><p><strong>Concurrent edits do not commute.</strong> Two people inserting at position 5 cannot both simply apply their change, and there is no way around it &mdash; only two families of solution with very different costs.</p></div>
 </div>
-
 <div class="design-step req">
-  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Requirements</div>
-  <div class="ds-body"><div class="clarify">
+  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Understanding the question</div>
+  <div class="ds-body"><p>The prompt: <em>&ldquo;Design collaborative editing &mdash; Google Docs, or the same
+engine for a shared canvas or photo editor. Multiple people edit simultaneously and everyone
+converges.&rdquo;</em></p>
+
+<p>The whole difficulty fits in one example, and it is worth walking through slowly because everything
+else follows from it.</p>
+
+<div class="insight">
+  <div class="label">&#127919; Two edits that cannot both just be applied</div>
+  <p>The document says <code>HELLO</code>. Two people edit at the same moment.</p>
+  <p>Priya inserts <code>X</code> at position 5. Dev deletes the character at position 2.</p>
+  <p>If Priya's edit is applied first: <code>HELLOX</code>, then delete position 2 gives
+  <code>HLLOX</code>. If Dev's is applied first: <code>HLLO</code>, then insert X at position 5 lands
+  <em>past the end</em> &mdash; the document is now shorter than Priya thought it was.</p>
+  <p>Same two edits, different order, different results &mdash; and in the second case, an operation
+  that does not even make sense any more.</p>
+</div>
+
+<p>This is not a bug to fix. Concurrent edits expressed as positions genuinely do not commute, because
+a position is a statement about a document state that the other edit has already changed.</p>
+
+<h4>The two families of answer</h4>
+
+<p>There are exactly two known approaches, and they differ in where they put the difficulty.</p>
+
+<p><strong>Transform the operations.</strong> Keep positions, but before applying a remote edit, adjust
+it against every concurrent edit you already applied. Dev's delete at position 2 happened before
+Priya's insert point, so Priya's insert becomes &ldquo;insert at position 4&rdquo;. Both clients now
+reach <code>HLLOX</code>.</p>
+
+<p>This is operational transformation, and it works. The cost is that the transformation function must
+be correct for every pair of operation types, and it needs a server to impose a single order, because
+transforming against a set everyone agrees on is far easier than against sets that differ.</p>
+
+<p><strong>Stop using positions.</strong> Give every character a unique, permanent identifier, and
+express edits as &ldquo;insert this character after that one&rdquo; rather than &ldquo;at position
+5&rdquo;. There is now nothing to invalidate: the character Priya is inserting after still exists
+regardless of what Dev did, unless Dev deleted it &mdash; in which case it is marked deleted rather
+than removed, so it is still there to anchor against.</p>
+
+<p>These are CRDTs. Operations commute by construction, so no server ordering is needed and offline
+editing merges naturally. The cost is that every character carries an identifier, so the document's
+in-memory representation is many times its text size, and deleted characters linger as tombstones.</p>
+
+<h4>Which one, and why</h4>
+
+<p>For live collaboration with a handful of editors and a server in the middle, transformation is
+simpler and lighter, and having an authoritative sequencer removes most of the hard cases. For heavy
+offline editing or peer-to-peer, CRDTs are clearly right because they do not need a central order at
+all.</p>
+
+<p><strong>Which is why &ldquo;must offline editing merge?&rdquo; is the clarifying question that
+decides the design.</strong></p>
+
+<h4>What they are looking for</h4>
+
+<p><strong>Do you produce the non-commuting example?</strong> Concretely, with positions.</p>
+
+<p><strong>Do you know local edits must apply instantly?</strong> Typing that waits for a round trip is
+unusable, and that requirement is what creates the divergence in the first place.</p>
+
+<p><strong>Do you handle undo correctly?</strong> It is the requirement that catches people out.</p>
+<div class="clarify">
   <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
   <div class="cq-row"><div class="cq-q">Text, or a spatial canvas?</div><div class="cq-w">This changes the data model completely. Text is a sequence where concurrent inserts must not scramble order; a canvas is a set of objects where concurrent moves are usually independent and far easier.</div></div><div class="cq-row"><div class="cq-q">Must offline editing merge, or is live-only acceptable?</div><div class="cq-w">Live-only lets a server serialise everything, which is dramatically simpler. Offline merge is what forces CRDTs or a robust transform, and it is the hardest requirement in the design.</div></div><div class="cq-row"><div class="cq-q">How many concurrent editors per document?</div><div class="cq-w">Five is a different system from five hundred. Above roughly fifty, broadcasting every keystroke to everyone becomes the bottleneck and updates must be batched.</div></div><div class="cq-row"><div class="cq-q">Is full edit history required?</div><div class="cq-w">Undo needs recent operations; legal or compliance history needs all of them forever, which changes storage from a buffer into an archive.</div></div><div class="cq-row"><div class="cq-q">Does the server need to read the content?</div><div class="cq-w">Server-side search, spell-check and thumbnails all require plaintext, which rules out end-to-end encryption. This is a product decision with a large architectural consequence.</div></div>
   <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
 </div>
-<p><strong>Functional:</strong></p>
-<ul>
-  <li>Multiple users edit one document simultaneously and converge to the same state</li>
-  <li>Show remote cursors and selections live</li>
-  <li>Undo affects only <em>your own</em> edits, not whatever happened most recently</li>
-  <li>Reconnect after disconnection and merge without losing work</li>
+</div>
+</div>
+<div class="design-step fr">
+  <div class="ds-header"><span class="ds-ico">&#128221;</span>2. Functional requirements</div>
+  <div class="ds-body"><ul>
+  <li><strong>Multiple users edit one document simultaneously</strong> and converge to the same state.</li>
+  <li><strong>Remote cursors and selections</strong> shown live.</li>
+  <li><strong>Undo affects only your own edits</strong>, not whatever happened most recently.</li>
+  <li><strong>Reconnect and merge</strong> after a disconnection without losing work.</li>
 </ul>
-<p><strong>Non-Functional:</strong></p>
-<ul>
-  <li>Local edits apply instantly &mdash; typing must never wait for a round trip</li>
-  <li>Remote edits appear within ~200&nbsp;ms</li>
-  <li><strong>Convergence is non-negotiable:</strong> no sequence of concurrent edits may leave two clients with different documents</li>
-</ul></div>
+
+<h4>Why undo is harder than it looks</h4>
+
+<p>In a single-user editor, undo is a stack: reverse the last thing that happened. In a shared document
+that is wrong, and obviously so once you see it.</p>
+
+<p>Priya types a paragraph. Dev, elsewhere in the document, deletes a sentence. Priya presses undo. She
+expects her paragraph to disappear. A naive stack would undo <em>Dev's deletion</em> &mdash; reversing
+a change she cannot see, made by someone else, in a part of the document she is not looking at.</p>
+
+<p>So undo must be <strong>per user</strong>: find my most recent operation, and apply its inverse
+transformed against everything that has happened since. That transformation step is essential &mdash;
+if my insert was at position 10 and three characters were since deleted before it, the inverse must
+target position 7.</p>
+
+<p>This is one of the clearest examples in the design of why the operation model has to be principled
+rather than ad hoc. Undo is not a feature layered on top; it is the same transformation machinery
+pointed backwards.</p></div>
 </div>
-<div class="design-step est">
-  <div class="ds-header"><span class="ds-ico">&#128202;</span>2. Capacity Estimation</div>
-  <div class="ds-body"><div class="assume">
-  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
-  <div class="as-row"><div class="as-a">Typical document has fewer than 10 concurrent editors</div><div class="as-b">Hundreds of editors forces update batching and a fan-out tier, which this design does not need.</div></div><div class="as-row"><div class="as-a">Live collaboration; offline merge is supported but rare</div><div class="as-b">If most editing were offline, CRDTs become clearly correct and the server-authority design stops being viable.</div></div><div class="as-row"><div class="as-a">The server may read document content</div><div class="as-b">End-to-end encryption would remove server-side search, thumbnails and transform, and force all merging onto clients.</div></div>
-</div>
-<p><strong>Assumptions:</strong> 1M active documents, ~10 editors each at peak, ~5 ops/sec per active editor.</p><div class="ng"><div class="ng-cell"><div class="ng-val">~50/s</div><div class="ng-desc">ops per busy document</div></div><div class="ng-cell"><div class="ng-val">~500/s</div><div class="ng-desc">fan-out messages per document</div></div><div class="ng-cell"><div class="ng-val">~200 ms</div><div class="ng-desc">remote-edit budget</div></div><div class="ng-cell"><div class="ng-val">~100 B</div><div class="ng-desc">per operation</div></div><div class="ng-cell"><div class="ng-val">~1 KB/s</div><div class="ng-desc">per active editor</div></div><div class="ng-cell"><div class="ng-val">1</div><div class="ng-desc">authoritative sequencer per doc</div></div></div><p><strong>The number that shapes the design:</strong> a document is a very small, very hot
-object. Ten editors at five operations per second is only ~50 writes/sec &mdash; trivial in
-absolute terms &mdash; but they all target <em>the same document</em>, and they must be
-<strong>totally ordered</strong>. So the scaling axis is not operations per second; it is documents.
-<strong>Shard by document ID and give each document a single authoritative sequencer</strong>, and
-the hard part becomes local to one process.</p></div>
-</div>
-<div class="design-step api">
-  <div class="ds-header"><span class="ds-ico">&#128268;</span>3. API Design</div>
-  <div class="ds-body"><div class="api-code"><span class="cm">// WebSocket per open document. HTTP only for load and snapshot.</span>
+<div class="design-step nfr">
+  <div class="ds-header"><span class="ds-ico">&#9201;</span>3. Non-functional requirements</div>
+  <div class="ds-body"><div class="tw"><table class="to">
+<thead><tr><th style="width:26%">Requirement</th><th style="width:22%">Target</th><th style="width:52%">What it forces</th></tr></thead>
+<tbody>
+<tr><td><strong>Local edit latency</strong></td><td class="chosen">Zero &mdash; instant</td><td>Typing must never wait for a server. This is what creates divergence, and therefore the entire problem.</td></tr>
+<tr><td><strong>Remote edit latency</strong></td><td>~200 ms</td><td>Fast enough that collaboration feels live. Slower and people start editing over each other.</td></tr>
+<tr><td><strong>Convergence</strong></td><td class="chosen">Non-negotiable</td><td>No sequence of concurrent edits may leave two clients with different documents. Not &ldquo;rarely&rdquo; &mdash; never.</td></tr>
+<tr><td><strong>Concurrent editors</strong></td><td>~10 typical</td><td>Bounded. Hundreds would require batching and a fan-out tier this design does not need.</td></tr>
+<tr><td><strong>Offline merge</strong></td><td>Supported, rare</td><td>Supported because people close laptops. Rare, which is what makes server authority viable.</td></tr>
+<tr><td><strong>History</strong></td><td>Recent, for undo</td><td>Full permanent history is a different requirement &mdash; an archive rather than a buffer &mdash; and worth scoping explicitly.</td></tr>
+</tbody></table></div>
 
-<span class="kw">GET</span>  /v1/docs/{id}       -&gt; { snapshot, version, participants[] }
+<h4>The first row is the source of the problem</h4>
 
-<span class="kw">WS</span>   /v1/docs/{id}/stream
-  -&gt; { type:"op",     client_id, base_version, ops:[...] }
-  &lt;- { type:"ack",    client_seq, server_version }
-  &lt;- { type:"op",     from, server_version, ops:[...] }   <span class="cm">// transformed</span>
-  &lt;- { type:"cursor", from, range }        <span class="cm">// ephemeral, never persisted</span>
-  &lt;- { type:"resync", snapshot, version }  <span class="cm">// client too far behind</span>
+<p>It is worth making the connection explicit, because it explains why this cannot be designed away.</p>
 
-  <span class="cm">// base_version is what makes this work: the server knows exactly</span>
-  <span class="cm">// which document state the client was looking at, and therefore</span>
-  <span class="cm">// which concurrent ops it must transform against.</span>
+<p>If typing waited for the server, there would be no problem at all: the server would order every edit,
+there would be exactly one document state, and nothing would ever diverge. It would also be unusable
+&mdash; a 100 ms round trip on every keystroke feels broken, and on a poor connection it feels dead.</p>
 
-<span class="kw">POST</span> /v1/docs/{id}/snapshot   <span class="cm">// internal: compact the op log</span></div></div>
+<p>So edits apply locally and immediately, which means the local document is <em>ahead</em> of the
+server, and every other client's is ahead in a different direction. Divergence is not a failure mode;
+it is the normal, continuous state of a working system, and the design's job is to guarantee that it
+always resolves.</p></div>
 </div>
 <div class="design-step schema">
-  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="cm">-- The op log is the source of truth; snapshots are an optimisation.</span>
+  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Data model and API</div>
+  <div class="ds-body"><p>The document is not stored as text. It is stored as <strong>a sequence of
+operations</strong>, with the text as a derived view.</p>
+<div class="schema-code"><span class="cm">-- The op log is the source of truth; snapshots are an optimisation.</span>
 <span class="kw">TABLE</span> operations {
   doc_id      <span class="ty">UUID</span>,
   version     <span class="ty">BIGINT</span>,     <span class="cm">-- server-assigned, gapless, per document</span>
@@ -16359,12 +16432,135 @@ the hard part becomes local to one process.</p></div>
 
 <span class="cm">-- Cursors are NOT stored. They are ephemeral presence state, they</span>
 <span class="cm">-- are worthless one second later, and persisting them would be a</span>
-<span class="cm">-- far higher write rate than the edits themselves.</span></div></div>
+<span class="cm">-- far higher write rate than the edits themselves.</span></div>
+<p>Each operation records what was done, by whom, and where it sat in the order. Replaying them from the
+beginning reconstructs the document, which is what makes history, undo and crash recovery all the same
+mechanism rather than three features.</p>
+
+<p>Replaying from zero on every open would be slow for a document with a million operations, so periodic
+<strong>snapshots</strong> are stored: the full text at operation 900,000. Opening means loading that
+snapshot and replaying the remainder. The same idea as a database checkpoint, and the same trade-off
+&mdash; snapshot frequency against replay cost.</p>
+
+<h4>The sequence number is what makes the server authoritative</h4>
+
+<p>Each operation gets a monotonically increasing number when the server accepts it, and that ordering
+is the single source of truth. Every client applies operations in that order and therefore reaches the
+same state.</p>
+
+<p>Crucially, a client also tracks which server operation its local state was based on. When it sends an
+edit it says <em>&ldquo;this was made against version 41&rdquo;</em>, which tells the server exactly
+which concurrent operations to transform it against &mdash; everything from 42 onward.</p>
+
+<p>Without that, the server would have no way to know what the client had seen, and transformation would
+be guesswork.</p>
+
+<h4>Presence is not part of this</h4>
+
+<p>Cursors, selections and who-is-here change constantly &mdash; a cursor moves on every keystroke
+&mdash; and are worthless the moment they are stale.</p>
+
+<p>So they travel on a separate, ephemeral channel that is never persisted and never sequenced. Putting
+them through the operation log would multiply its volume for data with no durability requirement at all,
+and would mean the document's history filled up with cursor movements.</p>
+
+<p>Same instinct as presence in <span class="srcref">D4</span>: <strong>ephemeral high-rate state and
+durable low-rate state should not share a pipeline.</strong></p>
+
+<h4>The API</h4>
+<div class="api-code"><span class="cm">// WebSocket per open document. HTTP only for load and snapshot.</span>
+
+<span class="kw">GET</span>  /v1/docs/{id}       -&gt; { snapshot, version, participants[] }
+
+<span class="kw">WS</span>   /v1/docs/{id}/stream
+  -&gt; { type:"op",     client_id, base_version, ops:[...] }
+  &lt;- { type:"ack",    client_seq, server_version }
+  &lt;- { type:"op",     from, server_version, ops:[...] }   <span class="cm">// transformed</span>
+  &lt;- { type:"cursor", from, range }        <span class="cm">// ephemeral, never persisted</span>
+  &lt;- { type:"resync", snapshot, version }  <span class="cm">// client too far behind</span>
+
+  <span class="cm">// base_version is what makes this work: the server knows exactly</span>
+  <span class="cm">// which document state the client was looking at, and therefore</span>
+  <span class="cm">// which concurrent ops it must transform against.</span>
+
+<span class="kw">POST</span> /v1/docs/{id}/snapshot   <span class="cm">// internal: compact the op log</span></div></div>
+</div>
+<div class="design-step est">
+  <div class="ds-header"><span class="ds-ico">&#128202;</span>5. Capacity estimation</div>
+  <div class="ds-body"><p>The numbers, and why they are reassuring.</p>
+<div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">Typical document has fewer than 10 concurrent editors</div><div class="as-b">Hundreds of editors forces update batching and a fan-out tier, which this design does not need.</div></div><div class="as-row"><div class="as-a">Live collaboration; offline merge is supported but rare</div><div class="as-b">If most editing were offline, CRDTs become clearly correct and the server-authority design stops being viable.</div></div><div class="as-row"><div class="as-a">The server may read document content</div><div class="as-b">End-to-end encryption would remove server-side search, thumbnails and transform, and force all merging onto clients.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">~50/s</div><div class="ng-desc">ops per busy document</div></div><div class="ng-cell"><div class="ng-val">~500/s</div><div class="ng-desc">fan-out messages per document</div></div><div class="ng-cell"><div class="ng-val">~200 ms</div><div class="ng-desc">remote-edit budget</div></div><div class="ng-cell"><div class="ng-val">~100 B</div><div class="ng-desc">per operation</div></div><div class="ng-cell"><div class="ng-val">~1 KB/s</div><div class="ng-desc">per active editor</div></div><div class="ng-cell"><div class="ng-val">1</div><div class="ng-desc">authoritative sequencer per doc</div></div></div>
+<p>A busy document with ten active editors at around five operations per second each is
+<strong>50 operations per second per document</strong>. Each must be broadcast to the other nine, so
+about 500 messages per second of fan-out. Operations are around 100 bytes.</p>
+
+<p>That is <strong>tiny</strong>, and saying so is useful: per document, this is a trivial workload. A
+million active documents is a scale problem in aggregate, but it partitions perfectly, because documents
+never interact. One document's editing session has no relationship to another's.</p>
+
+<p>So the scaling model is straightforward: route all editors of a document to the same server instance
+&mdash; the sequencer for that document &mdash; and spread documents across instances. No coordination
+between instances, ever.</p>
+
+<p>That routing requirement is the only awkward part, and it is the same one as
+<span class="srcref">D4</span>: all participants must reach the one machine holding the authoritative
+state for their document. It makes the tier stateful, which means a registry and a reconnection story.</p>
+
+<p>The number worth watching is <strong>operations per document</strong>, not documents. The design
+holds comfortably to tens of concurrent editors. Past roughly fifty, broadcasting every keystroke to
+everyone becomes the bottleneck and updates must be batched &mdash; which is a different design, and
+knowing where the threshold sits is better than claiming it scales indefinitely.</p></div>
+</div>
+<div class="design-step tradeoff">
+  <div class="ds-header"><span class="ds-ico">&#9878;</span>6. The key trade-offs</div>
+  <div class="ds-body"><p>The choices, and their costs.</p>
+<div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Merge algorithm</strong></td><td class='chosen'>OT with a server sequencer</td><td class='rej'>CRDT</td><td>With a live server there is a natural total order, and OT&rsquo;s operations are far smaller. The moment strong offline merge is required this flips to CRDTs.</td></tr><tr><td><strong>Ordering authority</strong></td><td class='chosen'>One session owner per document</td><td class='rej'>Consensus across replicas</td><td>Single-writer-per-document makes ordering trivial. Consensus is needed only to decide ownership, which changes rarely, not for every keystroke.</td></tr><tr><td><strong>Local edits</strong></td><td class='chosen'>Apply immediately, rebase on ack</td><td class='rej'>Wait for server confirmation</td><td>A round trip per keystroke is unusable. The cost is client-side rebase complexity, which is the price of the feature existing at all.</td></tr><tr><td><strong>Cursors</strong></td><td class='chosen'>Ephemeral, never persisted</td><td class='rej'>Stored with the document</td><td>Cursor updates are a higher write rate than edits and are worthless a second later. Persisting them buys nothing and costs everything.</td></tr><tr><td><strong>Loading</strong></td><td class='chosen'>Snapshot + tail of ops</td><td class='rej'>Replay the full log</td><td>A long-lived document has millions of operations. Replaying them all to open a file is an unbounded cost that grows with the document&rsquo;s age.</td></tr></tbody></table></div>
+<h4>Transformation or CRDT, in detail</h4>
+
+<p><strong>Operational transformation</strong> keeps operations small &mdash; an insert is a position, a
+character and an author &mdash; and the document in memory is roughly the size of its text. That
+efficiency is why it is used for large documents with many collaborators.</p>
+
+<p>The cost is correctness effort. You need a transformation function for every pair of operation types,
+and it must satisfy properties that are easy to state and notoriously easy to get subtly wrong.
+Published algorithms have had bugs found years after deployment. The central server helps enormously
+&mdash; transforming against a single agreed order is far more tractable than the peer-to-peer case
+&mdash; which is why nearly every production OT system has one.</p>
+
+<p><strong>CRDTs</strong> make operations commute by construction, so there is nothing to get wrong in
+the same way and no central authority is required. Offline merge works naturally: reconnect, exchange
+operations in any order, converge.</p>
+
+<p>The cost is size. Every character carries a unique identifier, so the in-memory representation can be
+several times the text. Deleted characters remain as tombstones because other operations may anchor to
+them, and a heavily-edited document accumulates them. Garbage-collecting tombstones requires knowing
+every participant has seen the deletion, which is its own coordination problem.</p>
+
+<p>Modern CRDT implementations have narrowed the gap considerably, and for a design discussion the right
+answer is to state the trade rather than to declare a winner.</p>
+
+<h4>Text or canvas</h4>
+
+<p>Worth asking early, because a canvas is a much easier problem and it is easy to over-engineer it.</p>
+
+<p>Text is a <em>sequence</em>. Every element's position depends on every element before it, so an
+insert at the start shifts everything &mdash; which is exactly what makes concurrent edits interfere.</p>
+
+<p>A canvas is a <em>set of objects</em>, each with its own position. Two people moving two different
+shapes do not interfere at all; the operations are independent and both simply apply. Even two people
+moving the <em>same</em> shape has an acceptable resolution &mdash; last write wins on that shape's
+position &mdash; because the shape ends up somewhere sensible and nothing is scrambled.</p>
+
+<p>So a canvas needs far less machinery than a document. Reaching for full OT on a drawing tool is a
+real over-engineering risk, and noticing that the data model changes the difficulty is the useful
+observation.</p></div>
 </div>
 <div class="design-step arch">
-  <div class="ds-header"><span class="ds-ico">&#127959;</span>5. High-Level Architecture</div>
-  <div class="ds-body">
-<div class="anim" id="anim-collab">
+  <div class="ds-header"><span class="ds-ico">&#127959;</span>7. High-level design</div>
+  <div class="ds-body"><div class="anim" id="anim-collab">
   <div class="an-head">
     <div class="an-title">Concurrent edits &mdash; and the split brain that silently forks a document</div>
     <div class="an-btns">
@@ -16401,90 +16597,162 @@ the hard part becomes local to one process.</p></div>
   <div class="an-cap ok-only"><strong>What is moving:</strong> two edits authored against the <em>same</em> document state. Each applies locally first &mdash; typing never waits for a round trip &mdash; then the session owner assigns a sequence number, transforms the second against the first, and broadcasts the rebased operation. One sequencer per document turns a distributed consensus problem into a single-threaded one.</div>
   <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> a network blip and two nodes both believe they own the document. Now there are <strong>two total orders</strong>, and clients converge to different documents with no error anywhere. This is why ownership needs a <em>fenced lease</em> rather than a best-effort lock: the stale owner&rsquo;s writes must be rejected at the log, not merely discouraged. <span class="srcref">Ch 6</span></div>
 </div>
-<div class="flow">  client A                                    client B
-    |  edit applies LOCALLY first (0 ms)         |
-    |  and is queued as pending                  |
-    v                                            v
-  <span class="fl-key">WEBSOCKET GATEWAY</span> ------------------- <span class="fl-key">WEBSOCKET GATEWAY</span>
-              \                              /
-               v                            v
-            <span class="fl-hi">DOCUMENT SESSION</span>  (one per doc_id, sharded)
-              - assigns the next version number
-              - transforms incoming ops against concurrent ones
-              - broadcasts the transformed op to everyone else
-              <span class="fl-note">This single-writer-per-document property is what makes</span>
-              <span class="fl-note">ordering trivial. Consensus is only needed to decide WHO</span>
-              <span class="fl-note">owns a document, not for the edits themselves.</span>
-                    |
-                    v
-            <span class="fl-key">OP LOG</span> (append-only, per doc)  --&gt; periodic <span class="fl-key">SNAPSHOT</span>
-                    |
-                    v
-            document is defined as: snapshot + ops since
+<p>One authoritative sequencer per document.</p>
+<div class="flow">  Priya's browser                              Dev's browser
+       |                                             |
+       | edit applies <span class="fl-hi">instantly</span> locally              | same
+       | and is queued to send                       |
+       v                                             v
+  <span class="fl-hi">SEQUENCER</span>  for this document &mdash; all editors route here
+       |
+       |  1. receive op, tagged "based on version 41"
+       |  2. <span class="fl-hi">transform</span> it against ops 42..47  <span class="fl-note">everything it had not seen</span>
+       |  3. assign sequence 48
+       |  4. append to the operation log
+       |  5. broadcast to every client
+       v
+  <span class="fl-key">OPERATION LOG</span>   the document, as a sequence of ops
+       |
+       +-- periodic snapshots  <span class="fl-dim">so opening does not replay a million ops</span>
 
-  <span class="fl-bad">FAILURE:</span> session owner dies -&gt; another node acquires the doc lease
-           (fencing token), replays from the last snapshot, resumes.
-           Clients reconnect and resync from their last known version.</div>
-<div class="flow-cap">One authoritative sequencer per document turns a distributed consensus problem into
-a single-threaded one. The hard part is not ordering the edits; it is owning the document.</div></div>
+
+  <span class="fl-key">SEPARATE CHANNEL</span>  presence: cursors, selections, who is here
+       <span class="fl-note">never persisted, never sequenced &mdash; worthless once stale</span>
+
+
+  <span class="fl-bad">RECONNECT</span>
+
+    client: "my last server version was 41, and I have 3 unsent ops"
+    server: here are 42..60, and your 3 are now 61..63 (transformed)
+            <span class="fl-hi">nothing is lost; the client just did what it always does, later</span></div>
+<div class="flow-cap">A client's local state is always ahead of the server, and the server's order is
+always the truth. Reconciling those two continuously &mdash; not occasionally &mdash; is the entire
+job.</div></div>
+</div>
+<div class="design-step wflow">
+  <div class="ds-header"><span class="ds-ico">&#128260;</span>8. Workflows &mdash; what actually happens</div>
+  <div class="ds-body"><div class="wf">
+  <div class="wf-title">Priya and Dev type at the same moment</div>
+  <div class="wf-sub">The example from step 1, resolved.</div>
+  <ol>
+    <li>The document is <code>HELLO</code>, and both clients are at server version 41.</li>
+    <li>Priya inserts <b>X</b> at position 5. It appears on her screen <b>instantly</b> &mdash; she sees <code>HELLOX</code>. The operation is queued, tagged "based on 41".</li>
+    <li>Dev deletes position 2 at the same moment. He sees <code>HLLO</code> instantly. Also tagged "based on 41".</li>
+    <li>Dev's operation reaches the server first. Nothing concurrent to transform against, so it becomes version <b>42</b> and broadcasts.</li>
+    <li>Priya's arrives, tagged 41. The server sees it was made without knowledge of 42, so it <b>transforms</b> it: a delete at position 2 occurred before position 5, so her insert becomes "insert X at position 4". It becomes version <b>43</b>.</li>
+    <li>Priya receives version 42 &mdash; the delete. She applies it to her local <code>HELLOX</code>, transformed against her own pending insert, giving <code>HLLOX</code>.</li>
+    <li>Dev receives version 43 and applies it to <code>HLLO</code>, giving <code>HLLOX</code>.</li>
+    <li>Both show <code>HLLOX</code>. Neither ever saw a character jump or a cursor move unexpectedly.</li>
+  </ol>
+  <div class="wf-out">Both clients were briefly wrong, in different ways, and both converged without either user noticing. That is the standard the whole design is held to: divergence is continuous and invisible.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">Priya closes her laptop and edits on a plane</div>
+  <div class="wf-sub">Offline, then reconnection.</div>
+  <ol>
+    <li>She goes offline at server version 41. Her client keeps working entirely locally &mdash; nothing about editing requires the server.</li>
+    <li>Over two hours she makes 400 operations. All apply immediately; all queue, tagged "based on 41".</li>
+    <li>Meanwhile Dev and two others take the document to version 380.</li>
+    <li>She reconnects. Her client says: <i>I last saw 41, and I have 400 operations based on it.</i></li>
+    <li>The server sends 42 through 380. Her client applies them, transforming each against her pending queue so her own edits stay put relative to the text around them.</li>
+    <li>Her 400 operations are then sent, each transformed against the 339 server operations she had not seen, and appended as 381 onwards.</li>
+    <li>Everyone converges. Her two hours of work is intact and interleaved sensibly with everyone else's.</li>
+  </ol>
+  <div class="wf-out">Note that reconnection is not a special path &mdash; it is the ordinary algorithm with a larger backlog. A design where offline is a distinct code path is one where offline is broken, because that path is exercised rarely and tested less.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">Priya presses undo</div>
+  <div class="wf-sub">Where the naive stack gives an obviously wrong answer.</div>
+  <ol>
+    <li>Priya typed a paragraph at version 300. Since then Dev deleted a sentence elsewhere (310) and Sam reformatted a heading (315).</li>
+    <li>A single-user undo stack would reverse the most recent operation &mdash; Sam's. Priya would watch a heading she never touched change back.</li>
+    <li>Instead, undo finds Priya's <b>own</b> most recent operation: her insert at 300.</li>
+    <li>Its inverse is "delete the text I inserted". But the document has changed since &mdash; Dev's deletion removed characters before her insertion point.</li>
+    <li>So the inverse is <b>transformed against operations 301 to 315</b>, landing on the correct current positions.</li>
+    <li>The transformed inverse is submitted as an ordinary operation, version 316, and broadcast like any other edit.</li>
+    <li>Priya's paragraph disappears. Dev's and Sam's changes are untouched.</li>
+  </ol>
+  <div class="wf-out">Undo is not a separate mechanism &mdash; it is an inverse operation run through the same transformation machinery as everything else. Which is exactly why the operation model has to be principled: an ad-hoc one cannot express its own inverse correctly.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">The sequencer for a document crashes</div>
+  <div class="wf-sub">Stateful routing, and why nothing is lost.</div>
+  <ol>
+    <li>Four people are editing. The server instance holding the authoritative order dies.</li>
+    <li>All four sockets drop. Their clients keep working locally &mdash; typing still applies instantly &mdash; and queue operations.</li>
+    <li>The routing layer picks a new instance for the document. Clients reconnect there.</li>
+    <li>The new sequencer loads the latest snapshot from durable storage and replays the operations after it, reconstructing state at, say, version 380.</li>
+    <li>Operations the old sequencer accepted but had not yet durably appended are <b>lost</b>. Those clients still have them queued and re-send.</li>
+    <li>Each client says what version it last saw and sends its pending queue. Everything is transformed and applied.</li>
+    <li>The interruption shows as a brief "reconnecting" indicator. Nothing typed is lost.</li>
+  </ol>
+  <div class="wf-out">This works because the client keeps its own pending operations until the server confirms them, and because durability lives in the log rather than in the sequencer's memory. The sequencer is authoritative about <i>order</i>, not about <i>data</i> &mdash; which is what makes it replaceable.</div>
+</div></div>
 </div>
 <div class="design-step deep">
-  <div class="ds-header"><span class="ds-ico">&#128269;</span>6. Component Deep Dives</div>
-  <div class="ds-body"><p><strong>The core problem is that concurrent edits are not commutative.</strong> Two users
-inserting at position 5 of the same paragraph cannot both simply apply their operation &mdash;
-whichever lands second is now inserting at a position that means something different. There are two
-families of solution. <strong>Operational Transformation</strong> keeps operations as
-position-based edits and <em>transforms</em> an incoming operation against every concurrent one
-before applying it; it is compact and it is notoriously easy to get subtly wrong, which is why it
-works best with a single server sequencing everything. <strong>CRDTs</strong> give every character
-a unique, immutable identity so that inserts are defined relative to neighbours rather than
-positions, which makes operations commutative and merge without a server &mdash; at the cost of
-metadata per character and a document that grows even as text is deleted (tombstones).</p>
-<p><strong>Choose by the offline requirement.</strong> If editing is live and the server sequences
-everything, OT is simpler and lighter. If clients must merge after being offline for days, or edit
-peer-to-peer, CRDTs are the honest answer because there is no single sequencer to appeal to. Saying
-<em>&ldquo;I would use OT because we have a server and live editing, and I would switch to CRDTs
-the moment serious offline merge is required&rdquo;</em> is a much stronger answer than naming
-either one on its own.</p>
-<p><strong>A spatial canvas is genuinely easier, and it is worth saying so.</strong> For a photo
-editor or a drawing surface, most concurrent operations touch different objects and commute
-naturally &mdash; moving object&nbsp;A and recolouring object&nbsp;B do not interact at all. The
-only real conflicts are two users changing the same property of the same object, where
-last-writer-wins with a per-object version is usually acceptable. The trap is <em>ordering</em>: a
-z-order list is a sequence and has exactly the text problem again, and grouped or nested objects
-create structural conflicts a flat model does not. So: per-object LWW for properties, and a
-CRDT-style ordered set only for the layer stack.</p>
-<p><strong>Local-first application is what makes it feel instant.</strong> Every edit applies to the
-local document immediately and joins a pending queue; the server&rsquo;s acknowledgement arrives
-later and may carry a transformed version of what you sent. The client must therefore be able to
-rebase its pending operations onto the server&rsquo;s history &mdash; the same problem as a
-<code>git rebase</code>, running on every keystroke. This is where most implementation bugs live,
-and it is why the client keeps <code>base_version</code>: without knowing exactly what state an
-operation was authored against, correct transformation is impossible.</p>
-<p><strong>Undo must be per-user, which is subtler than it sounds.</strong> Undo does not mean
-&ldquo;revert the last operation in the log&rdquo; &mdash; that would undo a colleague&rsquo;s
-work. It means &ldquo;construct the inverse of <em>my</em> last operation, transformed against
-everything that has happened since&rdquo;. If a colleague deleted the sentence you are undoing an
-edit to, the inverse must be transformed into a no-op rather than resurrecting text.</p></div>
-</div>
-<div class="design-step tradeoff">
-  <div class="ds-header"><span class="ds-ico">&#9878;</span>7. Trade-off Analysis</div>
-  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Merge algorithm</strong></td><td class='chosen'>OT with a server sequencer</td><td class='rej'>CRDT</td><td>With a live server there is a natural total order, and OT&rsquo;s operations are far smaller. The moment strong offline merge is required this flips to CRDTs.</td></tr><tr><td><strong>Ordering authority</strong></td><td class='chosen'>One session owner per document</td><td class='rej'>Consensus across replicas</td><td>Single-writer-per-document makes ordering trivial. Consensus is needed only to decide ownership, which changes rarely, not for every keystroke.</td></tr><tr><td><strong>Local edits</strong></td><td class='chosen'>Apply immediately, rebase on ack</td><td class='rej'>Wait for server confirmation</td><td>A round trip per keystroke is unusable. The cost is client-side rebase complexity, which is the price of the feature existing at all.</td></tr><tr><td><strong>Cursors</strong></td><td class='chosen'>Ephemeral, never persisted</td><td class='rej'>Stored with the document</td><td>Cursor updates are a higher write rate than edits and are worthless a second later. Persisting them buys nothing and costs everything.</td></tr><tr><td><strong>Loading</strong></td><td class='chosen'>Snapshot + tail of ops</td><td class='rej'>Replay the full log</td><td>A long-lived document has millions of operations. Replaying them all to open a file is an unbounded cost that grows with the document&rsquo;s age.</td></tr></tbody></table></div></div>
-</div>
-<div class="design-step fault">
-  <div class="ds-header"><span class="ds-ico">&#128737;</span>8. Fault Tolerance</div>
-  <div class="ds-body"><div class="ft-row"><div class="ft-fail">Session owner node dies</div><div class="ft-fix">Another node acquires the document lease with a fencing token, replays from the last snapshot plus the op log, and resumes. Clients reconnect and resync from their last acknowledged version, replaying their pending queue. <span class="srcref">Ch 6</span></div></div><div class="ft-row"><div class="ft-fail">Client reconnects after being offline</div><div class="ft-fix">It sends its pending operations with their base_version; the server transforms them against everything that happened meanwhile. If it is too far behind to transform economically, the server sends a full resync instead &mdash; correct, and occasionally visible as a jump.</div></div><div class="ft-row"><div class="ft-fail">Two nodes both believe they own a document</div><div class="ft-fix">This is split-brain, and it is the failure that silently corrupts documents by producing two divergent orderings. The fencing token makes the stale owner&rsquo;s writes rejected at the log rather than merely discouraged.</div></div><div class="ft-row"><div class="ft-fail">Op log write fails after broadcasting</div><div class="ft-fix">Ordering must be decided by the log, not by the broadcast: assign the version and persist before fanning out. Broadcasting first is faster and lets clients converge on state the server cannot reproduce after a crash.</div></div><div class="ft-row"><div class="ft-fail">A malformed op corrupts the document</div><div class="ft-fix">Validate operations against the current document state before assigning a version, and keep snapshots immutable so any point in history can be recovered. The op log is the audit trail that makes corruption diagnosable rather than mysterious.</div></div></div>
-</div>
-<div class="design-step concl">
-  <div class="ds-header"><span class="ds-ico">&#127937;</span>9. Conclusion &mdash; what I would say in the last three minutes</div>
-  <div class="ds-body"><div class="concl-grid">
+  <div class="ds-header"><span class="ds-ico">&#128269;</span>9. Deep dives, and what breaks</div>
+  <div class="ds-body"><h4>Why a server at all, given CRDTs exist</h4>
+
+<p>A fair question: if CRDTs converge without coordination, the sequencer looks like unnecessary
+centralisation.</p>
+
+<p>It earns its place for reasons that have little to do with convergence. The server is where access
+control is enforced, where the document is durably stored, where history and snapshots live, where
+server-side search and thumbnails are generated, and where a client that has been gone for a month can
+be caught up efficiently rather than by exchanging a month of operations peer to peer.</p>
+
+<p>And with a server present, OT's hard cases largely disappear, because there is one order to transform
+against.</p>
+
+<p>The honest framing: <strong>CRDTs remove the need for a coordinator to achieve convergence, not the
+need for a server to run a product.</strong> Peer-to-peer collaborative editing is a real thing and it
+is a different product with different properties.</p>
+
+<h4>Routing every editor to the same instance</h4>
+
+<p>The awkward operational consequence of having one sequencer per document.</p>
+
+<p>It is the same shape as the connection registry in <span class="srcref">D4</span>: a mapping from
+document to the instance that currently owns it, consulted on connect. The difference is that here it
+must be <em>correct</em>, not merely helpful &mdash; two sequencers for one document would produce two
+divergent orders, which is the one failure the design cannot tolerate.</p>
+
+<p>So ownership needs a lease with a fencing token, exactly as in <span class="srcref">D6</span>: an
+instance holds the document for a bounded period, renews while healthy, and a new owner can only take
+over with a higher token. An old owner that wakes up after a pause finds its writes to the log
+rejected.</p>
+
+<p>This is a good moment to notice how often the same primitive recurs: <strong>a lease plus a
+monotonically increasing token is the standard answer to &ldquo;exactly one owner&rdquo; in an
+asynchronous system.</strong></p>
+
+<h4>The operation log is three features</h4>
+
+<p>Storing operations rather than text looks like extra work and pays for itself three times.</p>
+
+<p><strong>History</strong> is free: any past state is a prefix of the log. <strong>Undo</strong> is a
+transformed inverse operation, as above. <strong>Crash recovery</strong> is a snapshot plus a replay.</p>
+
+<p>Storing only the current text would give you none of these, and each would have to be built
+separately &mdash; a version table, an undo stack, a recovery mechanism &mdash; that could drift out of
+agreement with each other.</p>
+
+<p>The cost is that the log grows forever and must be compacted behind snapshots, and that reconstructing
+state is replay rather than a read. Both are manageable; the three features are not, separately.</p>
+
+<h4>What breaks</h4>
+
+<div class="ft-row"><div class="ft-fail">Session owner node dies</div><div class="ft-fix">Another node acquires the document lease with a fencing token, replays from the last snapshot plus the op log, and resumes. Clients reconnect and resync from their last acknowledged version, replaying their pending queue. <span class="srcref">Ch 6</span></div></div><div class="ft-row"><div class="ft-fail">Client reconnects after being offline</div><div class="ft-fix">It sends its pending operations with their base_version; the server transforms them against everything that happened meanwhile. If it is too far behind to transform economically, the server sends a full resync instead &mdash; correct, and occasionally visible as a jump.</div></div><div class="ft-row"><div class="ft-fail">Two nodes both believe they own a document</div><div class="ft-fix">This is split-brain, and it is the failure that silently corrupts documents by producing two divergent orderings. The fencing token makes the stale owner&rsquo;s writes rejected at the log rather than merely discouraged.</div></div><div class="ft-row"><div class="ft-fail">Op log write fails after broadcasting</div><div class="ft-fix">Ordering must be decided by the log, not by the broadcast: assign the version and persist before fanning out. Broadcasting first is faster and lets clients converge on state the server cannot reproduce after a crash.</div></div><div class="ft-row"><div class="ft-fail">A malformed op corrupts the document</div><div class="ft-fix">Validate operations against the current document state before assigning a version, and keep snapshots immutable so any point in history can be recovered. The op log is the audit trail that makes corruption diagnosable rather than mysterious.</div></div><div class="concl-grid">
   <div class="cc"><div class="h">The dominant constraint</div><p><strong>Concurrent edits do not commute.</strong> Everything in the design exists to impose a total order on operations that were authored against different states, and then to make each client&rsquo;s local view converge to that order.</p></div>
   <div class="cc first"><div class="h">What I would build first</div><p>One authoritative session per document with an append-only op log and periodic snapshots. That converts a distributed consensus problem into a single-threaded one and makes ordering trivial.</p></div>
   <div class="cc"><div class="h">What I deliberately did not build</div><p>Offline-first merge and end-to-end encryption. Either would force CRDTs and move all merging onto clients &mdash; a legitimate design, and a different one.</p></div>
   <div class="cc risk"><div class="h">The biggest risk</div><p>Split-brain on document ownership. Two sequencers means two orderings and silently divergent documents, which is why ownership needs a fenced lease rather than a best-effort lock.</p></div>
 </div></div>
 </div>
-  
+
 <div class="followup">
   <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
   <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
@@ -16505,72 +16773,145 @@ edit to, the inverse must be transformed into a no-op rather than resurrecting t
     <div class="fu-a"><p>Undo means &ldquo;invert <em>my</em> last operation&rdquo;, not &ldquo;revert the last thing that happened&rdquo; &mdash; otherwise you would undo a colleague's work, which is the bug people actually hit.</p><p>So you take your operation, construct its inverse, and transform that inverse against everything that has happened since.</p><p>If a colleague deleted the text you are undoing an edit to, the transformed inverse becomes a no-op rather than resurrecting the text. That is the correct outcome and it falls out of the transform.</p></div>
   </details>
 </div>
+  </div>
 </div>
-</div>
+
 <div class="design-card">
   <div class="dc-header">
     <h3 class="dc-title"><span id="design-denylist">Design a Denylist / Request Blocking Service</span> (deny service to banned IPs from a third-party feed)</h3>
     <div class="dc-meta">Difficulty: <strong>Medium-Hard</strong> &nbsp;.&nbsp; Target: <strong>35 min</strong></div>
   </div>
-  <div class="dc-body"><div class="asked">
+  <div class="dc-body">
+<div class="asked">
   <div class="ak-q"><span class="ak-l">&#128172; The question, as asked</span><p>&ldquo;A third party publishes a feed of banned IP addresses. Design a system that denies service to requests from them, across your entire edge.&rdquo;</p></div>
   <div class="ak-h"><span class="ak-l">&#9889; What makes it hard</span><p>The naive design puts a network call on <strong>100% of traffic</strong> and makes an auxiliary protective component able to take the whole site down. The dataset size is the thing that unlocks the real answer.</p></div>
 </div>
-
 <div class="design-step req">
-  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Requirements</div>
-  <div class="ds-body"><div class="clarify">
+  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Understanding the question</div>
+  <div class="ds-body"><p>The prompt: <em>&ldquo;A third party publishes a feed of banned IP addresses. Design a
+system that denies service to requests from them, across your entire edge.&rdquo;</em></p>
+
+<p>The obvious design is a denylist service that the edge asks about each request. It is wrong in two
+ways, and both are worth stating before anything else.</p>
+
+<div class="insight">
+  <div class="label">&#127919; What the obvious design costs you</div>
+  <p><strong>A network call on 100% of traffic.</strong> Every request now waits for a round trip to
+  ask whether it is allowed. At 500,000 requests per second that service is the busiest thing you own,
+  and it has added latency to every single request in the system.</p>
+  <p><strong>An auxiliary component that can take the site down.</strong> If it is slow, everything is
+  slow. If it is down, you either block everyone or trust no one. A protective mechanism has become
+  your largest availability risk.</p>
+</div>
+
+<h4>The number that unlocks the real answer</h4>
+
+<p>A million denylist entries, mostly CIDR ranges, stored in a compact structure, is about
+<strong>eight megabytes</strong>.</p>
+
+<p>Eight megabytes fits in the memory of every edge process you have. Which means the check does not
+need to be a service call at all &mdash; it can be a lookup in local memory, in
+<strong>microseconds</strong>, with no network, no dependency and no failure mode.</p>
+
+<p>The denylist service stops being a request-path component and becomes a <em>distribution</em>
+component: its job is to get the current list to every edge node and then get out of the way.</p>
+
+<p>This is the whole design, and it comes entirely from doing one size estimate early. It is one of the
+cleanest examples in the guide of an estimate changing the architecture rather than confirming it.</p>
+
+<h4>The second question to ask</h4>
+
+<p><em>Fail open or fail closed?</em> If the list cannot be loaded or refreshed, do we admit everyone
+or reject everyone?</p>
+
+<p>For abuse prevention, <strong>fail open</strong>: letting some bad traffic through for a few minutes
+is much better than blocking all your real users. For a sanctions or fraud list, possibly closed
+&mdash; and that is a business and legal decision, not an engineering one. Surfacing it as a question
+rather than assuming is the point.</p>
+
+<h4>What they are looking for</h4>
+
+<p><strong>Do you avoid the per-request network call?</strong> This is the question.</p>
+
+<p><strong>Do you distrust the feed?</strong> An upstream that publishes <code>0.0.0.0/0</code> would
+block the entire internet. You are ingesting someone else's data into your request path.</p>
+
+<p><strong>Do you know CIDR is an interval problem?</strong> A set of addresses and a set of ranges need
+different structures.</p>
+<div class="clarify">
   <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
   <div class="cq-row"><div class="cq-q">How fast must a new ban take effect?</div><div class="cq-w">Seconds versus minutes is the whole design. Seconds means pushing updates to every edge; minutes allows ordinary polling and a much simpler system.</div></div><div class="cq-row"><div class="cq-q">Fail open or fail closed?</div><div class="cq-w">If the denylist service is unavailable, do we admit everything or reject everything? For abuse prevention, fail open. For a sanctions or fraud list, possibly closed &mdash; and that is a business decision, not an engineering one.</div></div><div class="cq-row"><div class="cq-q">How large is the list, and is it ranges or individual addresses?</div><div class="cq-w">A million individual IPs is a set membership problem. CIDR ranges are an interval problem and need a different structure entirely.</div></div><div class="cq-row"><div class="cq-q">Is the third-party feed trusted?</div><div class="cq-w">An upstream feed that suddenly contains 0.0.0.0/0 would take the site down. Feed changes need sanity limits before they are applied.</div></div><div class="cq-row"><div class="cq-q">Do we need to explain or appeal a block?</div><div class="cq-w">Auditability turns a stateless filter into a system that must record why each decision was made, which is a meaningfully larger design.</div></div>
   <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
 </div>
-<p><strong>Functional:</strong></p>
-<ul>
-  <li>Ingest a third-party feed of banned addresses and CIDR ranges, plus internal manual bans</li>
-  <li>Decide allow/deny for every inbound request, at the edge</li>
-  <li>Support temporary bans with expiry, and an allowlist that always overrides</li>
-  <li>Record every block for audit and appeal</li>
+</div>
+</div>
+<div class="design-step fr">
+  <div class="ds-header"><span class="ds-ico">&#128221;</span>2. Functional requirements</div>
+  <div class="ds-body"><ul>
+  <li><strong>Ingest a third-party feed</strong> of banned addresses and CIDR ranges, plus internal
+  manual bans.</li>
+  <li><strong>Decide allow or deny for every inbound request</strong>, at the edge.</li>
+  <li><strong>Temporary bans with expiry</strong>, and an <strong>allowlist that always
+  overrides</strong>.</li>
+  <li><strong>Record every block</strong> for audit and appeal.</li>
 </ul>
-<p><strong>Non-Functional:</strong></p>
-<ul>
-  <li>The check must add <strong>under 1&nbsp;ms</strong> &mdash; it runs on 100% of traffic</li>
-  <li>New bans propagate globally within 30 seconds</li>
-  <li>The service must <strong>never</strong> be able to take the site down</li>
-</ul></div>
-</div>
-<div class="design-step est">
-  <div class="ds-header"><span class="ds-ico">&#128202;</span>2. Capacity Estimation</div>
-  <div class="ds-body"><div class="assume">
-  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
-  <div class="as-row"><div class="as-a">~1M denylist entries, mostly CIDR ranges</div><div class="as-b">Tens of millions of individual addresses would push from an in-memory structure toward a probabilistic filter with a confirmation lookup.</div></div><div class="as-row"><div class="as-a">Feed updates arrive every few minutes, not continuously</div><div class="as-b">A high-frequency feed would need streaming updates rather than periodic snapshot rebuilds.</div></div><div class="as-row"><div class="as-a">Blocking is best-effort abuse prevention, not a legal control</div><div class="as-b">If it were a sanctions list, fail-open would be unacceptable and the availability calculus reverses.</div></div>
-</div>
-<p><strong>Assumptions:</strong> 1M denylist entries, 500K req/sec across the edge fleet, 200 edge nodes.</p><div class="ng"><div class="ng-cell"><div class="ng-val">500K/s</div><div class="ng-desc">requests checked</div></div><div class="ng-cell"><div class="ng-val">~1M</div><div class="ng-desc">denylist entries</div></div><div class="ng-cell"><div class="ng-val">~8 MB</div><div class="ng-desc">compressed trie in memory</div></div><div class="ng-cell"><div class="ng-val">&lt;1 &micro;s</div><div class="ng-desc">per lookup, in process</div></div><div class="ng-cell"><div class="ng-val">~30 s</div><div class="ng-desc">global propagation target</div></div><div class="ng-cell"><div class="ng-val">0</div><div class="ng-desc">network hops on the hot path</div></div></div><p><strong>The decision that makes this trivial instead of hard:</strong> a million entries
-compress to roughly 8&nbsp;MB as a prefix trie, which fits comfortably in every edge
-process&rsquo;s memory. So the check is a <strong>local memory lookup, not a network call</strong>.
-The naive design &mdash; query a denylist service per request &mdash; adds a round trip to 100% of
-traffic and creates a dependency that can take the whole site down. <em>Recognising that the
-dataset is small enough to replicate everywhere is the entire answer.</em></p></div>
-</div>
-<div class="design-step api">
-  <div class="ds-header"><span class="ds-ico">&#128268;</span>3. API Design</div>
-  <div class="ds-body"><div class="api-code"><span class="cm">// CONTROL PLANE -- low volume, ordinary REST</span>
-<span class="kw">POST</span>   /v1/bans     Body: { cidr, reason, expires_at?, source }
-<span class="kw">DELETE</span> /v1/bans/{cidr}
-<span class="kw">POST</span>   /v1/allowlist  Body: { cidr, reason }   <span class="cm">// always wins over a ban</span>
-<span class="kw">GET</span>    /v1/bans/check?ip=   -&gt; { blocked, matched_rule, source }
-                              <span class="cm">// for support and appeals, NOT the hot path</span>
 
-<span class="cm">// DATA PLANE -- edges pull versioned snapshots, they are never pushed to</span>
-<span class="kw">GET</span>    /v1/snapshot/latest  -&gt; { version, url, sha256, entry_count }
-<span class="kw">GET</span>    /v1/delta?from=      -&gt; { version, added[], removed[] }
-  <span class="cm">// Pull means an edge that was offline catches up on its own, and</span>
-  <span class="cm">// the control plane holds no per-edge state.</span>
+<h4>The allowlist is not symmetric with the denylist</h4>
 
-<span class="cm">// The hot path has NO API. It is a function call into local memory.</span></div></div>
+<p>It looks like the mirror image and it has a different role: it is the escape hatch for when the
+denylist is wrong.</p>
+
+<p>Third-party feeds contain mistakes. A shared NAT gateway for an entire office, a mobile carrier, or a
+cloud provider's egress range gets listed because of one bad actor behind it. Suddenly a large customer
+cannot reach you, and the cause is a data file from someone else.</p>
+
+<p>So the allowlist must be checked <em>first</em> and must win unconditionally, and adding an entry has
+to take effect in seconds &mdash; because it is used during an incident, by someone who has just
+discovered that a legitimate customer is being blocked.</p>
+
+<h4>Why audit is a real requirement</h4>
+
+<p>Someone will ask why they were blocked, and &ldquo;a file said so&rdquo; is not an answer that
+survives contact with a customer or a regulator.</p>
+
+<p>So every block records which rule matched, which feed version that rule came from, and when. That
+turns a stateless filter into something with a durable output, which is a meaningfully larger system
+&mdash; worth acknowledging rather than glossing over, because at 500,000 requests per second the block
+log is itself a data pipeline.</p></div>
+</div>
+<div class="design-step nfr">
+  <div class="ds-header"><span class="ds-ico">&#9201;</span>3. Non-functional requirements</div>
+  <div class="ds-body"><div class="tw"><table class="to">
+<thead><tr><th style="width:26%">Requirement</th><th style="width:22%">Target</th><th style="width:52%">Why</th></tr></thead>
+<tbody>
+<tr><td><strong>Check latency</strong></td><td class="chosen">&lt; 1 ms, ideally &micro;s</td><td>It runs on 100% of traffic. A millisecond added here is a millisecond on every request the company serves.</td></tr>
+<tr><td><strong>Propagation</strong></td><td>&lt; 30 s globally</td><td>A new ban should take effect quickly. Note this is the <em>only</em> requirement that needs a distribution mechanism at all.</td></tr>
+<tr><td><strong>Availability impact</strong></td><td class="chosen">Cannot take the site down</td><td>The defining constraint. It rules out a synchronous dependency and dictates fail-open.</td></tr>
+<tr><td><strong>List size</strong></td><td>~1M entries, ~8 MB</td><td>The estimate that makes in-process lookup possible. Everything else follows.</td></tr>
+<tr><td><strong>Allowlist effect</strong></td><td>Seconds</td><td>It is used during an incident, to undo a wrongful block.</td></tr>
+<tr><td><strong>False positives</strong></td><td>Expected</td><td>Shared NATs and carrier ranges guarantee them. The design must assume the list is wrong sometimes.</td></tr>
+</tbody></table></div>
+
+<h4>"Cannot take the site down", made concrete</h4>
+
+<p>Worth spelling out what it eliminates, because it eliminates a lot.</p>
+
+<p>No synchronous call to another service. No database read on the request path. No dependency that can
+be slow. No shared resource that can saturate.</p>
+
+<p>What is left is a read from a local in-memory structure, which cannot fail in any way that matters:
+it cannot time out, it cannot be partitioned away, and it does not care whether the rest of the
+infrastructure is healthy.</p>
+
+<p>The failure mode that <em>does</em> remain is a stale list &mdash; if distribution breaks, edges keep
+enforcing yesterday's list. That is a clearly acceptable degradation, and stating the difference between
+&ldquo;fails safely&rdquo; and &ldquo;cannot fail&rdquo; is more honest than claiming the latter.</p></div>
 </div>
 <div class="design-step schema">
-  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="kw">TABLE</span> rules {
+  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Data model and API</div>
+  <div class="ds-body"><p>The interesting part is the data structure, because CIDR ranges are not a set
+membership problem.</p>
+<div class="schema-code"><span class="kw">TABLE</span> rules {
   cidr        <span class="ty">CIDR</span>     <span class="pk">PRIMARY KEY</span>,   <span class="cm">-- v4 and v6</span>
   action      <span class="ty">ENUM</span>(deny, allow),   <span class="cm">-- allow always wins</span>
   reason      <span class="ty">TEXT</span>,
@@ -16590,12 +16931,152 @@ dataset is small enough to replicate everywhere is the entire answer.</em></p></
 
 <span class="kw">TABLE</span> block_events {   <span class="cm">-- sampled, not every block: 500K/s of audit</span>
   ts <span class="ty">TIMESTAMP</span>, ip <span class="ty">INET</span>, matched_rule <span class="ty">CIDR</span>, edge <span class="ty">VARCHAR</span>
-}                       <span class="cm">-- rows would dwarf the traffic being protected</span></div></div>
+}                       <span class="cm">-- rows would dwarf the traffic being protected</span></div>
+<h4>Why a hash set does not work</h4>
+
+<p>If the list were individual addresses, a hash set would be perfect: hash the address, look it up,
+done.</p>
+
+<p>But an entry like <code>192.168.0.0/16</code> covers 65,536 addresses. Expanding ranges into
+individual entries turns a million entries into billions, and a single <code>/8</code> would be sixteen
+million on its own.</p>
+
+<p>The question is not <em>&ldquo;is this address in the set?&rdquo;</em> but <em>&ldquo;is this
+address inside any of these intervals?&rdquo;</em>, which is a different operation.</p>
+
+<h4>A prefix trie, which is what routers use</h4>
+
+<p>An IP address is a sequence of bits, and a CIDR range is a <em>prefix</em> of those bits.
+<code>192.168.0.0/16</code> means &ldquo;any address whose first 16 bits are these&rdquo;.</p>
+
+<p>So the structure is a binary tree over the bits. Walk down from the root, one bit at a time; if you
+pass a node marked as a denylist entry, the address is covered by that range.</p>
+
+<p>Three properties make this the right choice:</p>
+
+<ul>
+  <li><strong>Bounded work.</strong> At most 32 steps for IPv4, 128 for IPv6, regardless of list size.
+  A million entries costs the same as a hundred.</li>
+  <li><strong>Overlapping ranges are natural.</strong> <code>10.0.0.0/8</code> and
+  <code>10.1.0.0/16</code> simply sit at different depths on the same path, and the longest match wins
+  &mdash; which is exactly the semantics you want when a specific allow sits inside a broad deny.</li>
+  <li><strong>Compact.</strong> Compressed, a million entries is around 8 MB.</li>
+</ul>
+
+<p>It is the same structure a router uses for forwarding, for the same reason, which is a satisfying
+thing to be able to point out.</p>
+
+<h4>What lives where</h4>
+
+<p>The <strong>edge</strong> holds only the compiled trie: an immutable snapshot with a version number,
+loaded into memory. Nothing is written on the request path.</p>
+
+<p>The <strong>control plane</strong> holds the editable state: feed entries with their source and
+expiry, manual bans, the allowlist, and the history of compiled versions. This is an ordinary database
+doing an ordinary amount of work, because it is nowhere near the request path.</p>
+
+<h4>The API</h4>
+<div class="api-code"><span class="cm">// CONTROL PLANE -- low volume, ordinary REST</span>
+<span class="kw">POST</span>   /v1/bans     Body: { cidr, reason, expires_at?, source }
+<span class="kw">DELETE</span> /v1/bans/{cidr}
+<span class="kw">POST</span>   /v1/allowlist  Body: { cidr, reason }   <span class="cm">// always wins over a ban</span>
+<span class="kw">GET</span>    /v1/bans/check?ip=   -&gt; { blocked, matched_rule, source }
+                              <span class="cm">// for support and appeals, NOT the hot path</span>
+
+<span class="cm">// DATA PLANE -- edges pull versioned snapshots, they are never pushed to</span>
+<span class="kw">GET</span>    /v1/snapshot/latest  -&gt; { version, url, sha256, entry_count }
+<span class="kw">GET</span>    /v1/delta?from=      -&gt; { version, added[], removed[] }
+  <span class="cm">// Pull means an edge that was offline catches up on its own, and</span>
+  <span class="cm">// the control plane holds no per-edge state.</span>
+
+<span class="cm">// The hot path has NO API. It is a function call into local memory.</span></div></div>
+</div>
+<div class="design-step est">
+  <div class="ds-header"><span class="ds-ico">&#128202;</span>5. Capacity estimation</div>
+  <div class="ds-body"><p>The numbers, and the single one that decides the architecture.</p>
+<div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">~1M denylist entries, mostly CIDR ranges</div><div class="as-b">Tens of millions of individual addresses would push from an in-memory structure toward a probabilistic filter with a confirmation lookup.</div></div><div class="as-row"><div class="as-a">Feed updates arrive every few minutes, not continuously</div><div class="as-b">A high-frequency feed would need streaming updates rather than periodic snapshot rebuilds.</div></div><div class="as-row"><div class="as-a">Blocking is best-effort abuse prevention, not a legal control</div><div class="as-b">If it were a sanctions list, fail-open would be unacceptable and the availability calculus reverses.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">500K/s</div><div class="ng-desc">requests checked</div></div><div class="ng-cell"><div class="ng-val">~1M</div><div class="ng-desc">denylist entries</div></div><div class="ng-cell"><div class="ng-val">~8 MB</div><div class="ng-desc">compressed trie in memory</div></div><div class="ng-cell"><div class="ng-val">&lt;1 &micro;s</div><div class="ng-desc">per lookup, in process</div></div><div class="ng-cell"><div class="ng-val">~30 s</div><div class="ng-desc">global propagation target</div></div><div class="ng-cell"><div class="ng-val">0</div><div class="ng-desc">network hops on the hot path</div></div></div>
+<p><strong>The list fits in memory.</strong> A million entries, compiled into a compressed trie, is
+about 8 MB. On an edge node with gigabytes of RAM this is negligible &mdash; smaller than a typical
+service's own code.</p>
+
+<p>That single fact is the design. Compare the two options directly:</p>
+
+<ul>
+  <li><strong>Remote check:</strong> ~1 ms added to every request, a service handling 500,000 QPS, and a
+  new hard dependency in the request path.</li>
+  <li><strong>Local check:</strong> under a microsecond, no service, no dependency, no failure mode.</li>
+</ul>
+
+<p>Three orders of magnitude of latency, and an entire availability risk removed, because the data was
+small enough to copy everywhere.</p>
+
+<h4>Distribution is the only real traffic</h4>
+
+<p>Two hundred edge nodes each fetching an 8 MB snapshot is 1.6 GB per full rebuild. Doing that every
+thirty seconds would be pointless waste.</p>
+
+<p>So the steady state is deltas: what changed since version N, which is typically kilobytes. A full
+snapshot is fetched only on startup or when a node has fallen too far behind to apply deltas.</p>
+
+<p>Worth noting how small this problem is. The hard-sounding part &mdash; checking every request &mdash;
+turned out to be free, and what remains is distributing a few kilobytes to two hundred machines every
+thirty seconds. That is an unremarkable engineering problem, which is the sign the design is right.</p></div>
+</div>
+<div class="design-step tradeoff">
+  <div class="ds-header"><span class="ds-ico">&#9878;</span>6. The key trade-offs</div>
+  <div class="ds-body"><p>The choices, and their costs.</p>
+<div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Check location</strong></td><td class='chosen'>In-process, local memory</td><td class='rej'>Call a denylist service</td><td>A network call on 100% of traffic adds latency and creates a dependency that can take the site down. 8 MB replicates everywhere for free.</td></tr><tr><td><strong>Structure</strong></td><td class='chosen'>Radix trie, longest-prefix match</td><td class='rej'>Hash set of addresses</td><td>A hash set cannot express CIDR ranges or specificity. The trie gives override semantics structurally rather than through rule ordering.</td></tr><tr><td><strong>Distribution</strong></td><td class='chosen'>Edges pull versioned snapshots</td><td class='rej'>Control plane pushes</td><td>Pull removes per-edge state, handles offline edges automatically, and keeps working when the control plane is down.</td></tr><tr><td><strong>On failure</strong></td><td class='chosen'>Fail open, keep the last snapshot</td><td class='rej'>Fail closed</td><td>A protective component must not be able to cause a larger outage than the abuse it prevents. A legal control is the deliberate exception.</td></tr><tr><td><strong>Audit</strong></td><td class='chosen'>Sample high-volume, keep manual blocks</td><td class='rej'>Log every decision</td><td>5,000 rows/sec of audit is a bigger data problem than the traffic being protected, and almost none of it is ever read.</td></tr></tbody></table></div>
+<h4>Fail open or fail closed</h4>
+
+<p>The question is what happens when an edge node cannot get a fresh list, or has none at all.</p>
+
+<p><strong>Fail open</strong> &mdash; allow everything &mdash; means some blocked traffic gets through
+during the outage. Given that this is abuse prevention, that is a few minutes of unwanted requests,
+which is a cost you can absorb.</p>
+
+<p><strong>Fail closed</strong> &mdash; reject everything &mdash; means a distribution failure becomes a
+total outage. The protective mechanism has caused a far worse incident than the thing it protects
+against.</p>
+
+<p>For abuse prevention, fail open, clearly. For a sanctions list where serving a prohibited party is a
+legal violation, the calculus genuinely reverses &mdash; being down may be preferable to being
+non-compliant.</p>
+
+<p>The staff-level move is not picking one. It is recognising that <strong>the answer depends on what
+the list is for, and that this is a business decision to surface rather than an engineering default to
+assume.</strong></p>
+
+<h4>Trusting the feed &mdash; and not</h4>
+
+<p>You are ingesting a third party's data directly into the path of every request you serve. Treating it
+as trusted is a serious mistake with an obvious failure mode: a feed that accidentally publishes
+<code>0.0.0.0/0</code> takes your entire site down, instantly, globally, and the cause is in someone
+else's system.</p>
+
+<p>The guards are all sanity checks applied before compilation, and they are cheap:</p>
+
+<ul>
+  <li><strong>Reject over-broad prefixes.</strong> Nothing broader than a <code>/8</code> without
+  explicit human approval.</li>
+  <li><strong>Bound the rate of change.</strong> If a feed update changes more than a few percent of
+  entries, halt and alert rather than apply.</li>
+  <li><strong>Protect known-good ranges.</strong> Your own infrastructure, your monitoring, and major
+  customer ranges are permanently allowlisted and cannot be denied by any feed.</li>
+  <li><strong>Stage the rollout.</strong> New versions go to a few edges first, with block-rate
+  monitored, before going everywhere.</li>
+</ul>
+
+<p>That last one turns &ldquo;the feed was wrong&rdquo; from a global outage into a small anomaly on a
+handful of nodes, and it is the same staged-rollout instinct as
+<span class="srcref">D18</span>.</p></div>
 </div>
 <div class="design-step arch">
-  <div class="ds-header"><span class="ds-ico">&#127959;</span>5. High-Level Architecture</div>
-  <div class="ds-body">
-<div class="anim" id="anim-denylist">
+  <div class="ds-header"><span class="ds-ico">&#127959;</span>7. High-level design</div>
+  <div class="ds-body"><div class="anim" id="anim-denylist">
   <div class="an-head">
     <div class="an-title">Denylist distribution &mdash; and the upstream feed that could ban everyone</div>
     <div class="an-btns">
@@ -16632,87 +17113,178 @@ dataset is small enough to replicate everywhere is the entire answer.</em></p></
   <div class="an-cap ok-only"><strong>What is moving:</strong> a feed of banned ranges is validated, diffed and compiled into a signed radix trie of about 8&nbsp;MB, which every edge <strong>pulls</strong>. The hot path never appears here at all &mdash; the actual check is a local memory lookup with zero network hops.</div>
   <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> the upstream feed malfunctions and publishes an over-broad range. Applied faithfully, that blocks everyone. <strong>Treat the feed as untrusted input:</strong> reject any delta banning more than a small fraction of address space, or removing most existing rules, and never accept a prefix broader than a configured maximum. Edges keep the last good snapshot indefinitely, so a rejected feed is an alert, not an outage.</div>
 </div>
-<div class="flow">  third-party feed        internal signals (abuse detection, manual)
-       |                          |
-       v                          v
-  <span class="fl-key">FEED INGEST</span> -- validate, diff, SANITY-CHECK ------&gt; <span class="fl-key">RULES DB</span>
-       <span class="fl-bad">|</span>                                              |
-       <span class="fl-bad">+- reject if the delta bans &gt; 5% of the</span>          v
-       <span class="fl-bad">   address space, or removes &gt; 50% of</span>       <span class="fl-key">SNAPSHOT BUILDER</span>
-       <span class="fl-bad">   existing rules. A bad feed is the most</span>    builds a signed radix trie
-       <span class="fl-bad">   likely way this system causes an outage.</span>   every ~30 s, versioned
-                                                      |
-                                                      v
-                                               <span class="fl-hi">OBJECT STORE / CDN</span>
-                                                      ^
-                          <span class="fl-hi">edges PULL every 30 s</span>  |
-     +--------------+--------------+--------------+---+
-     |              |              |              |
-   <span class="fl-hi">edge 1</span>         <span class="fl-hi">edge 2</span>         <span class="fl-hi">edge 3</span>   ...   <span class="fl-hi">edge 200</span>
-   8 MB trie in process memory; lookup is a function call
-     |
-     v
-   allow / deny  <span class="fl-dim">(&lt; 1 microsecond, zero network hops)</span>
+<p>A control plane that distributes, and a data plane that never calls anyone.</p>
+<div class="flow">  <span class="fl-key">CONTROL PLANE</span>   nowhere near the request path
 
-  <span class="fl-note">If the control plane is entirely down, edges keep serving the last</span>
-  <span class="fl-note">good snapshot indefinitely. The blocking decision never depends on</span>
-  <span class="fl-note">anything being reachable.</span></div>
-<div class="flow-cap">The entire hot path is a local memory lookup. The control plane can be down for
-hours and no request is affected &mdash; bans simply stop getting fresher.</div></div>
+    third-party feed  ----+
+    manual bans       ----+---&gt; <span class="fl-hi">VALIDATE</span>
+    allowlist         ----+       reject prefixes broader than /8
+                                  halt if &gt;N% of entries changed
+                                  never deny our own ranges
+                                        |
+                                        v
+                                 <span class="fl-hi">COMPILE</span> &rarr; trie snapshot v812  <span class="fl-dim">~8 MB</span>
+                                        |
+                                        v
+                                 <span class="fl-hi">DISTRIBUTE</span>  <span class="fl-note">staged: a few edges first, watch block rate</span>
+
+
+  <span class="fl-key">DATA PLANE</span>   200 edge nodes
+
+    each node: trie v812 <span class="fl-hi">resident in process memory</span>
+               polls for deltas every ~10s  <span class="fl-dim">KB, not MB</span>
+
+    request arrives
+        |
+        +-- 1. <span class="fl-hi">allowlist?</span>  &rarr; ALLOW   <span class="fl-note">checked first; always wins</span>
+        +-- 2. <span class="fl-hi">denylist trie</span>  &rarr; &le;32 bit-steps, no network
+        |        match   &rarr; <span class="fl-bad">DENY</span> + async audit record
+        |        no match &rarr; ALLOW
+        |
+        <span class="fl-dim">sub-microsecond. no I/O. no dependency. cannot time out.</span>
+
+
+  <span class="fl-bad">DISTRIBUTION BROKEN</span>
+
+    edges keep enforcing the last list they have
+    a node with no list at all: <span class="fl-hi">fail open</span>  <span class="fl-note">for abuse prevention</span></div>
+<div class="flow-cap">The control plane can be entirely down and every request is still served correctly
+&mdash; just against a slightly older list. That separation is what satisfies &ldquo;must never take the
+site down&rdquo;.</div></div>
+</div>
+<div class="design-step wflow">
+  <div class="ds-header"><span class="ds-ico">&#128260;</span>8. Workflows &mdash; what actually happens</div>
+  <div class="ds-body"><div class="wf">
+  <div class="wf-title">A request arrives and is checked</div>
+  <div class="wf-sub">The hot path, in full, which is shorter than its description.</div>
+  <ol>
+    <li>A request lands at an edge node with source address <code>203.0.113.45</code>.</li>
+    <li>The allowlist trie is checked first. No match, so the denylist is consulted.</li>
+    <li>The address is walked bit by bit through the denylist trie. At depth 24 it passes a node marked as an entry &mdash; <code>203.0.113.0/24</code> is on the list.</li>
+    <li><b>Denied.</b> Elapsed: well under a microsecond. No network call, no lock, no allocation.</li>
+    <li>A 403 is returned. An audit record &mdash; address, matching rule, feed version, timestamp &mdash; is written to a local buffer and shipped asynchronously, <b>off the request path</b>.</li>
+    <li>A request from an unlisted address walks the same 32 steps, finds nothing, and is allowed. The cost is identical either way.</li>
+  </ol>
+  <div class="wf-out">The check costs the same whether the list has a thousand entries or ten million, because the work is bounded by address length rather than list size. That property is what lets the list grow without anyone re-examining the latency budget.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">A new ban is published and takes effect</div>
+  <div class="wf-sub">Thirty seconds, globally, without touching the request path.</div>
+  <ol>
+    <li>The third-party feed publishes an update: 400 new ranges, 120 expired.</li>
+    <li>The control plane validates it. Nothing broader than a <code>/8</code>; the change is 0.05% of entries, well inside the limit; none of our own ranges are affected.</li>
+    <li>It merges with manual bans and the allowlist, compiles a new trie, and publishes it as <b>version 813</b>.</li>
+    <li>Rollout is staged: five edge nodes first. Their block rate is compared against the rest of the fleet for a minute. It moves by a fraction of a percent &mdash; normal.</li>
+    <li>The remaining 195 nodes poll, receive the <b>delta</b> from 812 to 813 &mdash; a few kilobytes &mdash; and apply it.</li>
+    <li>Each swaps the new trie in atomically: build alongside, flip a pointer. No request ever sees a half-updated structure.</li>
+    <li>Total from publication to global effect: about 30 seconds.</li>
+  </ol>
+  <div class="wf-out">The atomic pointer swap is the same immutable-snapshot pattern as the prefix table in <span class="srcref">D13</span> and the map version in <span class="srcref">D17</span>. Building alongside and flipping is the general answer to "update a live in-memory structure safely".</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">The feed publishes a range that blocks a major customer</div>
+  <div class="wf-sub">The false positive that is guaranteed to happen.</div>
+  <ol>
+    <li>A large customer's office NAT gateway appears in the feed, because one machine behind it was compromised weeks ago.</li>
+    <li>Every employee at that company is now blocked. From their side the site is simply down, with no explanation.</li>
+    <li>Support escalates. The audit log answers the question immediately: blocked by rule <code>198.51.100.0/24</code>, from feed version 813, at 14:22.</li>
+    <li>An engineer adds that range to the <b>allowlist</b>.</li>
+    <li>A new version compiles and distributes. Because the allowlist is checked first and wins unconditionally, those requests are allowed regardless of the feed.</li>
+    <li>Within a minute the customer is working again, and the allowlist entry survives every future feed update.</li>
+  </ol>
+  <div class="wf-out">Two things made this a minor incident rather than a long one. The audit log turned "why can't we reach you?" into a precise answer in seconds, and the allowlist gave a fix that does not require the third party to correct their data &mdash; which they may never do.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">The feed publishes 0.0.0.0/0</div>
+  <div class="wf-sub">The failure that would have been catastrophic.</div>
+  <ol>
+    <li>An upstream bug emits an entry covering every address on the internet.</li>
+    <li>Applied naively, every edge node would block every request worldwide within thirty seconds. A total outage, caused by someone else's data, with the fix requiring a new deployment.</li>
+    <li>Instead the validation stage rejects it: prefixes broader than <code>/8</code> require explicit human approval.</li>
+    <li>A second guard also fires &mdash; this update would change effectively 100% of matching behaviour, far past the rate-of-change limit.</li>
+    <li>The update is <b>halted entirely</b>, not partially applied. Edges continue enforcing version 813.</li>
+    <li>An alert names the offending entry. A human confirms the upstream bug and the feed is quarantined until it is fixed.</li>
+  </ol>
+  <div class="wf-out">The general lesson is worth stating: any third-party data entering your request path is untrusted input, and needs bounds on how much it is allowed to change behaviour in one step. The guard is a few lines of validation and it is the difference between an alert and a global outage.</div>
+</div></div>
 </div>
 <div class="design-step deep">
-  <div class="ds-header"><span class="ds-ico">&#128269;</span>6. Component Deep Dives</div>
-  <div class="ds-body"><p><strong>A radix trie gives longest-prefix matching for free.</strong> The requirement
-&ldquo;an allowlist entry overrides an enclosing ban&rdquo; sounds like it needs a priority system,
-but it falls out of the structure: walking the address bit by bit, the deepest node that matches is
-by definition the most specific rule. There is no rule engine, no ordering to get wrong, and lookup
-is bounded by the address length &mdash; 32 steps for IPv4, 128 for IPv6 &mdash; regardless of how
-many rules exist. This is the same insight as the IP&rarr;region lookup in
-<a class="qlink" href="#design-maps">D17</a>: the right data structure turns a policy question into
-a constant-time memory access.</p>
-<p><strong>Fail open, and say why.</strong> If the snapshot cannot be fetched, the edge keeps the
-last good one; if it has none, it allows traffic. The reasoning is blast radius: failing closed
-means a bug or an outage in an <em>auxiliary protective</em> component takes down the entire
-service, which is a far larger harm than a window of unblocked abuse. The exception worth naming is
-a legal control &mdash; a sanctions list &mdash; where serving a blocked party is the greater harm
-and the calculus reverses. <strong>This is a business decision and it should be surfaced as one,
-not assumed.</strong></p>
-<p><strong>The third-party feed is the most likely cause of an outage.</strong> A feed that
-malfunctions and publishes an over-broad range would, applied faithfully, block everyone. So
-ingestion is not a copy; it is a validation step with hard limits: reject any delta that would ban
-more than a small fraction of address space, reject one that removes most existing rules, never
-accept a rule broader than a configured maximum prefix length, and always subtract the allowlist
-last. <strong>Treat upstream data as untrusted input</strong>, exactly as you would a user
-request.</p>
-<p><strong>Do not log every block.</strong> At 500K requests per second, even a 1% block rate is
-5,000 audit rows per second, which is a larger data problem than the traffic being protected.
-Sample aggressively for volume, but keep every block that resulted from a <em>manual</em> rule,
-because those are the ones a human will be asked to justify. Aggregate counters per rule give the
-operational picture without the row-per-event cost.</p>
-<p><strong>Push versus pull, again.</strong> Pushing updates to 200 edges means tracking 200
-connections, retrying failures and knowing which edges are stale. Pulling a versioned snapshot from
-a CDN means the control plane holds no per-edge state, offline edges catch up automatically, and
-propagation is bounded by the poll interval rather than by the slowest connection. The 30-second
-target is met comfortably by a 10-second poll of a small delta.</p></div>
-</div>
-<div class="design-step tradeoff">
-  <div class="ds-header"><span class="ds-ico">&#9878;</span>7. Trade-off Analysis</div>
-  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Check location</strong></td><td class='chosen'>In-process, local memory</td><td class='rej'>Call a denylist service</td><td>A network call on 100% of traffic adds latency and creates a dependency that can take the site down. 8 MB replicates everywhere for free.</td></tr><tr><td><strong>Structure</strong></td><td class='chosen'>Radix trie, longest-prefix match</td><td class='rej'>Hash set of addresses</td><td>A hash set cannot express CIDR ranges or specificity. The trie gives override semantics structurally rather than through rule ordering.</td></tr><tr><td><strong>Distribution</strong></td><td class='chosen'>Edges pull versioned snapshots</td><td class='rej'>Control plane pushes</td><td>Pull removes per-edge state, handles offline edges automatically, and keeps working when the control plane is down.</td></tr><tr><td><strong>On failure</strong></td><td class='chosen'>Fail open, keep the last snapshot</td><td class='rej'>Fail closed</td><td>A protective component must not be able to cause a larger outage than the abuse it prevents. A legal control is the deliberate exception.</td></tr><tr><td><strong>Audit</strong></td><td class='chosen'>Sample high-volume, keep manual blocks</td><td class='rej'>Log every decision</td><td>5,000 rows/sec of audit is a bigger data problem than the traffic being protected, and almost none of it is ever read.</td></tr></tbody></table></div></div>
-</div>
-<div class="design-step fault">
-  <div class="ds-header"><span class="ds-ico">&#128737;</span>8. Fault Tolerance</div>
-  <div class="ds-body"><div class="ft-row"><div class="ft-fail">Control plane entirely down</div><div class="ft-fix">Edges keep serving the last good snapshot indefinitely. Bans stop getting fresher, which is a degradation nobody notices for hours &mdash; the correct behaviour for an auxiliary system.</div></div><div class="ft-row"><div class="ft-fail">Third-party feed publishes garbage</div><div class="ft-fix">Sanity limits reject the delta before it is built into a snapshot, and the previous snapshot stays live. Alert loudly: a rejected feed is a real incident even though nothing broke.</div></div><div class="ft-row"><div class="ft-fail">A legitimate large network is banned</div><div class="ft-fix">The allowlist overrides by longest-prefix match and propagates in one poll interval, so the remedy is fast. This is why manual allow entries exist separately from feed data and are never overwritten by it.</div></div><div class="ft-row"><div class="ft-fail">Snapshot is corrupt or truncated</div><div class="ft-fix">Snapshots are content-hashed and the edge verifies before swapping. A failed verification means keeping the current trie &mdash; never load a partially parsed denylist, which would silently allow or block arbitrarily.</div></div><div class="ft-row"><div class="ft-fail">Edge memory pressure from IPv6 growth</div><div class="ft-fix">IPv6 tries are deeper and larger. Cap entries, prefer aggregated prefixes over individual /128s, and alert on snapshot size growth &mdash; an OOM on the edge is an outage caused by the protective system itself.</div></div></div>
-</div>
-<div class="design-step concl">
-  <div class="ds-header"><span class="ds-ico">&#127937;</span>9. Conclusion &mdash; what I would say in the last three minutes</div>
-  <div class="ds-body"><div class="concl-grid">
+  <div class="ds-header"><span class="ds-ico">&#128269;</span>9. Deep dives, and what breaks</div>
+  <div class="ds-body"><h4>Why the audit log is harder than it looks</h4>
+
+<p>&ldquo;Record every block&rdquo; sounds trivial until you consider the volume. A denial-of-service
+attempt can produce hundreds of thousands of blocks per second &mdash; the blocked traffic is, by
+definition, the traffic with the highest rate.</p>
+
+<p>Writing each one synchronously would make the block path slower than the allow path, which is exactly
+backwards: an attacker could then degrade the edge by sending traffic they know will be blocked.</p>
+
+<p>So blocks are buffered locally and shipped asynchronously, and under extreme load they are
+<strong>sampled and aggregated</strong> &mdash; one record per (range, minute) with a count, rather than
+one per request. The individual records are indistinguishable anyway.</p>
+
+<p>The property to preserve is that <em>every distinct rule that fired is recorded</em>, which is what
+audit and appeal actually need. Recording every individual request is a volume problem with no
+corresponding benefit.</p>
+
+<h4>IPv6, which changes the arithmetic</h4>
+
+<p>The trie handles it &mdash; 128 bits instead of 32, so at most 128 steps, still bounded and still
+fast.</p>
+
+<p>What changes is the blocking <em>strategy</em>. An IPv4 address is scarce enough that banning one
+means something. In IPv6 a single customer is routinely allocated a <code>/64</code>, which is more
+addresses than the entire IPv4 internet. Banning one IPv6 address is meaningless &mdash; the sender
+simply uses the next one.</p>
+
+<p>So IPv6 bans operate on prefixes, typically <code>/64</code> or <code>/48</code>, treating the
+allocation rather than the address as the unit of identity. Getting that wrong produces a denylist that
+grows without bound and blocks nothing.</p>
+
+<h4>Expiry, and why it is a compile-time concern</h4>
+
+<p>Temporary bans need to lapse, and the edge must not be checking timestamps per request &mdash; that
+is work on the hot path, and it would mean the trie contains entries that are present but inactive.</p>
+
+<p>Instead expiry is resolved when the snapshot is compiled: expired entries are simply not included.
+The trie contains only currently-active rules, so the lookup stays a pure structural match with no time
+comparison at all.</p>
+
+<p>The consequence is that expiry granularity equals rebuild frequency. A ban expiring at 14:30:15 is
+actually lifted at the next compile after that, up to thirty seconds later. Entirely acceptable, and
+worth stating rather than implying precision the design does not provide.</p>
+
+<h4>When the list stops fitting in memory</h4>
+
+<p>The whole design rests on 8 MB. It is worth being explicit about where that stops holding, because an
+interviewer may push on it.</p>
+
+<p>At tens of millions of individual addresses &mdash; not ranges &mdash; the structure grows past what
+is comfortable to hold in every process. The answer then is the same shape as
+<span class="srcref">D10</span>'s seen-set: a <strong>Bloom filter</strong> in memory as a cheap
+negative test, with a confirming lookup for the small fraction that the filter says might match.</p>
+
+<p>Most traffic is not on the denylist, so most requests are settled by the filter with no I/O. Only
+possible matches pay for the confirmation, and a false positive costs a lookup rather than a wrong
+decision.</p>
+
+<p>That preserves the important property &mdash; <strong>no network call on the common path</strong>
+&mdash; while relaxing the memory requirement. Naming the threshold and the next design is better than
+claiming the current one scales forever.</p>
+
+<h4>What breaks</h4>
+
+<div class="ft-row"><div class="ft-fail">Control plane entirely down</div><div class="ft-fix">Edges keep serving the last good snapshot indefinitely. Bans stop getting fresher, which is a degradation nobody notices for hours &mdash; the correct behaviour for an auxiliary system.</div></div><div class="ft-row"><div class="ft-fail">Third-party feed publishes garbage</div><div class="ft-fix">Sanity limits reject the delta before it is built into a snapshot, and the previous snapshot stays live. Alert loudly: a rejected feed is a real incident even though nothing broke.</div></div><div class="ft-row"><div class="ft-fail">A legitimate large network is banned</div><div class="ft-fix">The allowlist overrides by longest-prefix match and propagates in one poll interval, so the remedy is fast. This is why manual allow entries exist separately from feed data and are never overwritten by it.</div></div><div class="ft-row"><div class="ft-fail">Snapshot is corrupt or truncated</div><div class="ft-fix">Snapshots are content-hashed and the edge verifies before swapping. A failed verification means keeping the current trie &mdash; never load a partially parsed denylist, which would silently allow or block arbitrarily.</div></div><div class="ft-row"><div class="ft-fail">Edge memory pressure from IPv6 growth</div><div class="ft-fix">IPv6 tries are deeper and larger. Cap entries, prefer aggregated prefixes over individual /128s, and alert on snapshot size growth &mdash; an OOM on the edge is an outage caused by the protective system itself.</div></div><div class="concl-grid">
   <div class="cc"><div class="h">The dominant constraint</div><p><strong>The dataset is small enough to live everywhere.</strong> A million rules compress to about 8 MB, so the check is a local memory lookup rather than a network call &mdash; which removes both the latency and the dependency that the obvious design would add to 100% of traffic.</p></div>
   <div class="cc first"><div class="h">What I would build first</div><p>The radix trie and the pull-based snapshot distribution. Together they make the hot path zero-hop and make control-plane availability irrelevant to serving.</p></div>
   <div class="cc"><div class="h">What I deliberately did not build</div><p>Per-request auditing and real-time streaming updates. Both sound thorough and both add cost far out of proportion to their value here.</p></div>
   <div class="cc risk"><div class="h">The biggest risk</div><p>The upstream feed. It is untrusted input with the power to block everyone, and the sanity limits on ingestion are the only thing standing between a bad publish and a total outage.</p></div>
 </div></div>
 </div>
-  
+
 <div class="followup">
   <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
   <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
@@ -16733,8 +17305,9 @@ target is met comfortably by a 10-second poll of a small delta.</p></div>
     <div class="fu-a"><p>At 500,000 requests a second, even a 1% block rate is 5,000 audit rows a second, which is a bigger data problem than the traffic you are protecting.</p><p>So sample the high-volume automated blocks, and keep <em>every</em> block that came from a manual rule, because those are the ones a human will be asked to justify.</p><p>Per-rule counters give you the operational picture without a row per event.</p></div>
   </details>
 </div>
+  </div>
 </div>
-</div>
+
 <div class="design-card">
   <div class="dc-header">
     <h3 class="dc-title"><span id="design-sort">Design a Distributed Sort</span> (&ldquo;the data set does not fit in memory and you have many workers&rdquo;)</h3>

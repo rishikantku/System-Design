@@ -15917,6 +15917,12 @@ reaching for them is the most common way to fail this question. One database row
 <p><strong>Do you handle the payment timeout?</strong> Payments go through someone else &mdash;
 Stripe, a bank &mdash; and sometimes the call just times out. You do not know whether the card was
 charged. Most candidates never mention it. It is the most interesting part of the problem.</p>
+<div class="clarify">
+  <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
+<div class="cq-row"><div class="cq-q">Is the inventory fixed and identified, or interchangeable?</div><div class="cq-w">A named seat 14A is a distinct row with its own invariant. Twenty identical parking bays are a <em>count</em>, which is a different and slightly easier problem &mdash; you decrement rather than claim.</div></div><div class="cq-row"><div class="cq-q">How long is a hold, and what happens when it expires?</div><div class="cq-w">The hold duration is the whole checkout experience. Too short and people lose seats mid-payment; too long and inventory sits unsellable during a sell-out. It also decides whether you need a reaper or can expire lazily on read.</div></div><div class="cq-row"><div class="cq-q">Is overselling ever acceptable?</div><div class="cq-w">For airlines, deliberately yes &mdash; they oversell and compensate. For a concert, absolutely not. This changes whether the invariant is hard or a business rule with a tolerance, and it is worth asking rather than assuming.</div></div><div class="cq-row"><div class="cq-q">What does the payment provider guarantee on a timeout?</div><div class="cq-w">If they support an idempotency key, a retry is safe and the ambiguity resolves itself. If they do not, you need reconciliation, and that is a background system rather than a code path.</div></div><div class="cq-row"><div class="cq-q">Is there a queue or waiting room for high-demand events?</div><div class="cq-w">A stadium on-sale is a thundering herd against a few thousand rows. A waiting room converts that into a controlled admission rate, and it is a separate system worth scoping explicitly.</div></div>
+  <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
+</div>
+
 </div>
 </div>
 <div class="design-step fr">
@@ -18335,74 +18341,140 @@ scatter. Naming that trade is better than asserting either.</p>
     <h3 class="dc-title"><span id="design-push">Design a Central iOS Push Notification Service</span> (APNs-style: many publishers, many apps, one device)</h3>
     <div class="dc-meta">Difficulty: <strong>Hard (Staff Expectation)</strong> &nbsp;.&nbsp; Target: <strong>45 min</strong></div>
   </div>
-  <div class="dc-body"><div class="asked">
+  <div class="dc-body">
+<div class="asked">
   <div class="ak-q"><span class="ak-l">&#128172; The question, as asked</span><p>&ldquo;Design a central push notification service for iOS. Many app publishers send notifications; each app has many users; and one phone has many apps installed.&rdquo;</p></div>
   <div class="ak-h"><span class="ak-l">&#9889; What makes it hard</span><p>The connection model is the whole design, and it is decided by <strong>battery</strong> rather than by throughput. Forty apps holding forty sockets on one phone is a cost users answer by turning push off.</p></div>
 </div>
-
 <div class="design-step req">
-  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Requirements</div>
-  <div class="ds-body"><div class="clarify">
+  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Understanding the question</div>
+  <div class="ds-body"><p>The prompt: <em>&ldquo;Design a central push notification service for iOS. Many app
+publishers send notifications; each app has many users; and one phone has many apps
+installed.&rdquo;</em></p>
+
+<p>That last clause is the question. Everything else is scaffolding.</p>
+
+<div class="insight">
+  <div class="label">&#127919; One connection per app, or one per device?</div>
+  <p>A phone has forty apps that want push. If each holds its own connection to the service, that is
+  <strong>forty TCP connections, forty TLS sessions, and forty independent keepalives</strong> on one
+  device.</p>
+  <p>Each keepalive wakes the radio. Waking the radio is by far the largest battery cost on a phone, and
+  it costs roughly the same whether you send one byte or a thousand. Forty apps each poking the radio on
+  their own schedule means the radio is almost never allowed to sleep.</p>
+  <p>Users answer battery drain by turning push off, which makes the product worthless. So:
+  <strong>one connection per device</strong>, multiplexing every app's traffic, with a single keepalive.</p>
+</div>
+
+<p>That decision is why this service is <em>central</em> at all. If each app could run its own push
+infrastructure well, there would be no need for a shared one. The whole reason it exists is that the
+radio is a shared resource that no single app can manage responsibly.</p>
+
+<h4>What the decision costs</h4>
+
+<p>Having chosen one connection per device, you inherit a set of problems:</p>
+
+<ul>
+  <li>You are now holding <strong>hundreds of millions of simultaneous connections</strong>, which is a
+  fleet sized by idle sockets rather than by traffic.</li>
+  <li>Every app's notifications flow through your infrastructure, so <strong>one misbehaving publisher
+  must not be able to degrade any other</strong>.</li>
+  <li>You need an addressing scheme &mdash; the device token &mdash; that identifies a device-and-app
+  pair without becoming a cross-app tracking identifier.</li>
+</ul>
+
+<h4>And the requirement to push back on</h4>
+
+<p><em>Is this a durable queue?</em> Publishers will assume it is. Real push services are explicitly
+<strong>best-effort</strong>, and that is a deliberate choice rather than a limitation.</p>
+
+<p>Durable at-least-once delivery to a billion devices means a per-device queue, acknowledgements and
+retries &mdash; and a phone offline for a week returning to four thousand queued notifications, which is
+a worse user experience than having missed them. Saying &ldquo;best effort, and here is why&rdquo;
+rather than promising durability is the honest answer.</p>
+
+<h4>What they are looking for</h4>
+
+<p><strong>Do you ask per-app or per-device?</strong> First, and do you justify it by battery?</p>
+
+<p><strong>Do you isolate publishers?</strong> A shared service's defining risk is a noisy tenant.</p>
+
+<p><strong>Do you treat the token as a privacy object?</strong> It is the piece most candidates get
+casually wrong.</p>
+<div class="clarify">
   <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
   <div class="cq-row"><div class="cq-q">Is the persistent connection per <em>app</em> or per <em>device</em>?</div><div class="cq-w"><strong>Ask this first &mdash; it is the whole design.</strong> Per app means a phone with 40 apps holds 40 TCP connections and dies of battery drain. Per device means one connection multiplexing every app&rsquo;s traffic, and everything else follows from that.</div></div><div class="cq-row"><div class="cq-q">What delivery guarantee do publishers get?</div><div class="cq-w">Best-effort at-most-once needs almost no storage. At-least-once needs durable per-device queues and acknowledgement, which is a far larger system. Real push services choose best-effort and say so.</div></div><div class="cq-row"><div class="cq-q">What happens to notifications for a device that is offline for a week?</div><div class="cq-w">If you retain everything, a returning phone gets 4,000 notifications. If you <strong>coalesce to the latest per app</strong>, it gets 40. That single decision changes storage by orders of magnitude.</div></div><div class="cq-row"><div class="cq-q">Can a publisher broadcast to all its users, or must it address devices individually?</div><div class="cq-w">Individual addressing pushes fan-out onto the publisher. Topic broadcast means <em>we</em> own the fan-out, and a 50-million-device topic becomes our capacity problem.</div></div><div class="cq-row"><div class="cq-q">Is the device token stable, and is it tied to a user?</div><div class="cq-w">It must be per (device, app), opaque, and rotatable &mdash; not a user ID. Otherwise the token becomes a cross-app tracking identifier and a privacy incident.</div></div>
   <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
 </div>
-<p><strong>Functional:</strong></p>
-<ul>
-  <li>Authenticated publishers submit a notification addressed to a <strong>device token</strong> (an opaque per-device, per-app identifier)</li>
-  <li>Deliver immediately if the device is connected; otherwise hold briefly and deliver on reconnect</li>
-  <li>One device runs many apps and must hold <strong>one</strong> connection for all of them</li>
-  <li>Report invalid or expired tokens back to publishers so they stop sending</li>
+</div>
+</div>
+<div class="design-step fr">
+  <div class="ds-header"><span class="ds-ico">&#128221;</span>2. Functional requirements</div>
+  <div class="ds-body"><ul>
+  <li><strong>Authenticated publishers submit a notification</strong> addressed to a device token.</li>
+  <li><strong>Deliver immediately if connected</strong>; otherwise hold briefly and deliver on
+  reconnect.</li>
+  <li><strong>One device, one connection</strong>, carrying every installed app's traffic.</li>
+  <li><strong>Report invalid and expired tokens</strong> back to publishers so they stop sending.</li>
 </ul>
-<p><strong>Non-Functional:</strong></p>
-<ul>
-  <li>1B devices, hundreds of millions concurrently connected</li>
-  <li>p95 under <strong>1 second</strong> from publisher accept to device, for a connected device</li>
-  <li>Best-effort delivery &mdash; explicitly <em>not</em> a durable queue</li>
-  <li>One misbehaving publisher must not degrade any other</li>
-  <li>Battery and radio cost on the device is a first-class constraint</li>
-</ul></div>
-</div>
-<div class="design-step est">
-  <div class="ds-header"><span class="ds-ico">&#128202;</span>2. Capacity Estimation</div>
-  <div class="ds-body"><div class="assume">
-  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
-  <div class="as-row"><div class="as-a">1B registered devices, ~400M concurrently connected</div><div class="as-b">If concurrency were 10&times; lower this stops being a connection-management problem and becomes an ordinary API.</div></div><div class="as-row"><div class="as-a">~10 notifications per device per day</div><div class="as-b">A 10&times; increase makes fan-out CPU, not connection count, the binding constraint.</div></div><div class="as-row"><div class="as-a">Payloads are small &mdash; 4&nbsp;KB cap</div><div class="as-b">Large payloads would force a fetch-on-notify design where the push carries only a pointer.</div></div><div class="as-row"><div class="as-a">Offline retention coalesces to the latest per app</div><div class="as-b">Retaining every notification instead would multiply storage by roughly the number sent during the outage window.</div></div>
-</div>
-<p><strong>Assumptions:</strong> 1B devices, 400M concurrent connections, 10B notifications/day, 4&nbsp;KB max payload.</p><div class="ng"><div class="ng-cell"><div class="ng-val">400M</div><div class="ng-desc">concurrent connections</div></div><div class="ng-cell"><div class="ng-val">~400</div><div class="ng-desc">gateway nodes at 1M conns</div></div><div class="ng-cell"><div class="ng-val">~116K/s</div><div class="ng-desc">notifications average</div></div><div class="ng-cell"><div class="ng-val">~350K/s</div><div class="ng-desc">peak</div></div><div class="ng-cell"><div class="ng-val">~10 KB</div><div class="ng-desc">kernel + app memory per conn</div></div><div class="ng-cell"><div class="ng-val">~4 TB</div><div class="ng-desc">connection state across the fleet</div></div></div><p><strong>The number that shapes everything:</strong> 400 million <em>concurrent long-lived
-connections</em>. At roughly 10&nbsp;KB of kernel and application memory per connection, a machine
-holding 1M connections needs ~10&nbsp;GB just for connection state &mdash; achievable, but it means
-the gateway tier is sized by <strong>connections, not by throughput</strong>. At 350K
-notifications/sec across 400M connections, each connection is idle almost all the time: this is a
-<em>presence</em> system that occasionally delivers a message, not a messaging system.</p>
-<p><strong>The consequence for the device:</strong> one connection per app would mean 40 TCP
-sockets, 40 TLS handshakes and 40 sets of keepalives per phone. Multiplexing every app over a
-single connection is what makes push viable on battery at all.</p></div>
-</div>
-<div class="design-step api">
-  <div class="ds-header"><span class="ds-ico">&#128268;</span>3. API Design</div>
-  <div class="ds-body"><div class="api-code"><span class="cm">// PUBLISHER-FACING (HTTP/2, one stream per notification)</span>
-<span class="kw">POST</span> /3/device/{device_token}
-  Headers:  authorization: bearer &lt;provider JWT&gt;
-            apns-topic: com.example.app        <span class="cm">// which app</span>
-            apns-expiration: &lt;unix ts&gt;         <span class="cm">// 0 = deliver now or discard</span>
-            apns-collapse-id: &lt;string&gt;         <span class="cm">// COALESCING KEY -- newer</span>
-                                               <span class="cm">// replaces older with same id</span>
-            apns-priority: 10 | 5              <span class="cm">// 5 = power-considerate</span>
-  Body:     { aps: { alert, badge, sound }, custom... }   <span class="cm">// &lt;= 4 KB</span>
-  Response: 200 { apns-id }
-            <span class="num">410</span> Unregistered  <span class="cm">// app deleted -- STOP SENDING to this token</span>
-            <span class="num">429</span> TooManyRequests  <span class="cm">// per-publisher quota</span>
 
-<span class="cm">// DEVICE-FACING (one persistent TLS connection per DEVICE, not per app)</span>
-  device -&gt; { type:"hello", device_id, topics:[bundle ids...] }
-  device &lt;- { type:"push", topic, apns_id, payload }
-  device -&gt; { type:"ack",  apns_id }          <span class="cm">// lets us drop the stored copy</span>
-  device &lt;-&gt; keepalive on a long interval     <span class="cm">// radio wake-ups cost battery</span></div></div>
+<h4>What a device token has to be</h4>
+
+<p>It is the address, and getting it wrong is a privacy incident rather than a bug.</p>
+
+<p>It must be <strong>per (device, app)</strong>, not per device and not per user. If two apps on the
+same phone received the same token, any publisher could correlate their users with any other publisher's
+&mdash; a cross-app tracking identifier handed out by the platform.</p>
+
+<p>It must be <strong>opaque</strong>. Nothing derivable about the device, the user, or the app should be
+inferable from the bytes, because tokens end up in publishers' databases and logs.</p>
+
+<p>It must be <strong>rotatable</strong>. A reinstall, a restore from backup, or a device transfer should
+invalidate the old token. Which means publishers must handle tokens going dead, which is exactly what the
+feedback requirement exists for.</p>
+
+<h4>Why the feedback channel matters more than it looks</h4>
+
+<p>Without it, a publisher keeps sending to tokens for apps that were uninstalled a year ago. Those
+notifications are pure waste &mdash; they can never be delivered &mdash; and over time they become a
+large fraction of a publisher's volume, which is <em>your</em> capacity being consumed for nothing.</p>
+
+<p>So invalid tokens are reported back, and publishers are expected to remove them. It is a small API and
+it is what keeps the system's load proportional to real users rather than to historical installs.</p></div>
+</div>
+<div class="design-step nfr">
+  <div class="ds-header"><span class="ds-ico">&#9201;</span>3. Non-functional requirements</div>
+  <div class="ds-body"><div class="tw"><table class="to">
+<thead><tr><th style="width:26%">Requirement</th><th style="width:24%">Target</th><th style="width:50%">What it forces</th></tr></thead>
+<tbody>
+<tr><td><strong>Concurrent connections</strong></td><td class="chosen">~400M</td><td>The defining number. Sized by idle sockets, not by messages &mdash; they cost memory at 3am when nothing is being sent.</td></tr>
+<tr><td><strong>Delivery latency</strong></td><td>p95 &lt; 1 s</td><td>Publisher accept to device, for a connected device. Push that arrives late is push that arrives after the user looked.</td></tr>
+<tr><td><strong>Delivery guarantee</strong></td><td class="chosen">Best effort</td><td>Explicitly not a durable queue. Stated as a requirement so it is a decision rather than an omission.</td></tr>
+<tr><td><strong>Publisher isolation</strong></td><td>Strict</td><td>One publisher's burst or bug must not affect another's delivery. This is the defining risk of any shared service.</td></tr>
+<tr><td><strong>Battery cost</strong></td><td class="chosen">First-class</td><td>Which is unusual and correct. The device's radio budget constrains the server design.</td></tr>
+<tr><td><strong>Token privacy</strong></td><td>Per (device, app)</td><td>Opaque and rotatable. A design constraint, not an implementation detail.</td></tr>
+</tbody></table></div>
+
+<h4>The keepalive interval, which is the most consequential constant</h4>
+
+<p>The connection must survive carrier NAT timeouts, which on mobile networks can be as short as a couple
+of minutes. So something must send a byte periodically or the connection dies silently and notifications
+stop arriving with no error anywhere.</p>
+
+<p>Too frequent and you are waking the radio on hundreds of millions of devices more often than necessary
+&mdash; the exact cost the whole design exists to avoid. Too infrequent and connections die, delivery
+becomes unreliable, and devices reconnect constantly, which is worse for battery than the keepalives
+would have been.</p>
+
+<p>The refinement that matters: <strong>the interval should adapt to the network</strong>. Wi-Fi tolerates
+much longer gaps than cellular, and different carriers differ substantially. A client that learns the
+longest interval its current network survives is doing more for battery life than any server-side
+optimisation.</p></div>
 </div>
 <div class="design-step schema">
-  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="cm">-- Where is this device connected RIGHT NOW? Read on every notification,</span>
+  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Data model and API</div>
+  <div class="ds-body"><p>Three pieces of state, and only one of them is large.</p>
+<div class="schema-code"><span class="cm">-- Where is this device connected RIGHT NOW? Read on every notification,</span>
 <span class="cm">-- so it must be an in-memory lookup, never a database query.</span>
 <span class="kw">TABLE</span> device_sessions {          <span class="cm">-- sharded KV, in memory</span>
   device_id    <span class="ty">UUID</span>      <span class="pk">PRIMARY KEY</span>,
@@ -18430,12 +18502,147 @@ single connection is what makes push viable on battery at all.</p></div>
   <span class="pk">PRIMARY KEY</span> (device_id, bundle_id, collapse_id)
 }
 <span class="cm">-- An UPSERT here means a week offline yields ~1 notification per app,</span>
-<span class="cm">-- not thousands. Storage is bounded by DEVICES x APPS, not by traffic.</span></div></div>
+<span class="cm">-- not thousands. Storage is bounded by DEVICES x APPS, not by traffic.</span></div>
+<h4>The connection registry</h4>
+
+<p>Maps each connected device to the gateway holding its socket. Written on every connect, read on every
+notification.</p>
+
+<p>It is the same component as <span class="srcref">D4</span>'s registry and it is allowed to be wrong in
+the same way. A stale entry means a notification is sent to a gateway that no longer has that device; the
+gateway says &ldquo;not mine&rdquo; and the notification is dropped or retried once.</p>
+
+<p>Because delivery is best-effort, a stale entry costs one lost notification rather than a
+correctness problem &mdash; which is precisely what allows it to be an in-memory store with a TTL rather
+than anything more expensive.</p>
+
+<h4>The token table</h4>
+
+<p>Maps each opaque token to a device and an app, with validity state. A billion devices times several
+apps each is billions of rows, but they are tiny and the access is a point lookup by token &mdash; a
+sharded key-value store with no interesting queries.</p>
+
+<p>The important column is the validity state, because it is what drives the feedback channel. A token
+becomes invalid on uninstall, on reinstall (which mints a new one), and after a long period with no
+device contact.</p>
+
+<h4>The pending buffer, which is deliberately small</h4>
+
+<p>For a device that is not connected, notifications are held briefly &mdash; and <strong>coalesced to
+the latest per app</strong>, not queued.</p>
+
+<p>The arithmetic justifies it plainly. A device offline for a week, at ten notifications a day across
+forty apps, would accumulate on the order of four thousand messages. Delivering all of them on reconnect
+is a terrible user experience, a large storage cost, and a burst of load at exactly the moment a device
+is reconnecting.</p>
+
+<p>Coalescing to the most recent per app turns four thousand into forty. The user sees what is current,
+which is almost always what they wanted, and storage per device is bounded by app count rather than by
+time offline.</p>
+
+<h4>The API</h4>
+<div class="api-code"><span class="cm">// PUBLISHER-FACING (HTTP/2, one stream per notification)</span>
+<span class="kw">POST</span> /3/device/{device_token}
+  Headers:  authorization: bearer &lt;provider JWT&gt;
+            apns-topic: com.example.app        <span class="cm">// which app</span>
+            apns-expiration: &lt;unix ts&gt;         <span class="cm">// 0 = deliver now or discard</span>
+            apns-collapse-id: &lt;string&gt;         <span class="cm">// COALESCING KEY -- newer</span>
+                                               <span class="cm">// replaces older with same id</span>
+            apns-priority: 10 | 5              <span class="cm">// 5 = power-considerate</span>
+  Body:     { aps: { alert, badge, sound }, custom... }   <span class="cm">// &lt;= 4 KB</span>
+  Response: 200 { apns-id }
+            <span class="num">410</span> Unregistered  <span class="cm">// app deleted -- STOP SENDING to this token</span>
+            <span class="num">429</span> TooManyRequests  <span class="cm">// per-publisher quota</span>
+
+<span class="cm">// DEVICE-FACING (one persistent TLS connection per DEVICE, not per app)</span>
+  device -&gt; { type:"hello", device_id, topics:[bundle ids...] }
+  device &lt;- { type:"push", topic, apns_id, payload }
+  device -&gt; { type:"ack",  apns_id }          <span class="cm">// lets us drop the stored copy</span>
+  device &lt;-&gt; keepalive on a long interval     <span class="cm">// radio wake-ups cost battery</span></div></div>
+</div>
+<div class="design-step est">
+  <div class="ds-header"><span class="ds-ico">&#128202;</span>5. Capacity estimation</div>
+  <div class="ds-body"><p>The numbers, and the one that sizes the fleet.</p>
+<div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">1B registered devices, ~400M concurrently connected</div><div class="as-b">If concurrency were 10&times; lower this stops being a connection-management problem and becomes an ordinary API.</div></div><div class="as-row"><div class="as-a">~10 notifications per device per day</div><div class="as-b">A 10&times; increase makes fan-out CPU, not connection count, the binding constraint.</div></div><div class="as-row"><div class="as-a">Payloads are small &mdash; 4&nbsp;KB cap</div><div class="as-b">Large payloads would force a fetch-on-notify design where the push carries only a pointer.</div></div><div class="as-row"><div class="as-a">Offline retention coalesces to the latest per app</div><div class="as-b">Retaining every notification instead would multiply storage by roughly the number sent during the outage window.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">400M</div><div class="ng-desc">concurrent connections</div></div><div class="ng-cell"><div class="ng-val">~400</div><div class="ng-desc">gateway nodes at 1M conns</div></div><div class="ng-cell"><div class="ng-val">~116K/s</div><div class="ng-desc">notifications average</div></div><div class="ng-cell"><div class="ng-val">~350K/s</div><div class="ng-desc">peak</div></div><div class="ng-cell"><div class="ng-val">~10 KB</div><div class="ng-desc">kernel + app memory per conn</div></div><div class="ng-cell"><div class="ng-val">~4 TB</div><div class="ng-desc">connection state across the fleet</div></div></div>
+<p><strong>Connections dominate.</strong> Four hundred million concurrent sockets, at perhaps 50,000 per
+machine with tuned buffers and an event loop, is around <strong>8,000 gateway machines whose primary job
+is holding connections open</strong>.</p>
+
+<p>Note what that number is <em>not</em> derived from. It is not messages per second &mdash; it is idle
+sockets. Those machines cost the same at three in the morning with zero notifications flowing.</p>
+
+<p><strong>Messages are comparatively easy.</strong> A billion devices at ten notifications a day is about
+115,000 per second average, a few times that at peak. Payloads are small. As a throughput problem this is
+unremarkable; it is the connection count that makes the system large.</p>
+
+<p><strong>The keepalive traffic is worth computing.</strong> Four hundred million devices each sending a
+small packet every few minutes is on the order of a million packets per second of pure overhead &mdash;
+comparable to the notification traffic itself. Which is a good argument for making the interval as long
+as the network tolerates, on both the battery and the server side.</p>
+
+<h4>The worst load this system sees</h4>
+
+<p>Not a notification burst. A <strong>mass reconnection</strong>.</p>
+
+<p>A gateway deploy, a regional network blip, or a load balancer change causes hundreds of thousands or
+millions of devices to reconnect simultaneously. Each reconnection is a TCP handshake, a TLS handshake,
+an authentication, and a registry write &mdash; all far more expensive than delivering a notification.</p>
+
+<p>Sizing for steady state and not for reconnection storms is the standard way this kind of system falls
+over, and the defences are the ones you would expect: staged deploys, client-side reconnect backoff with
+jitter, and connection rate limits at the gateway.</p></div>
+</div>
+<div class="design-step tradeoff">
+  <div class="ds-header"><span class="ds-ico">&#9878;</span>6. The key trade-offs</div>
+  <div class="ds-body"><p>The choices, and their costs.</p>
+<div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Connection model</strong></td><td class='chosen'>One per device, multiplexed</td><td class='rej'>One per app</td><td>Forty sockets and forty keepalive timers per phone is a battery and radio cost users will not accept. The multiplexing hop is worth its complexity.</td></tr><tr><td><strong>Delivery guarantee</strong></td><td class='chosen'>Best-effort, at-most-once</td><td class='rej'>Durable at-least-once</td><td>Durable per-device queues for 1B devices is a vastly larger and more expensive system. Push is a hint to open the app; the app fetches the truth.</td></tr><tr><td><strong>Offline handling</strong></td><td class='chosen'>Coalesce to latest per app</td><td class='rej'>Queue everything</td><td>Queuing makes storage grow with traffic &times; outage length and delivers hundreds of stale alerts. Coalescing bounds storage by devices &times; apps.</td></tr><tr><td><strong>Session lookup</strong></td><td class='chosen'>In-memory sharded registry</td><td class='rej'>Database query</td><td>It is read on every notification at 350K/sec. A database round trip on that path is a self-inflicted bottleneck.</td></tr><tr><td><strong>Publisher fan-out</strong></td><td class='chosen'>Publisher addresses devices individually</td><td class='rej'>We own topic broadcast</td><td>Individual addressing keeps our fan-out bounded and predictable; owning broadcast means a single publisher action can become a 50-million-device write.</td></tr></tbody></table></div>
+<h4>Best effort, and what durable delivery would cost</h4>
+
+<p>The trade to state clearly, because publishers will push on it.</p>
+
+<p><strong>Durable at-least-once</strong> means a persistent per-device queue, acknowledgement tracking,
+and retries. For a billion devices with several apps each that is an enormous amount of state whose whole
+purpose is to serve devices that are not there.</p>
+
+<p>It also produces a bad product. The returning phone gets its four thousand notifications, most of them
+about things that are no longer true &mdash; a match that ended, a sale that finished, a message already
+read on another device.</p>
+
+<p><strong>Best effort with coalescing</strong> means storage bounded by app count, no acknowledgement
+machinery, and a returning device seeing what is currently true.</p>
+
+<p>The honest framing: <strong>a notification is a hint that something changed, not a message.</strong>
+The authoritative content lives in the app, which fetches it on open. Once you accept that, best-effort
+delivery is not a compromise &mdash; it is the correct semantics, and durability would be solving the
+wrong problem expensively.</p>
+
+<h4>Isolating publishers</h4>
+
+<p>The defining risk of a shared service. One publisher with a bug &mdash; a retry loop, a broadcast to
+their entire user base at once &mdash; must not delay anyone else's notifications.</p>
+
+<p>The defences are the standard multi-tenant set, and it is worth naming all three because each catches
+a different failure:</p>
+
+<ul>
+  <li><strong>Per-publisher rate limits</strong> at ingest, so excess is rejected with a clear error
+  rather than absorbed into shared queues.</li>
+  <li><strong>Separate queues per publisher</strong>, so a backlog is <em>their</em> backlog. A shared
+  queue means one publisher's million-message burst sits in front of everyone else's traffic.</li>
+  <li><strong>Fair scheduling</strong> at the gateway, so a device with one app generating heavy traffic
+  does not starve its other apps' notifications.</li>
+</ul>
+
+<p>This is the same lesson as the cardinality limits in <span class="srcref">D11</span>: <strong>in a
+shared platform, design against your noisiest tenant, not against your own bugs.</strong></p></div>
 </div>
 <div class="design-step arch">
-  <div class="ds-header"><span class="ds-ico">&#127959;</span>5. High-Level Architecture</div>
-  <div class="ds-body">
-<div class="anim" id="anim-push">
+  <div class="ds-header"><span class="ds-ico">&#127959;</span>7. High-level design</div>
+  <div class="ds-body"><div class="anim" id="anim-push">
   <div class="an-head">
     <div class="an-title">Push delivery &mdash; and the reconnect storm when a gateway dies</div>
     <div class="an-btns">
@@ -18486,89 +18693,174 @@ single connection is what makes push viable on battery at all.</p></div>
   <div class="an-cap ok-only"><strong>What is moving:</strong> a notification addressed to an opaque device token. Ingest authorises it and applies the publisher&rsquo;s quota, the router looks up which gateway holds that device, and the gateway pushes it down <em>one connection shared by every app on the phone</em>. If the device is offline the router upserts into the pending store, keeping at most one notification per app.</div>
   <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> a gateway holding a million connections dies. All million devices notice at once and reconnect &mdash; and if they reconnect immediately they arrive as a synchronised wall of TLS handshakes that knocks over whichever gateway they land on next. <strong>Devices must back off with jitter</strong>, and the tier must carry enough headroom to absorb a whole node&rsquo;s worth of reconnections. <span class="srcref">Ch 10</span></div>
 </div>
-<div class="flow">  <span class="fl-key">PUBLISHERS</span> (app servers)  ---- HTTP/2, one stream per notification
-        |
-        v
-  <span class="fl-key">INGEST / AUTH</span>   verify provider JWT, check topic matches the token,
-        |         enforce per-publisher quota, cap payload at 4 KB
-        |         <span class="fl-note">a publisher that floods gets 429 here and affects nobody else</span>
-        v
-  <span class="fl-key">ROUTER</span>   look up device_sessions: which gateway holds this device?
-        |
-        +-- <span class="fl-hi">connected</span> ---------------------+
-        |                                    |
-        +-- <span class="fl-bad">not connected</span> --&gt; <span class="fl-key">PENDING STORE</span>  |
-                             UPSERT by       |
-                             (device, app,   |
-                              collapse_id)   |
-                                             v
-                                   <span class="fl-hi">GATEWAY TIER</span>  ~400 nodes
-                                   1M TLS connections each
-                                   <span class="fl-dim">one connection per DEVICE,</span>
-                                   <span class="fl-dim">multiplexed across all its apps</span>
-                                             |
-                                             v
-                                        <span class="fl-hi">DEVICE</span>
-                                   demultiplexes by topic
-                                   and wakes the right app
+<p>Two halves: accepting from publishers, and holding sockets.</p>
+<div class="flow">  <span class="fl-key">PUBLISHER SIDE</span>
 
-  <span class="fl-note">On reconnect the device announces itself, the gateway claims the session,</span>
-  <span class="fl-note">and the pending store is drained -- at most one notification per app.</span></div>
-<div class="flow-cap">The gateway tier is sized by concurrent connections, not by message rate. Almost
-every connection is idle almost all of the time.</div></div>
+    publisher --&gt; <span class="fl-hi">INGEST</span>  authenticate, validate token,
+                          <span class="fl-hi">per-publisher rate limit</span>  <span class="fl-note">reject here, loudly</span>
+                     |
+                     v
+              <span class="fl-hi">PER-PUBLISHER QUEUE</span>  <span class="fl-note">a backlog is THEIR backlog, not everyone's</span>
+                     |
+                     v
+              lookup token &rarr; device
+              lookup registry &rarr; which gateway?
+
+
+  <span class="fl-key">DEVICE SIDE</span>
+
+    phone  ---- <span class="fl-hi">ONE connection for ALL 40 apps</span> ----&gt;  <span class="fl-hi">GATEWAY</span>
+                one TLS session                              ~50K devices each
+                <span class="fl-key">one keepalive</span>  <span class="fl-note">adaptive: longer on wi-fi</span>       ~8,000 machines
+
+    delivery:   notification &rarr; multiplexed down the device's single socket
+                <span class="fl-dim">tagged with which app it belongs to</span>
+
+
+  <span class="fl-bad">DEVICE OFFLINE</span>
+
+    registry has no entry
+        |
+        v
+    <span class="fl-hi">PENDING BUFFER</span>  <span class="fl-key">coalesce to latest per app</span>
+        <span class="fl-note">4,000 notifications over a week &rarr; 40 on reconnect</span>
+        <span class="fl-dim">bounded by app count, not by time offline</span>
+
+
+  <span class="fl-bad">TOKEN DEAD</span>  (uninstalled, reinstalled, expired)
+
+    &rarr; feedback to the publisher: stop sending
+    <span class="fl-note">without this, dead tokens become a large share of a publisher's volume</span></div>
+<div class="flow-cap">The single socket per device is the design. Everything above it &mdash; queues,
+registry, coalescing &mdash; exists to feed that one connection without letting any publisher monopolise
+it.</div></div>
+</div>
+<div class="design-step wflow">
+  <div class="ds-header"><span class="ds-ico">&#128260;</span>8. Workflows &mdash; what actually happens</div>
+  <div class="ds-body"><div class="wf">
+  <div class="wf-title">A message arrives for an app on a connected phone</div>
+  <div class="wf-sub">The happy path, and note how little of it is per-app.</div>
+  <ol>
+    <li>A publisher posts a notification addressed to a device token. Ingest authenticates them, validates the token's format, and checks their rate limit.</li>
+    <li>It is accepted and placed on <b>that publisher's</b> queue. The publisher gets a 202 &mdash; accepted, not delivered, which is an important distinction to make in the API.</li>
+    <li>The token is resolved to a device and an app. The registry says the device is on gateway 4,412.</li>
+    <li>The notification is forwarded there. The gateway writes it down the device's <b>single existing socket</b>, tagged with the app it belongs to.</li>
+    <li>The operating system on the phone routes it to the right app. <b>No new connection was opened, and the radio was already awake for this socket.</b></li>
+    <li>Total: about 300 ms from publisher accept to device.</li>
+  </ol>
+  <div class="wf-out">The per-app cost of this delivery was a tag in a message header. That is the payoff of the per-device connection: the fortieth app costs almost nothing, where forty separate sockets would cost forty keepalives forever.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">A phone is off for a week</div>
+  <div class="wf-sub">Coalescing, and the four-thousand-notification problem it avoids.</div>
+  <ol>
+    <li>The device disconnects. Its registry entry expires within a minute.</li>
+    <li>Notifications keep arriving &mdash; roughly 10 a day across 40 apps, so about <b>2,800 over the week</b>.</li>
+    <li>Each one lands in the pending buffer, where it <b>replaces</b> the previous pending notification for that same app rather than joining a queue behind it.</li>
+    <li>Storage for that device stays at roughly 40 entries regardless of how long it is away.</li>
+    <li>The phone comes back. It reconnects, authenticates, and the registry is updated.</li>
+    <li>The gateway delivers the <b>40 pending notifications</b> &mdash; one current item per app.</li>
+    <li>The user sees what is true now, rather than a week of history most of which is obsolete.</li>
+  </ol>
+  <div class="wf-out">This is what "best effort" buys, stated as a product outcome rather than a limitation. Durable delivery would have been more storage, more machinery, and a visibly worse experience on reconnect.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">A publisher broadcasts to 50 million users</div>
+  <div class="wf-sub">Isolation doing its job.</div>
+  <ol>
+    <li>A publisher sends a campaign to their entire install base. Fifty million notifications arrive over a few minutes.</li>
+    <li>Their rate limit caps the accept rate. Beyond it they get explicit <b>429</b> responses telling them to slow down &mdash; rejected clearly rather than absorbed silently.</li>
+    <li>What is accepted goes onto <b>their</b> queue, which grows to millions deep.</li>
+    <li>Every other publisher's queue is untouched. A small app's notification sent during this window is delivered in its usual 300 ms, because it never waited behind anything.</li>
+    <li>Delivery workers drain the large queue at a controlled rate. The campaign takes ten minutes rather than arriving instantly.</li>
+    <li>At the gateway, fair scheduling ensures a device receiving this campaign still gets its other apps' notifications promptly &mdash; the campaign does not monopolise its socket either.</li>
+  </ol>
+  <div class="wf-out">Three layers of isolation, each catching a different failure: the rate limit bounds what enters, the separate queue bounds who waits, and fair scheduling bounds what monopolises a device. A shared queue would have made this one publisher's campaign into everybody's outage.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">A gateway is deployed and 50,000 devices reconnect</div>
+  <div class="wf-sub">The worst load this system sees.</div>
+  <ol>
+    <li>A gateway is taken out of service for a deploy. Its 50,000 sockets drop at once.</li>
+    <li>Every one of those devices immediately tries to reconnect. Each reconnection is a TCP handshake, a TLS handshake, an authentication and a registry write &mdash; <b>far more expensive than delivering a notification</b>.</li>
+    <li>If they all retry at once and land on the same few gateways, those gateways are overwhelmed, drop the connections, and the devices retry again &mdash; a reconnection storm that feeds itself.</li>
+    <li>Defence one: clients use <b>randomised backoff</b>. Reconnections spread over tens of seconds rather than arriving in one burst.</li>
+    <li>Defence two: gateways enforce a connection <b>rate limit</b>, rejecting excess with a signal to retry later rather than accepting and collapsing.</li>
+    <li>Defence three: deploys are <b>staged</b>, so a small fraction of the fleet is cycling at any time.</li>
+    <li>Notifications arriving for those devices during the gap go to the pending buffer and are delivered on reconnect.</li>
+  </ol>
+  <div class="wf-out">This system's peak load is a control-plane event, not a traffic event &mdash; which is easy to miss when capacity planning from message rates. A fleet sized by idle connections is stressed by connections churning, and that is the number to design against.</div>
+</div></div>
 </div>
 <div class="design-step deep">
-  <div class="ds-header"><span class="ds-ico">&#128269;</span>6. Component Deep Dives</div>
-  <div class="ds-body"><p><strong>One connection per device is the decision the whole design rests on.</strong> A
-phone with 40 push-enabled apps would otherwise hold 40 TLS sessions, each with its own handshake,
-its own keepalive and its own radio wake-ups. On a mobile network the radio is the dominant power
-cost, and waking it 40 times as often is the difference between a push system users tolerate and
-one they disable. So the connection belongs to the <em>device</em>, notifications carry a topic
-identifying the app, and the device demultiplexes locally. Everything else &mdash; the session
-registry, the routing hop, the token model &mdash; exists to support that.</p>
-<p><strong>Coalescing is what makes offline storage bounded.</strong> A naive design queues
-notifications for disconnected devices, and the queue grows with traffic &times; outage duration
-&mdash; a phone off for a week returns to thousands of stale alerts, which is both a storage
-problem and a terrible user experience. Instead the pending store holds at most one row per
-(device, app, collapse key) and an <code>UPSERT</code> replaces the old one. Storage is now bounded
-by <em>devices &times; apps</em>, a fixed quantity, rather than by message volume. This is also
-better product behaviour: nobody wants 400 &ldquo;you have a new message&rdquo; alerts, they want
-the latest one.</p>
-<p><strong>The session registry is read on every single notification</strong>, so it must be an
-in-memory sharded lookup rather than a database. It is also soft state: gateways heartbeat their
-sessions and entries expire, so a gateway that dies does not leave permanently wrong routing. The
-subtle race is a device reconnecting to a <em>different</em> gateway while the old entry is still
-live &mdash; the fix is a monotonically increasing connection epoch per device, so the newer
-session always wins and the older gateway drops its socket.</p>
-<p><strong>Per-publisher isolation is not optional.</strong> One app server with a bug can generate
-millions of notifications a second. Without a per-publisher quota enforced at ingest, that traffic
-consumes routing capacity and gateway CPU shared with every other app. Quota at the door, rejected
-with 429, is the cheapest possible place to shed it &mdash; before the notification has cost
-anything. <span class="srcref">Ch 10</span></p>
-<p><strong>The feedback path matters more than it looks.</strong> When an app is deleted, its token
-becomes permanently invalid, and publishers must be told &mdash; otherwise they keep sending to
-dead tokens forever, and a large fraction of your ingest traffic becomes work that can never
-succeed. Returning <code>410 Unregistered</code> synchronously, and requiring publishers to honour
-it, is what keeps the system from slowly filling with garbage.</p></div>
-</div>
-<div class="design-step tradeoff">
-  <div class="ds-header"><span class="ds-ico">&#9878;</span>7. Trade-off Analysis</div>
-  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Connection model</strong></td><td class='chosen'>One per device, multiplexed</td><td class='rej'>One per app</td><td>Forty sockets and forty keepalive timers per phone is a battery and radio cost users will not accept. The multiplexing hop is worth its complexity.</td></tr><tr><td><strong>Delivery guarantee</strong></td><td class='chosen'>Best-effort, at-most-once</td><td class='rej'>Durable at-least-once</td><td>Durable per-device queues for 1B devices is a vastly larger and more expensive system. Push is a hint to open the app; the app fetches the truth.</td></tr><tr><td><strong>Offline handling</strong></td><td class='chosen'>Coalesce to latest per app</td><td class='rej'>Queue everything</td><td>Queuing makes storage grow with traffic &times; outage length and delivers hundreds of stale alerts. Coalescing bounds storage by devices &times; apps.</td></tr><tr><td><strong>Session lookup</strong></td><td class='chosen'>In-memory sharded registry</td><td class='rej'>Database query</td><td>It is read on every notification at 350K/sec. A database round trip on that path is a self-inflicted bottleneck.</td></tr><tr><td><strong>Publisher fan-out</strong></td><td class='chosen'>Publisher addresses devices individually</td><td class='rej'>We own topic broadcast</td><td>Individual addressing keeps our fan-out bounded and predictable; owning broadcast means a single publisher action can become a 50-million-device write.</td></tr></tbody></table></div></div>
-</div>
-<div class="design-step fault">
-  <div class="ds-header"><span class="ds-ico">&#128737;</span>8. Fault Tolerance</div>
-  <div class="ds-body"><div class="ft-row"><div class="ft-fail">A gateway holding 1M connections dies</div><div class="ft-fix">One million devices detect the drop and reconnect. Without jittered backoff they arrive together and knock over the next gateway &mdash; a synchronised reconnect storm. Devices must reconnect with randomised delay, and the tier needs headroom to absorb a whole node&rsquo;s worth of reconnections. <span class="srcref">Ch 10</span></div></div><div class="ft-row"><div class="ft-fail">Session registry unavailable</div><div class="ft-fix">Notifications for connected devices cannot be routed. Degrade by writing to the pending store instead of failing the publisher &mdash; the device collects on its next reconnect. Best-effort delivery is what makes this degradation acceptable rather than a data-loss event.</div></div><div class="ft-row"><div class="ft-fail">One publisher floods the ingest tier</div><div class="ft-fix">Per-publisher quota rejects with 429 at the door, before the notification consumes routing or gateway capacity. Quotas must be per publisher and per topic, since one publisher may own many apps.</div></div><div class="ft-row"><div class="ft-fail">A device is offline for weeks</div><div class="ft-fix">The pending store holds one coalesced notification per app with an expiry; expired entries are dropped rather than delivered. Delivering a two-week-old alert is worse than delivering nothing.</div></div><div class="ft-row"><div class="ft-fail">Token continues to be used after app deletion</div><div class="ft-fix">Return <code>410 Unregistered</code> and mark the token dead. Publishers that ignore it get their quota consumed by traffic that cannot succeed, which is the correct incentive.</div></div></div>
-</div>
-<div class="design-step concl">
-  <div class="ds-header"><span class="ds-ico">&#127937;</span>9. Conclusion &mdash; what I would say in the last three minutes</div>
-  <div class="ds-body"><div class="concl-grid">
+  <div class="ds-header"><span class="ds-ico">&#128269;</span>9. Deep dives, and what breaks</div>
+  <div class="ds-body"><h4>Holding 400 million sockets</h4>
+
+<p>The engineering here is about making <em>idle</em> cheap, since the overwhelming majority of these
+connections are doing nothing at any instant.</p>
+
+<p>A thread per connection is immediately out. It is an event loop with non-blocking I/O, where one thread
+services tens of thousands of sockets and does work only when one has bytes.</p>
+
+<p>Then per-connection memory. Default socket buffers are sized for throughput; here the traffic is tiny
+messages, so buffers should be small &mdash; 50,000 connections times a few hundred kilobytes is an entire
+machine spent on buffers. File descriptor limits and ephemeral port ranges both need raising well past
+their defaults, which assume servers holding hundreds of connections rather than tens of thousands.</p>
+
+<p>And TLS session state per connection is not free. Session resumption matters enormously here, because
+it turns a reconnection from a full handshake into a cheap one &mdash; which directly reduces the cost of
+the reconnection storms described above.</p>
+
+<h4>Why the notification should carry almost nothing</h4>
+
+<p>There is constant pressure to put content in the payload &mdash; the message text, the order status
+&mdash; so the app can display it without a fetch.</p>
+
+<p>Three arguments against, and they compound.</p>
+
+<p><strong>Staleness.</strong> A notification delivered from the pending buffer may be minutes or hours
+old. Its embedded content may already be wrong, and the user sees the stale version.</p>
+
+<p><strong>Privacy.</strong> Payload content passes through and may be briefly stored by a central service
+that has no business reading it. Minimising what it carries minimises what can leak.</p>
+
+<p><strong>Size.</strong> Multiplied across billions of notifications, payload size is real bandwidth on
+constrained mobile networks.</p>
+
+<p>So the notification is best understood as <strong>a wake-up with an identifier</strong>. The app opens,
+fetches current state from its own backend, and displays something true. This is the same conclusion
+<span class="srcref">D4</span> reaches from a different direction &mdash; there because encryption makes
+server-side content impossible, here because staleness makes it undesirable.</p>
+
+<h4>Why the token cannot be a user id</h4>
+
+<p>It is tempting: a stable per-user identifier would simplify addressing enormously.</p>
+
+<p>It would also mean that every publisher who has ever received a push token for a user could correlate
+that user across every other app, because they would all see the same identifier. That is a cross-app
+tracking capability handed out by the platform itself &mdash; the kind of thing that becomes a
+regulatory matter rather than a bug report.</p>
+
+<p>Per (device, app) tokens mean two apps on the same phone see unrelated opaque strings and can learn
+nothing about each other's users. The cost is that a user with three devices is three tokens per app, and
+that publishers must handle tokens changing &mdash; both of which are small prices.</p>
+
+<p>Worth stating out loud in the interview. Privacy properties of identifiers are a genuine staff-level
+concern and one candidates rarely raise unprompted.</p>
+
+<h4>What breaks</h4>
+
+<div class="ft-row"><div class="ft-fail">A gateway holding 1M connections dies</div><div class="ft-fix">One million devices detect the drop and reconnect. Without jittered backoff they arrive together and knock over the next gateway &mdash; a synchronised reconnect storm. Devices must reconnect with randomised delay, and the tier needs headroom to absorb a whole node&rsquo;s worth of reconnections. <span class="srcref">Ch 10</span></div></div><div class="ft-row"><div class="ft-fail">Session registry unavailable</div><div class="ft-fix">Notifications for connected devices cannot be routed. Degrade by writing to the pending store instead of failing the publisher &mdash; the device collects on its next reconnect. Best-effort delivery is what makes this degradation acceptable rather than a data-loss event.</div></div><div class="ft-row"><div class="ft-fail">One publisher floods the ingest tier</div><div class="ft-fix">Per-publisher quota rejects with 429 at the door, before the notification consumes routing or gateway capacity. Quotas must be per publisher and per topic, since one publisher may own many apps.</div></div><div class="ft-row"><div class="ft-fail">A device is offline for weeks</div><div class="ft-fix">The pending store holds one coalesced notification per app with an expiry; expired entries are dropped rather than delivered. Delivering a two-week-old alert is worse than delivering nothing.</div></div><div class="ft-row"><div class="ft-fail">Token continues to be used after app deletion</div><div class="ft-fix">Return <code>410 Unregistered</code> and mark the token dead. Publishers that ignore it get their quota consumed by traffic that cannot succeed, which is the correct incentive.</div></div><div class="concl-grid">
   <div class="cc"><div class="h">The dominant constraint</div><p><strong>Four hundred million idle connections.</strong> This is a presence system that occasionally carries a message, so the gateway tier is sized by concurrent connections rather than throughput, and one connection per <em>device</em> &mdash; not per app &mdash; is what makes it viable on a battery.</p></div>
   <div class="cc first"><div class="h">What I would build first</div><p>The device-multiplexed connection and the coalescing pending store. Those two decide the battery cost and bound the storage; everything else is routing.</p></div>
   <div class="cc"><div class="h">What I deliberately did not build</div><p>Durable delivery. A guaranteed per-device queue for a billion devices is a different and far more expensive system, and push is a hint to open the app rather than the payload of record.</p></div>
   <div class="cc risk"><div class="h">The biggest risk</div><p>The reconnect storm. Losing one gateway means a million devices reconnect at once, and without jittered backoff and real headroom that cascades through the tier faster than it can absorb.</p></div>
 </div></div>
 </div>
-  
+
 <div class="followup">
   <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
   <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
@@ -18589,77 +18881,144 @@ it, is what keeps the system from slowly filling with garbage.</p></div>
     <div class="fu-a"><p>Only that publisher, if the design is right. A per-publisher quota at ingest rejects the excess with 429 before it consumes routing or gateway capacity.</p><p>Quota at the door is the cheapest place to shed, because the notification has not cost anything yet.</p><p>Without it, one app's bug consumes capacity shared with every other app, and the failure looks like a platform outage rather than a customer problem.</p></div>
   </details>
 </div>
+  </div>
 </div>
-</div>
+
 <div class="design-card">
   <div class="dc-header">
     <h3 class="dc-title"><span id="design-game">Design a Two-Player Browser Game</span> (matchmaking queue, live play, reconnect, and game history)</h3>
     <div class="dc-meta">Difficulty: <strong>Hard (Staff Expectation)</strong> &nbsp;.&nbsp; Target: <strong>45 min</strong></div>
   </div>
-  <div class="dc-body"><div class="asked">
+  <div class="dc-body">
+<div class="asked">
   <div class="ak-q"><span class="ak-l">&#128172; The question, as asked</span><p>&ldquo;Design an online two-player browser game. Players wait in a queue, get matched, play, and can review their game history afterwards.&rdquo;</p></div>
   <div class="ak-h"><span class="ak-l">&#9889; What makes it hard</span><p>It is <strong>not a scale problem</strong> &mdash; all the concurrent state fits in a few hundred megabytes. It is stateful routing plus durability, which is the opposite of every other design in this book.</p></div>
 </div>
-
 <div class="design-step req">
-  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Requirements</div>
-  <div class="ds-body"><div class="clarify">
+  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Understanding the question</div>
+  <div class="ds-body"><p>The prompt: <em>&ldquo;Design an online two-player browser game. Players wait in a
+queue, get matched, play, and can review their game history afterwards.&rdquo;</em></p>
+
+<p>The first useful thing to do is size it, because the answer reframes the entire question.</p>
+
+<div class="insight">
+  <div class="label">&#127919; This is not a scale problem</div>
+  <p>A million daily players, ten games each, five minutes per game, gives around
+  <strong>35,000 concurrent games</strong>. At a few kilobytes of state per game, that is roughly
+  <strong>180 megabytes</strong> &mdash; all the live state in the entire system, comfortably inside one
+  machine's memory.</p>
+  <p>So none of the usual instincts apply. There is nothing to shard for capacity, no hot partition, no
+  throughput wall.</p>
+</div>
+
+<p>What is hard instead is <strong>stateful routing and durability</strong>, which is the opposite of most
+designs in this guide. Two specific players must reach the one process holding <em>their</em> game, and
+that process must not be able to lose the game by dying.</p>
+
+<h4>The second thing that shapes everything: who owns the state</h4>
+
+<p>The tempting design has each client track the game and tell the server the result. It is simple, it
+halves the server's work, and it is completely broken the moment anything is at stake.</p>
+
+<p>A browser client can be modified. If the client computes the outcome, a player can make it compute any
+outcome they like. Cheat detection after the fact is a losing game &mdash; you are trying to spot a
+modified client from its outputs, which is a permanent arms race.</p>
+
+<p>So the <strong>server is authoritative</strong>: clients send <em>intents</em> &mdash; &ldquo;I want to
+place a piece at C4&rdquo; &mdash; and the server validates against the rules and the current state, and
+decides what actually happened. A modified client can send illegal moves; it cannot make them legal.</p>
+
+<p><strong>Cheating becomes structurally impossible rather than detected</strong>, which is a much better
+place to be.</p>
+
+<h4>And the thing you cannot solve</h4>
+
+<p>A player disconnects mid-game. You cannot tell whether their connection dropped or they quit because
+they were losing &mdash; from the server, the two are identical, and this is the fundamental limit from
+<span class="srcref">ch1</span>.</p>
+
+<p>So it is a product decision rather than an engineering one: a reconnection window, then a forfeit
+timer. Getting the interviewer to agree the numbers is better than picking them silently.</p>
+
+<h4>What they are looking for</h4>
+
+<p><strong>Do you size it and notice it is small?</strong> The candidates who shard this have not.</p>
+
+<p><strong>Do you make the server authoritative?</strong> And explain why detection is not enough?</p>
+
+<p><strong>Do you find the move log?</strong> It solves three problems at once.</p>
+<div class="clarify">
   <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
   <div class="cq-row"><div class="cq-q">Turn-based or real-time?</div><div class="cq-w"><strong>The single biggest fork.</strong> Turn-based means a few messages per minute and a relaxed latency budget. Real-time means a fixed tick rate, client prediction and server reconciliation &mdash; a fundamentally harder system.</div></div><div class="cq-row"><div class="cq-q">Is the server authoritative, or do we trust the client?</div><div class="cq-w">If the game is competitive or has any stake, the server must own the state and clients may only send <em>intents</em>. A client that computes its own outcome is a client that can be modified to win.</div></div><div class="cq-row"><div class="cq-q">Skill-based matchmaking, or first-come-first-served?</div><div class="cq-w">FIFO is a queue. Skill-based needs rating buckets and a search window that widens over time, or high-rated players wait forever.</div></div><div class="cq-row"><div class="cq-q">What happens when a player disconnects mid-game?</div><div class="cq-w">You cannot distinguish a rage-quit from a dropped connection (<span class="srcref">Ch 1</span>), so this is a product decision: a reconnect window, then a forfeit timer.</div></div><div class="cq-row"><div class="cq-q">Is history a list of results, or a replayable game?</div><div class="cq-w">A result row is trivial. A replayable game means storing the full move log &mdash; which you probably want anyway, because it is also how you rehydrate a crashed session.</div></div>
   <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
 </div>
-<p><strong>Functional:</strong></p>
-<ul>
-  <li>Join a matchmaking queue and be paired with an opponent</li>
-  <li>Play a turn-based game with a server-validated move list</li>
-  <li>Reconnect mid-game and resume from the current state</li>
-  <li>View past games, with the move history, and replay them</li>
+</div>
+</div>
+<div class="design-step fr">
+  <div class="ds-header"><span class="ds-ico">&#128221;</span>2. Functional requirements</div>
+  <div class="ds-body"><ul>
+  <li><strong>Join a matchmaking queue</strong> and be paired with an opponent.</li>
+  <li><strong>Play a turn-based game</strong> with server-validated moves.</li>
+  <li><strong>Reconnect mid-game</strong> and resume from the current state.</li>
+  <li><strong>View past games</strong>, with the move history, and replay them.</li>
 </ul>
-<p><strong>Non-Functional:</strong></p>
+
+<h4>The move log, which is three features for the price of one</h4>
+
+<p>Worth pulling out, because noticing it is the nicest observation in this design.</p>
+
+<p>Storing the game as <strong>a list of moves</strong> rather than as a board state gives you:</p>
+
 <ul>
-  <li>Median queue wait under <strong>10 seconds</strong>; never an unbounded wait</li>
-  <li>Move round trip under <strong>150&nbsp;ms</strong> so play feels immediate</li>
-  <li>A server crash must not lose a game in progress</li>
-  <li>Cheating must be structurally impossible, not merely detected</li>
-</ul></div>
-</div>
-<div class="design-step est">
-  <div class="ds-header"><span class="ds-ico">&#128202;</span>2. Capacity Estimation</div>
-  <div class="ds-body"><div class="assume">
-  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
-  <div class="as-row"><div class="as-a">1M daily players, 10 games each, ~5 minutes per game</div><div class="as-b">Ten times the players changes nothing structurally &mdash; games are independent, so this scales horizontally almost perfectly.</div></div><div class="as-row"><div class="as-a">Turn-based, roughly one move every 5 seconds</div><div class="as-b">Real-time play at 30 ticks/second multiplies message volume by ~150 and forces client prediction.</div></div><div class="as-row"><div class="as-a">Games are short and self-contained</div><div class="as-b">Multi-day asynchronous games would move the design from live sessions toward a persistent store with notifications.</div></div>
-</div>
-<p><strong>Assumptions:</strong> 1M DAU, 10 games/player/day, ~5 min per game, one move per 5&nbsp;s.</p><div class="ng"><div class="ng-cell"><div class="ng-val">10M</div><div class="ng-desc">games/day</div></div><div class="ng-cell"><div class="ng-val">~35K</div><div class="ng-desc">concurrent games</div></div><div class="ng-cell"><div class="ng-val">~70K</div><div class="ng-desc">concurrent players</div></div><div class="ng-cell"><div class="ng-val">~14K/s</div><div class="ng-desc">moves at peak</div></div><div class="ng-cell"><div class="ng-val">~5 KB</div><div class="ng-desc">state per live game</div></div><div class="ng-cell"><div class="ng-val">~180 MB</div><div class="ng-desc">all live game state</div></div></div><p><strong>The number that reframes the problem:</strong> all concurrent game state is about
-<strong>180&nbsp;MB</strong>. Thirty-five thousand games at a few kilobytes each fits in the memory
-of a single machine, let alone a fleet. <em>This is not a scale problem.</em></p>
-<p>What it <em>is</em> is a <strong>stateful routing and durability problem</strong>: both players
-of a game must reach the same authoritative process, that process must survive a crash without
-losing the game, and a reconnecting player must find their way back to it. Almost every design in
-this guide is stateless at the request tier; this one deliberately is not, and saying so early is
-the signal.</p></div>
-</div>
-<div class="design-step api">
-  <div class="ds-header"><span class="ds-ico">&#128268;</span>3. API Design</div>
-  <div class="ds-body"><div class="api-code"><span class="kw">POST</span> /v1/queue        Body: { mode, rating }
-  Response: 202 { ticket_id }        <span class="cm">// matched asynchronously</span>
+  <li><strong>History and replay.</strong> Step through the moves to reconstruct any point in the game.
+  That is the feature the requirement asked for.</li>
+  <li><strong>Crash recovery.</strong> If the process holding a live game dies, replay its moves from the
+  durable log and the game is back exactly as it was.</li>
+  <li><strong>Dispute resolution and anti-cheat auditing.</strong> Every move, with its timestamp and
+  who made it, is on the record.</li>
+</ul>
 
-<span class="kw">WS</span>   /v1/play
-  &lt;- { type:"queued",  position, est_wait_s }
-  &lt;- { type:"matched", game_id, opponent, color, server_hint }
-  -&gt; { type:"move",    game_id, seq, intent:{ from, to } }
-       <span class="cm">// the client sends an INTENT, never a resulting state.</span>
-       <span class="cm">// seq makes a resend idempotent after a flaky reconnect.</span>
-  &lt;- { type:"state",   game_id, seq, board, turn, clocks }
-  &lt;- { type:"invalid", seq, reason }   <span class="cm">// server rejected the move</span>
-  &lt;- { type:"ended",   result, reason:"checkmate|resign|timeout|forfeit" }
+<p>One dataset, three requirements. A design that stores current board state instead would need a separate
+history table, a separate recovery mechanism, and would still have nothing to audit &mdash; and those
+three could drift out of agreement with each other.</p>
 
-<span class="kw">GET</span>  /v1/games?player=&amp;cursor=   -&gt; paged history
-<span class="kw">GET</span>  /v1/games/{id}              -&gt; { players, result, moves[] }
-  <span class="cm">// the move log IS the replay -- no separate recording exists</span></div></div>
+<p>It is the same structure as the operation log in <span class="srcref">D20</span>, and for the same
+reason: <strong>storing what happened, rather than what is, makes several features fall out for
+free.</strong></p></div>
+</div>
+<div class="design-step nfr">
+  <div class="ds-header"><span class="ds-ico">&#9201;</span>3. Non-functional requirements</div>
+  <div class="ds-body"><div class="tw"><table class="to">
+<thead><tr><th style="width:26%">Requirement</th><th style="width:22%">Target</th><th style="width:52%">What it forces</th></tr></thead>
+<tbody>
+<tr><td><strong>Queue wait</strong></td><td class="chosen">Median &lt; 10 s, never unbounded</td><td>The second clause is the hard one. A skill-based queue that never widens leaves top players waiting forever.</td></tr>
+<tr><td><strong>Move round trip</strong></td><td>&lt; 150 ms</td><td>Comfortable for turn-based play. Real-time would need a fixed tick rate, client prediction and reconciliation &mdash; a much harder system.</td></tr>
+<tr><td><strong>Crash safety</strong></td><td class="chosen">No game lost</td><td>A process failure must be recoverable, which is what the durable move log provides.</td></tr>
+<tr><td><strong>Cheating</strong></td><td class="chosen">Structurally impossible</td><td>Not detected afterwards. Server authority is the only version of this that holds.</td></tr>
+<tr><td><strong>Concurrent state</strong></td><td>~180 MB</td><td>The number that says this is not a scale problem.</td></tr>
+<tr><td><strong>Disconnection</strong></td><td>Window, then forfeit</td><td>A product decision, because the server genuinely cannot distinguish a drop from a quit.</td></tr>
+</tbody></table></div>
+
+<h4>Why "never an unbounded wait" is the interesting half</h4>
+
+<p>Median wait is easy: most players are near the middle of the rating distribution and there are always
+opponents available.</p>
+
+<p>The problem is the tails. A player rated far above everyone else has very few valid opponents, and a
+strict rating window means they may wait indefinitely &mdash; while the queue is full of people they are
+not allowed to play.</p>
+
+<p>So the window <strong>widens over time</strong>. Start with a tight rating band, and expand it every
+few seconds the player waits. Eventually it is wide enough to match somebody.</p>
+
+<p>The trade is explicit and worth stating: <strong>match quality against wait time</strong>. A widening
+window says that after some number of seconds, an imperfect match is better than continuing to wait
+&mdash; which is almost always true, because a player who waits two minutes usually leaves.</p></div>
 </div>
 <div class="design-step schema">
-  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="cm">-- LIVE: in memory on the owning server, checkpointed on every move.</span>
+  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Data model and API</div>
+  <div class="ds-body"><p>Two kinds of state, and the distinction between them is the design.</p>
+<div class="schema-code"><span class="cm">-- LIVE: in memory on the owning server, checkpointed on every move.</span>
 <span class="kw">STRUCT</span> live_game {
   game_id, players[2], board_state, turn, clocks,
   move_seq,               <span class="cm">-- monotonic; dedupes client resends</span>
@@ -18686,12 +19045,136 @@ the signal.</p></div>
 <span class="cm">-- INDEX: (p1, started_at DESC) and (p2, started_at DESC)</span>
 <span class="cm">-- so "my recent games" is one sequential read, not a scan.</span>
 
-<span class="kw">SORTED SET</span> queue:{mode}:{bucket}   <span class="cm">-- rating bucket -> waiting tickets</span></div></div>
+<span class="kw">SORTED SET</span> queue:{mode}:{bucket}   <span class="cm">-- rating bucket -> waiting tickets</span></div>
+<h4>Live game state &mdash; in memory, on one process</h4>
+
+<p>The current board, whose turn it is, both players' clocks. A few kilobytes, held by the single process
+that owns this game.</p>
+
+<p>One process, deliberately. Two processes holding the same game could accept conflicting moves and
+produce two divergent boards, which is the one failure this design cannot tolerate. Single ownership
+means move validation is a local operation with no locking and no coordination &mdash; and it is what
+makes a move round trip fast.</p>
+
+<h4>The move log &mdash; durable, append-only</h4>
+
+<p>Every validated move is appended: game id, sequence number, player, the move, timestamp.</p>
+
+<p>The ordering rule that matters: <strong>a move is appended to the log before it is acknowledged to
+either player</strong>. If the process dies a millisecond later, the move is not lost, and both players'
+views remain consistent with the record.</p>
+
+<p>Doing it the other way &mdash; acknowledge, then persist &mdash; means a crash can leave two players
+having seen a move that the recovered game does not contain. That is the worst kind of bug, because the
+players remember something the system does not.</p>
+
+<h4>Matchmaking state</h4>
+
+<p>Players waiting, with their rating and the time they joined. Tiny, and ephemeral &mdash; a player who
+disconnects while queued simply stops being in the queue, with no cleanup needed.</p>
+
+<h4>The API</h4>
+<div class="api-code"><span class="kw">POST</span> /v1/queue        Body: { mode, rating }
+  Response: 202 { ticket_id }        <span class="cm">// matched asynchronously</span>
+
+<span class="kw">WS</span>   /v1/play
+  &lt;- { type:"queued",  position, est_wait_s }
+  &lt;- { type:"matched", game_id, opponent, color, server_hint }
+  -&gt; { type:"move",    game_id, seq, intent:{ from, to } }
+       <span class="cm">// the client sends an INTENT, never a resulting state.</span>
+       <span class="cm">// seq makes a resend idempotent after a flaky reconnect.</span>
+  &lt;- { type:"state",   game_id, seq, board, turn, clocks }
+  &lt;- { type:"invalid", seq, reason }   <span class="cm">// server rejected the move</span>
+  &lt;- { type:"ended",   result, reason:"checkmate|resign|timeout|forfeit" }
+
+<span class="kw">GET</span>  /v1/games?player=&amp;cursor=   -&gt; paged history
+<span class="kw">GET</span>  /v1/games/{id}              -&gt; { players, result, moves[] }
+  <span class="cm">// the move log IS the replay -- no separate recording exists</span></div>
+<p>Note the shape of the move message: it carries an <strong>intent</strong>, not a result. The client
+says where it wants to play; the server says what happened. That asymmetry is the anti-cheat design
+expressed in the protocol.</p></div>
+</div>
+<div class="design-step est">
+  <div class="ds-header"><span class="ds-ico">&#128202;</span>5. Capacity estimation</div>
+  <div class="ds-body"><p>The numbers, and why they are reassuring rather than alarming.</p>
+<div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">1M daily players, 10 games each, ~5 minutes per game</div><div class="as-b">Ten times the players changes nothing structurally &mdash; games are independent, so this scales horizontally almost perfectly.</div></div><div class="as-row"><div class="as-a">Turn-based, roughly one move every 5 seconds</div><div class="as-b">Real-time play at 30 ticks/second multiplies message volume by ~150 and forces client prediction.</div></div><div class="as-row"><div class="as-a">Games are short and self-contained</div><div class="as-b">Multi-day asynchronous games would move the design from live sessions toward a persistent store with notifications.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">10M</div><div class="ng-desc">games/day</div></div><div class="ng-cell"><div class="ng-val">~35K</div><div class="ng-desc">concurrent games</div></div><div class="ng-cell"><div class="ng-val">~70K</div><div class="ng-desc">concurrent players</div></div><div class="ng-cell"><div class="ng-val">~14K/s</div><div class="ng-desc">moves at peak</div></div><div class="ng-cell"><div class="ng-val">~5 KB</div><div class="ng-desc">state per live game</div></div><div class="ng-cell"><div class="ng-val">~180 MB</div><div class="ng-desc">all live game state</div></div></div>
+<p>A million daily players, ten games each, is ten million games a day. At five minutes each, roughly
+<strong>35,000 concurrent games and 70,000 connected players</strong>.</p>
+
+<p>Moves at one every five seconds across 35,000 games is about <strong>14,000 per second at peak</strong>.
+That is an ordinary write rate for an append-only log, and the validation per move is trivial CPU.</p>
+
+<p>All live state is around 180 MB. Worth saying out loud: <strong>the entire concurrent state of this
+system fits in the memory of a laptop.</strong></p>
+
+<h4>What that means for the architecture</h4>
+
+<p>It means the scaling story is boring, which is the correct outcome. Games are completely independent
+&mdash; no game's state affects another's &mdash; so this shards perfectly by game id, and ten times the
+players is ten times the machines with no structural change.</p>
+
+<p>What does <em>not</em> scale automatically is matchmaking. A single shared queue is a coordination
+point, and splitting it into independent queues fragments the pool and makes match quality worse.
+Fortunately the queue is small &mdash; a few thousand waiting players &mdash; so one process handles it
+easily for a long time. Regional queues are the natural split when it stops being enough, and they align
+with latency requirements anyway.</p>
+
+<p>The storage that grows without bound is the move log. Ten million games a day at a few hundred bytes
+each is modest per day and accumulates, so history gets a retention policy &mdash; recent games in full,
+older ones as results only.</p></div>
+</div>
+<div class="design-step tradeoff">
+  <div class="ds-header"><span class="ds-ico">&#9878;</span>6. The key trade-offs</div>
+  <div class="ds-body"><p>The choices, and their costs.</p>
+<div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Authority</strong></td><td class='chosen'>Server-authoritative, clients send intents</td><td class='rej'>Trust client-computed state</td><td>Client authority makes cheating trivial and undetectable. Validation on the server makes an edited client capable only of sending moves that get rejected.</td></tr><tr><td><strong>Durable artefact</strong></td><td class='chosen'>Append-only move log</td><td class='rej'>Periodic board snapshots</td><td>The log serves replay, history and crash recovery from one dataset. Snapshots give recovery but neither replay nor history, so you build all three separately.</td></tr><tr><td><strong>Matchmaking</strong></td><td class='chosen'>Rating buckets with a widening window</td><td class='rej'>Strict rating match, or pure FIFO</td><td>Strict matching gives unbounded waits at the tails; FIFO gives fast but lopsided games. Widening trades a little fairness for a bounded wait.</td></tr><tr><td><strong>Game placement</strong></td><td class='chosen'>One owning server per game, sticky</td><td class='rej'>Stateless with shared state store</td><td>A per-move round trip to a shared store cannot meet a 150 ms budget, and two servers holding the same game is a correctness bug, not a scaling win.</td></tr><tr><td><strong>Live state</strong></td><td class='chosen'>In memory, checkpointed per move</td><td class='rej'>Database as the live store</td><td>All concurrent state is ~180 MB. Keeping it in memory is both faster and simpler; the log gives durability without putting the database on the move path.</td></tr></tbody></table></div>
+<h4>Server-authoritative, and what it costs</h4>
+
+<p>The alternative is trusting the client, and the trade is worth spelling out rather than dismissing.</p>
+
+<p><strong>Client-authoritative</strong> is less server work, lower latency (no round trip to see your own
+move applied), and it works offline. For a single-player game or a friendly puzzle, it is fine.</p>
+
+<p>For anything competitive it is unusable, because a browser client is under the player's control. They
+can modify it to make illegal moves, see hidden information, or simply report that they won. Detecting
+that from the outside is an arms race you do not win.</p>
+
+<p><strong>Server-authoritative</strong> costs a round trip per move and a server process per game. In
+exchange, a modified client can send whatever it likes and the server rejects anything the rules do not
+permit.</p>
+
+<p>The framing worth using: <strong>you are choosing between preventing cheating and detecting it, and
+prevention is strictly cheaper over the life of the product.</strong> At 150 ms per move in a turn-based
+game, the latency cost is not noticeable.</p>
+
+<h4>Disconnection, which has no correct answer</h4>
+
+<p>The server cannot distinguish &ldquo;their wifi dropped&rdquo; from &ldquo;they quit because they were
+losing&rdquo;. This is not an implementation gap; the information does not exist.</p>
+
+<p>So it is a policy, and the policy has to balance two unfairnesses:</p>
+
+<ul>
+  <li><strong>Forfeit too quickly</strong> and a player with a brief connection blip loses a game they
+  were winning. Unfair, and it makes the product feel hostile on mobile networks.</li>
+  <li><strong>Wait too long</strong> and the opponent of someone who rage-quit sits staring at a timer
+  for minutes. Also unfair, and more common.</li>
+</ul>
+
+<p>The workable shape is a <strong>reconnection window</strong> &mdash; 30 to 60 seconds, during which the
+game is held and the opponent is told what is happening &mdash; followed by a forfeit. Repeated
+disconnections by the same player are tracked, because the pattern <em>is</em> distinguishable even when
+the individual event is not.</p>
+
+<p>Being explicit that this is a product decision, and that no amount of engineering resolves it, is the
+right answer here.</p></div>
 </div>
 <div class="design-step arch">
-  <div class="ds-header"><span class="ds-ico">&#127959;</span>5. High-Level Architecture</div>
-  <div class="ds-body">
-<div class="anim" id="anim-game">
+  <div class="ds-header"><span class="ds-ico">&#127959;</span>7. High-level design</div>
+  <div class="ds-body"><div class="anim" id="anim-game">
   <div class="an-head">
     <div class="an-title">Matchmaking, play and recovery &mdash; why the move log is the whole design</div>
     <div class="an-btns">
@@ -18734,88 +19217,171 @@ the signal.</p></div>
   <div class="an-cap ok-only"><strong>What is moving:</strong> two players join a rating-bucketed queue whose search window widens over time, get paired onto <em>one</em> authoritative game server, and then exchange <em>intents</em> &mdash; &ldquo;move e2 to e4&rdquo;, never &ldquo;the board is now X&rdquo;. Each validated move is appended to a durable log, which is simultaneously the replay, the history and the recovery record.</div>
   <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong &mdash; and is survivable:</span> the game server dies mid-game. A new owner is assigned and <strong>replays the move log</strong> to rebuild the board; both clients reconnect and resync from their last applied sequence number. Because the log is appended <em>before</em> the move is acknowledged, no acknowledged move can be lost. The real hazard is two servers both believing they own the game &mdash; which the epoch fence at the log rejects.</div>
 </div>
-<div class="flow">  player A                          player B
-     |                                 |
-     +---------&gt; <span class="fl-key">MATCHMAKER</span> &lt;-----------+
-                     |
-                     |  bucket by rating; widen the window every 2 s
-                     |  <span class="fl-note">start +/-25 rating, widen to +/-400 over 30 s, so</span>
-                     |  <span class="fl-note">nobody waits forever and most matches stay fair</span>
-                     v
-              <span class="fl-hi">pair found</span> -&gt; create game_id, pick an owning server
-                     |
-                     v
-  A ---&gt; <span class="fl-key">GAME SERVER</span> (authoritative)  &lt;--- B
-              |   both players routed to the SAME process
-              |   validates every intent against the rules
-              |   holds board state in memory
-              v
-       <span class="fl-key">MOVE LOG</span>  append (game_id, seq, intent)  <span class="fl-dim">durable, on every move</span>
-              |
-              +-------------------+
-              v                   v
-        <span class="fl-hi">GAME HISTORY</span>          <span class="fl-hi">CRASH RECOVERY</span>
-        replay for the user    rehydrate board by replaying the log
-        <span class="fl-dim">the same data serves both -- no separate recording</span>
+<p>A queue, a set of game processes, and a durable log.</p>
+<div class="flow">  <span class="fl-key">MATCHMAKING</span>   one small process; a few thousand waiting players
 
-  <span class="fl-bad">CLIENT SENDS INTENTS, NEVER STATE.</span> "move e2 to e4", not "the board is now X".
-  <span class="fl-note">A client that computes outcomes is a client that can be edited to win.</span></div>
-<div class="flow-cap">One authoritative process per game, and an append-only move log that serves replay,
-history and crash recovery from the same rows.</div></div>
+    player joins &rarr; { rating 1450, joined 14:02:11 }
+         |
+         v
+    search for an opponent within the current window
+       t=0s    rating &plusmn;50      <span class="fl-dim">tight; best match quality</span>
+       t=10s   rating &plusmn;150     <span class="fl-note">widen &mdash; an imperfect match beats waiting</span>
+       t=30s   rating &plusmn;400
+       t=60s   anyone
+         |
+         v
+    pair found &rarr; create game &rarr; <span class="fl-hi">assign to a game server</span>
+                                 tell both players where to connect
+
+
+  <span class="fl-key">LIVE GAME</span>   exactly one process owns it
+
+    player A ---ws---&gt; <span class="fl-hi">GAME PROCESS</span>  &lt;---ws--- player B
+                         |
+                         |  state in memory: board, turn, clocks  <span class="fl-dim">~5 KB</span>
+                         |
+       move arrives: <span class="fl-key">an INTENT</span>, not a result
+                         |
+         +-- is it this player's turn?          <span class="fl-bad">no &rarr; reject</span>
+         +-- is the move legal?                 <span class="fl-bad">no &rarr; reject</span>
+         +-- <span class="fl-hi">APPEND TO DURABLE LOG</span>            <span class="fl-note">before acknowledging</span>
+         +-- apply to state
+         +-- broadcast the result to both
+                         |
+                         v
+                 <span class="fl-key">MOVE LOG</span>  append-only, per game
+                   = history  +  replay  +  crash recovery  +  audit
+
+
+  <span class="fl-bad">PROCESS DIES</span>  &rarr;  new process reads the move log  &rarr;  replays  &rarr;  game restored
+  <span class="fl-bad">PLAYER DROPS</span>  &rarr;  30-60s reconnect window  &rarr;  then forfeit timer</div>
+<div class="flow-cap">Appending before acknowledging is the ordering that makes recovery correct. Acknowledge
+first and a crash can leave two players remembering a move the restored game has never heard of.</div></div>
+</div>
+<div class="design-step wflow">
+  <div class="ds-header"><span class="ds-ico">&#128260;</span>8. Workflows &mdash; what actually happens</div>
+  <div class="ds-body"><div class="wf">
+  <div class="wf-title">Two players are matched and play a move</div>
+  <div class="wf-sub">The path, with the anti-cheat design visible in it.</div>
+  <ol>
+    <li>Ana joins the queue at rating 1450. The window starts at &plusmn;50 and no opponent is available.</li>
+    <li>Eight seconds later Bo joins at 1490. Within Ana's current window, so they are paired.</li>
+    <li>A game is created and assigned to a game server. Both players are told where to connect, and both open a socket to that <b>same process</b>.</li>
+    <li>Ana sends a move: <i>place at C4</i>. This is an <b>intent</b> &mdash; she is not telling the server what the board now looks like.</li>
+    <li>The server checks it is Ana's turn and that C4 is legal given the current state. Both pass.</li>
+    <li>The move is <b>appended to the durable log</b> as sequence 1. Only after that is it applied to the in-memory board.</li>
+    <li>The resulting state is broadcast to both players. Round trip: about 60 ms.</li>
+  </ol>
+  <div class="wf-out">Ana's client could have been modified to send any move at all. It could not have made an illegal one legal, because the validation is on the side she does not control &mdash; which is what "structurally impossible" means in practice.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">Bo's laptop sleeps mid-game</div>
+  <div class="wf-sub">Reconnection, and the judgement call at the end of it.</div>
+  <ol>
+    <li>Bo's socket drops. The server cannot tell whether he quit or his machine slept &mdash; and it never will.</li>
+    <li>The game is <b>not</b> ended. It moves to a disconnected state and a 45-second reconnect window opens.</li>
+    <li>Ana is told what is happening &mdash; "opponent disconnected, waiting" &mdash; with a visible countdown. Silence here is worse than bad news.</li>
+    <li>Bo's laptop wakes at 30 seconds. His client reconnects, presents its game id and session token, and is routed back to the <b>same process</b>.</li>
+    <li>It receives the current state and the moves it missed. His board is correct within a second of reconnecting.</li>
+    <li>Play resumes. Bo's clock was running while he was away, which is the fair resolution &mdash; the alternative lets a losing player buy thinking time by pulling a cable.</li>
+    <li>Had he not returned by 45 seconds, the game would be forfeit, and the repeated-disconnection counter on his account would tick up.</li>
+  </ol>
+  <div class="wf-out">Every number here is a product decision dressed as a technical one. The engineering just implements the policy; the value of naming it as a policy is that it gets chosen deliberately rather than inherited from a timeout somewhere.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">A game server crashes with 400 live games on it</div>
+  <div class="wf-sub">Where the move log earns its second job.</div>
+  <ol>
+    <li>The process dies. Four hundred games' in-memory state is gone, and 800 players' sockets drop simultaneously.</li>
+    <li>Nothing is actually lost, because every validated move was appended to the durable log <b>before</b> it was acknowledged.</li>
+    <li>The routing layer reassigns those game ids to other servers.</li>
+    <li>Each new owner reads its games' move logs and <b>replays</b> them. A five-minute game is around 60 moves &mdash; replay is milliseconds.</li>
+    <li>Players reconnect, are routed to the new owner, and receive the current state. The interruption shows as a few seconds of "reconnecting".</li>
+    <li>A move that was mid-validation when the process died was never logged and never acknowledged, so neither player saw it. The client re-sends it.</li>
+  </ol>
+  <div class="wf-out">Recovery is replay, not reconciliation. There is no question of "what state was it in?" because the log is the state &mdash; which is exactly why storing moves rather than boards was worth doing.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">A top-rated player joins the queue</div>
+  <div class="wf-sub">The tail case that a fixed window handles badly.</div>
+  <ol>
+    <li>Kai is rated 2400. In the whole queue there are perhaps two players above 2200, and neither is waiting right now.</li>
+    <li>With a fixed &plusmn;50 window, Kai waits indefinitely while thousands of players queue and match around him.</li>
+    <li>Instead the window widens on a schedule: &plusmn;50, then &plusmn;150 at ten seconds, &plusmn;400 at thirty.</li>
+    <li>At 22 seconds the window reaches down to 2250 and a 2280-rated player is available. They are matched.</li>
+    <li>The match is less balanced than ideal. It happened, which for a player who would otherwise have left is unambiguously better.</li>
+    <li>The rating system handles the imbalance afterwards: an expected win gains Kai almost nothing, and an upset costs him a lot.</li>
+  </ol>
+  <div class="wf-out">The widening window is a small piece of logic that converts an unbounded wait into a bounded one at the cost of some match quality. Worth noticing that the rating system already absorbs the imbalance, which is what makes the trade cheap.</div>
+</div></div>
 </div>
 <div class="design-step deep">
-  <div class="ds-header"><span class="ds-ico">&#128269;</span>6. Component Deep Dives</div>
-  <div class="ds-body"><p><strong>Widening the matchmaking window is what makes the queue bounded.</strong> A
-strict skill match is easy to state and produces unbounded waits at the tails &mdash; the strongest
-and weakest players have almost nobody to match with. The standard solution is to start narrow and
-relax: search &plusmn;25 rating for the first two seconds, then widen progressively to &plusmn;400
-over thirty seconds. Almost everyone matches quickly and fairly; the tail matches slightly unfairly
-rather than waiting forever. The parameter to expose is the <em>widening curve</em>, because it is
-the dial between match quality and wait time, and product will want to move it.</p>
-<p><strong>The move log makes three problems one problem.</strong> If the durable artefact is an
-append-only list of validated intents, then <em>game history</em> is a read of that list,
-<em>replay</em> is applying it in order, and <em>crash recovery</em> is applying it to rebuild the
-board. Storing a board snapshot instead would give you history without replay and recovery without
-history, and you would end up building all three separately. This is the same insight as
-<a class="qlink" href="#design-collab">D20</a>: the operation log is the source of truth and the
-current state is derived.</p>
-<p><strong>Server authority is a structural anti-cheat, not a detection one.</strong> If the client
-sends &ldquo;I moved my piece to e4&rdquo; and the server validates it against the rules, an
-edited client can only send illegal moves that get rejected. If the client sends &ldquo;the board
-now looks like this&rdquo;, no amount of anomaly detection reliably saves you. The same applies to
-information: never send a player state they should not see &mdash; in a game with hidden
-information, the client must not receive the opponent&rsquo;s cards <em>even encrypted</em>, because
-possession is the vulnerability.</p>
-<p><strong>Reconnect is where most of the fiddly correctness lives.</strong> A player&rsquo;s
-connection drops; their game continues to exist on the server. On reconnect they must find the same
-owning process, prove identity, and resync. The move sequence number does the heavy lifting: the
-client says &ldquo;I have applied up to seq 14&rdquo;, and the server sends everything after. It
-also makes a resent move idempotent &mdash; a move with a seq the server has already applied is
-acknowledged, not replayed, which prevents a flaky network from double-moving.</p>
-<p><strong>Disconnect handling is a product decision wearing an engineering costume.</strong> You
-cannot distinguish a player who quit from one whose train entered a tunnel. So you choose: a grace
-window during which their clock runs but the game waits, then a forfeit. Making the clock keep
-running is what stops disconnection being used as a stalling tactic &mdash; the mechanism has to be
-designed against the adversarial case, not the sympathetic one.</p></div>
-</div>
-<div class="design-step tradeoff">
-  <div class="ds-header"><span class="ds-ico">&#9878;</span>7. Trade-off Analysis</div>
-  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Authority</strong></td><td class='chosen'>Server-authoritative, clients send intents</td><td class='rej'>Trust client-computed state</td><td>Client authority makes cheating trivial and undetectable. Validation on the server makes an edited client capable only of sending moves that get rejected.</td></tr><tr><td><strong>Durable artefact</strong></td><td class='chosen'>Append-only move log</td><td class='rej'>Periodic board snapshots</td><td>The log serves replay, history and crash recovery from one dataset. Snapshots give recovery but neither replay nor history, so you build all three separately.</td></tr><tr><td><strong>Matchmaking</strong></td><td class='chosen'>Rating buckets with a widening window</td><td class='rej'>Strict rating match, or pure FIFO</td><td>Strict matching gives unbounded waits at the tails; FIFO gives fast but lopsided games. Widening trades a little fairness for a bounded wait.</td></tr><tr><td><strong>Game placement</strong></td><td class='chosen'>One owning server per game, sticky</td><td class='rej'>Stateless with shared state store</td><td>A per-move round trip to a shared store cannot meet a 150 ms budget, and two servers holding the same game is a correctness bug, not a scaling win.</td></tr><tr><td><strong>Live state</strong></td><td class='chosen'>In memory, checkpointed per move</td><td class='rej'>Database as the live store</td><td>All concurrent state is ~180 MB. Keeping it in memory is both faster and simpler; the log gives durability without putting the database on the move path.</td></tr></tbody></table></div></div>
-</div>
-<div class="design-step fault">
-  <div class="ds-header"><span class="ds-ico">&#128737;</span>8. Fault Tolerance</div>
-  <div class="ds-body"><div class="ft-row"><div class="ft-fail">Game server crashes mid-game</div><div class="ft-fix">A new owner is assigned, replays the move log for that game, and rebuilds the board. Both clients reconnect and resync from their last applied sequence number. Because the log is appended <em>before</em> the move is acknowledged, no acknowledged move can be lost.</div></div><div class="ft-row"><div class="ft-fail">Both players disconnect simultaneously</div><div class="ft-fix">The game is checkpointed and idle. A reaper ends games with no connected player after a timeout and records the result as abandoned &mdash; otherwise abandoned games accumulate in memory forever, which is a slow leak nobody notices until it is large.</div></div><div class="ft-row"><div class="ft-fail">Two servers both believe they own a game</div><div class="ft-fix">This is split brain, and it produces two divergent boards. The epoch number fences it: the move log rejects an append from an older epoch, so the stale owner cannot corrupt the game even though it thinks it is in charge. <span class="srcref">Ch 6</span></div></div><div class="ft-row"><div class="ft-fail">A client resends a move after a flaky reconnect</div><div class="ft-fix">The sequence number makes it idempotent: a move at a seq already applied is acknowledged without being replayed. Without this, a poor connection produces double moves, which is indistinguishable from cheating.</div></div><div class="ft-row"><div class="ft-fail">Matchmaker restarts with players queued</div><div class="ft-fix">Queue state lives in a shared sorted set rather than in matchmaker memory, so a restart loses nothing and players keep their position. Clients also re-announce on reconnect, so a lost ticket self-heals rather than stranding someone in an invisible queue.</div></div></div>
-</div>
-<div class="design-step concl">
-  <div class="ds-header"><span class="ds-ico">&#127937;</span>9. Conclusion &mdash; what I would say in the last three minutes</div>
-  <div class="ds-body"><div class="concl-grid">
+  <div class="ds-header"><span class="ds-ico">&#128269;</span>9. Deep dives, and what breaks</div>
+  <div class="ds-body"><h4>Routing both players to the same process</h4>
+
+<p>This is the awkward operational part, and it is the same problem as
+<span class="srcref">D4</span> and <span class="srcref">D20</span>: a stateful tier where a specific
+request must reach a specific machine.</p>
+
+<p>A registry maps game id to the owning server, consulted on connect and on reconnect. Unlike the push
+registry in <span class="srcref">D24</span>, this one must be <em>correct</em> rather than merely helpful
+&mdash; two processes owning the same game would accept conflicting moves and produce two boards.</p>
+
+<p>So ownership is a <strong>lease with a fencing token</strong>: a server holds a game for a bounded
+period, renews while healthy, and a new owner can only take over with a higher token. A paused process
+that wakes up finds its log appends rejected.</p>
+
+<p>Worth noticing how often this primitive recurs: it is the same mechanism as the job scheduler's claim
+in <span class="srcref">D6</span> and the document sequencer in <span class="srcref">D20</span>.
+<strong>A lease plus a monotonically increasing token is the standard answer to &ldquo;exactly one
+owner&rdquo; in an asynchronous system.</strong></p>
+
+<h4>What real-time play would change</h4>
+
+<p>Worth having ready, since it is the obvious follow-up and it changes the design substantially.</p>
+
+<p>Turn-based play sends a few messages a minute and tolerates 150 ms. Real-time play runs at a fixed tick
+rate &mdash; say 30 per second &mdash; which multiplies message volume by more than a hundred and makes
+latency directly visible in the gameplay.</p>
+
+<p>At that point you cannot wait for the server to confirm your own action; the character would lag behind
+the controls. So the client <strong>predicts</strong>: it applies your input immediately and simultaneously
+sends it to the server. When the server's authoritative state arrives, the client
+<strong>reconciles</strong> &mdash; if the prediction was right, nothing visible happens; if it was wrong,
+the client corrects, which is the rubber-banding players occasionally see.</p>
+
+<p>Server authority is preserved, which is the important part. The client is guessing at what the server
+will say, not deciding it. But the machinery is considerably more complex, which is exactly why
+&ldquo;turn-based or real-time?&rdquo; is the first clarifying question.</p>
+
+<h4>Rating, and why it belongs in this design</h4>
+
+<p>Matchmaking quality depends entirely on having a meaningful number to match on, so the rating system is
+not a separate product feature &mdash; it is an input to the queue.</p>
+
+<p>The standard approach updates both players after each game based on the <em>difference</em> between the
+result and what was expected from their ratings. Beating a much stronger player moves your rating a lot;
+beating a much weaker one moves it barely at all.</p>
+
+<p>Two refinements matter for the queue. New players should have a <strong>high-uncertainty</strong>
+rating that moves quickly, so they reach their true level in a handful of games rather than a hundred
+&mdash; otherwise their first opponents get unfair matches. And ratings should decay slowly with
+inactivity, so a player returning after a year is not matched against current form they no longer
+have.</p>
+
+<h4>What breaks</h4>
+
+<div class="ft-row"><div class="ft-fail">Game server crashes mid-game</div><div class="ft-fix">A new owner is assigned, replays the move log for that game, and rebuilds the board. Both clients reconnect and resync from their last applied sequence number. Because the log is appended <em>before</em> the move is acknowledged, no acknowledged move can be lost.</div></div><div class="ft-row"><div class="ft-fail">Both players disconnect simultaneously</div><div class="ft-fix">The game is checkpointed and idle. A reaper ends games with no connected player after a timeout and records the result as abandoned &mdash; otherwise abandoned games accumulate in memory forever, which is a slow leak nobody notices until it is large.</div></div><div class="ft-row"><div class="ft-fail">Two servers both believe they own a game</div><div class="ft-fix">This is split brain, and it produces two divergent boards. The epoch number fences it: the move log rejects an append from an older epoch, so the stale owner cannot corrupt the game even though it thinks it is in charge. <span class="srcref">Ch 6</span></div></div><div class="ft-row"><div class="ft-fail">A client resends a move after a flaky reconnect</div><div class="ft-fix">The sequence number makes it idempotent: a move at a seq already applied is acknowledged without being replayed. Without this, a poor connection produces double moves, which is indistinguishable from cheating.</div></div><div class="ft-row"><div class="ft-fail">Matchmaker restarts with players queued</div><div class="ft-fix">Queue state lives in a shared sorted set rather than in matchmaker memory, so a restart loses nothing and players keep their position. Clients also re-announce on reconnect, so a lost ticket self-heals rather than stranding someone in an invisible queue.</div></div><div class="concl-grid">
   <div class="cc"><div class="h">The dominant constraint</div><p><strong>This is not a scale problem.</strong> All 35,000 concurrent games fit in about 180&nbsp;MB. It is a <em>stateful routing and durability</em> problem: both players must reach the same authoritative process, and that process must be able to die without losing the game.</p></div>
   <div class="cc first"><div class="h">What I would build first</div><p>The append-only move log and server-side validation. The log collapses replay, history and crash recovery into one dataset, and validation makes cheating structurally impossible rather than something you detect afterwards.</p></div>
   <div class="cc"><div class="h">What I deliberately did not build</div><p>Real-time play with client prediction and rollback, and spectators. Both are legitimate and both are considerably harder than what was asked for.</p></div>
   <div class="cc risk"><div class="h">The biggest risk</div><p>Split-brain ownership of a game. Two servers holding the same game produce two boards and no error, which is why ownership needs an epoch fence at the log rather than a best-effort lock.</p></div>
 </div></div>
 </div>
-  
+
 <div class="followup">
   <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
   <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
@@ -18836,89 +19402,160 @@ designed against the adversarial case, not the sympathetic one.</p></div>
     <div class="fu-a"><p>Because a strict rating match has almost nobody to match them with at the tails. A narrow window is easy to specify and produces unbounded waits for exactly the players who care most.</p><p>So widen over time: start at roughly &plusmn;25 rating and relax toward &plusmn;400 over thirty seconds. Almost everyone matches quickly and fairly, and the tail matches slightly unfairly rather than waiting forever.</p><p>Expose the widening curve, because it is the dial between match quality and wait time and product will want to move it.</p></div>
   </details>
 </div>
+  </div>
 </div>
-</div>
+
 <div class="design-card">
   <div class="dc-header">
     <h3 class="dc-title"><span id="design-adbilling">Design an Ad Impression Counting &amp; Billing System</span> (Google TV: millions of TVs, exactly-once billing, fully auditable)</h3>
     <div class="dc-meta">Difficulty: <strong>Hard (Staff Expectation)</strong> &nbsp;.&nbsp; Target: <strong>50 min</strong></div>
   </div>
-  <div class="dc-body"><div class="asked">
+  <div class="dc-body">
+<div class="asked">
   <div class="ak-q"><span class="ak-l">&#128172; The question, as asked</span><p>&ldquo;TVs already send playback logs to a backend. Design the system that ingests them, decides which are valid billable impressions, aggregates them, and produces billing an advertiser can audit &mdash; never charging twice for the same impression.&rdquo;</p></div>
   <div class="ak-h"><span class="ak-l">&#9889; What makes it hard</span><p>Five billion events a day and <strong>every one is money</strong>. Devices duplicate, arrive days late and lie about the time, so you need exactness from a fundamentally unreliable input stream.</p></div>
 </div>
-
 <div class="design-step req">
-  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Requirements</div>
-  <div class="ds-body"><div class="clarify">
+  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Understanding the question</div>
+  <div class="ds-body"><p>The prompt: <em>&ldquo;TVs already send playback logs to a backend. Design the system
+that ingests them, decides which are valid billable impressions, aggregates them, and produces billing
+an advertiser can audit &mdash; never charging twice for the same impression.&rdquo;</em></p>
+
+<p>Five billion events a day, and every single one is money. That combination is what makes this
+different from every other pipeline in this guide.</p>
+
+<p>A metrics pipeline that loses 0.01% of events is fine. A billing pipeline that loses 0.01% of events
+has under-charged by 0.01%, and one that <em>duplicates</em> 0.01% has over-charged &mdash; which is a
+refund, a disclosure, and a conversation with someone's legal team.</p>
+
+<div class="insight">
+  <div class="label">&#127919; Ask this before anything else</div>
+  <p><strong>Does the TV mint a stable impression id that survives a retry?</strong></p>
+  <p>If the TV generates an id once and reuses it on every retry, then three copies of the same event
+  all carry the same id, and deduplication is a <code>GROUP BY</code>.</p>
+  <p>If the <em>server</em> mints the id on arrival &mdash; or the TV re-mints on each retry &mdash;
+  then those three copies are three distinct events. <strong>Nothing downstream can tell them
+  apart.</strong> Not a clever algorithm, not a human reviewing the data, not a forensic audit six
+  months later. The information required to distinguish them never existed.</p>
+  <p>This is the one decision in the design with <strong>no recovery path</strong>, and it lives in the
+  device contract rather than in your backend.</p>
+</div>
+
+<h4>Why the TVs retry at all</h4>
+
+<p>They are on domestic internet connections, and they get switched off mid-upload. So a TV batches
+events locally, sends them, and keeps them until it sees an acknowledgement. If the acknowledgement is
+lost &mdash; which is far more common than the request being lost &mdash; it sends the batch again.</p>
+
+<p>That is correct device behaviour and it is why duplicates are the <em>normal case</em> here rather
+than an anomaly. The design does not try to prevent them; it makes them harmless.</p>
+
+<h4>The second thing that shapes everything</h4>
+
+<p>&ldquo;It played&rdquo; is not a definition of a billable impression. Two seconds of video? Screen
+on? Not muted? Not a screensaver? Enough of the ad visible?</p>
+
+<p>Each of those rules changes the number an advertiser is charged. Which means <strong>the rules are
+data, not code</strong>: they need a version, and every billed number must record which version
+produced it. Otherwise a rule change silently alters last month's figures and nobody can reconcile
+anything.</p>
+
+<h4>What they are looking for</h4>
+
+<p><strong>Do you ask where the id is minted?</strong> First, before designing anything.</p>
+
+<p><strong>Do you separate fast from correct?</strong> You cannot be exact at 250,000 events per
+second on the write path, and you do not have to be.</p>
+
+<p><strong>Do you know which direction to err?</strong> Under-billing and over-billing are not
+symmetric.</p>
+<div class="clarify">
   <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
   <div class="cq-row"><div class="cq-q">Does the TV generate a stable impression ID that survives a retry?</div><div class="cq-w"><strong>Ask this before anything else &mdash; the entire design depends on the answer.</strong> If the ID is minted on the TV once and reused on every retry, deduplication is a <code>GROUP BY</code>. If the server mints it, or the TV re-mints on retry, the same impression arrives as three distinct events and <em>no amount of downstream engineering can tell them apart</em>.</div></div><div class="cq-row"><div class="cq-q">What exactly makes an impression billable?</div><div class="cq-w">&ldquo;It played&rdquo; is not a definition. Two seconds of video? Screen on? TV not muted and not a screensaver? Each rule changes the number an advertiser is charged, so the rule set needs a <strong>version</strong> and must be an input to the pipeline, not code buried in it.</div></div><div class="cq-row"><div class="cq-q">How long may billing lag reality?</div><div class="cq-w">This is the close window, and it is a product decision. Real-time billing is impossible when a TV can be offline for a week. Something like <em>T+72h then the period closes</em> makes the problem tractable.</div></div><div class="cq-row"><div class="cq-q">What happens to an event that arrives after its period closed?</div><div class="cq-w">Silently dropping it under-bills and destroys trust when someone reconciles. The workable answer is to bill it in the <em>next</em> period as an explicit adjustment, with an audit record.</div></div><div class="cq-row"><div class="cq-q">Which is worse &mdash; over-billing or under-billing?</div><div class="cq-w">They are not symmetric. Under-billing costs revenue you can recover next month. <strong>Over-billing is a trust and legal problem</strong> and may require refunds and disclosure. That asymmetry says: when uncertain, do not charge.</div></div>
   <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
 </div>
-<p><strong>Functional:</strong></p>
-<ul>
-  <li>Ingest playback and impression logs from millions of TVs, which already batch and retry</li>
-  <li>Store every raw event immutably, for audit</li>
-  <li>Apply a <strong>versioned</strong> validity rule set to decide which events are billable</li>
-  <li>Deduplicate retries and replays so one impression is counted exactly once</li>
-  <li>Aggregate by advertiser, campaign, creative, TV, network and time period</li>
-  <li>Produce a billing number that can be <strong>explained and reproduced</strong> line by line</li>
+</div>
+</div>
+<div class="design-step fr">
+  <div class="ds-header"><span class="ds-ico">&#128221;</span>2. Functional requirements</div>
+  <div class="ds-body"><ul>
+  <li><strong>Ingest playback logs</strong> from millions of TVs that already batch and retry.</li>
+  <li><strong>Store every raw event immutably</strong>, for audit.</li>
+  <li><strong>Apply a versioned validity rule set</strong> to decide which events are billable.</li>
+  <li><strong>Deduplicate</strong> so one impression is counted exactly once.</li>
+  <li><strong>Aggregate</strong> by advertiser, campaign, creative, TV, network and period.</li>
+  <li><strong>Produce a billing number that can be explained and reproduced</strong> line by line.</li>
 </ul>
-<p><strong>Non-Functional:</strong></p>
-<ul>
-  <li>Sustain ~250K events/sec at peak and scale horizontally</li>
-  <li><strong>An advertiser must never be charged twice for one impression</strong></li>
-  <li>Handle delayed, out-of-order, duplicated and missing events as the normal case, not the exception</li>
-  <li>Any billed number must be reproducible from retained raw data months later</li>
-</ul></div>
-</div>
-<div class="design-step est">
-  <div class="ds-header"><span class="ds-ico">&#128202;</span>2. Capacity Estimation</div>
-  <div class="ds-body"><div class="assume">
-  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
-  <div class="as-row"><div class="as-a">50M TVs, ~100 impressions each per day</div><div class="as-b">Ten times the volume changes nothing structurally &mdash; every stage partitions by a hash. It changes the storage bill, not the architecture.</div></div><div class="as-row"><div class="as-a">TVs batch events and retry until acknowledged</div><div class="as-b">If TVs sent fire-and-forget with no retry, you would trade duplicates for silent loss &mdash; which for billing is the worse failure.</div></div><div class="as-row"><div class="as-a">A TV may be offline for days</div><div class="as-b">If devices were always online, the close window could be minutes and the late-data machinery would be unnecessary.</div></div><div class="as-row"><div class="as-a">Raw events are retained 90 days for audit</div><div class="as-b">Shorter retention means an invoice can be disputed after the evidence is gone, which defeats the point of the system.</div></div>
-</div>
-<p><strong>Assumptions:</strong> 50M TVs, ~100 impressions/TV/day, ~400&nbsp;B per event, 90-day audit retention.</p><div class="ng"><div class="ng-cell"><div class="ng-val">5B</div><div class="ng-desc">impressions/day</div></div><div class="ng-cell"><div class="ng-val">~58K/s</div><div class="ng-desc">average ingest</div></div><div class="ng-cell"><div class="ng-val">~250K/s</div><div class="ng-desc">prime-time peak</div></div><div class="ng-cell"><div class="ng-val">~2 TB</div><div class="ng-desc">raw per day</div></div><div class="ng-cell"><div class="ng-val">~500 GB</div><div class="ng-desc">compressed per day</div></div><div class="ng-cell"><div class="ng-val">~45 TB</div><div class="ng-desc">90-day audit store</div></div></div><p><strong>The number that decides the architecture:</strong> 5 billion events a day, and every
-one of them is money. You cannot run a transaction per event at 250K/sec, and you cannot afford to
-be approximately right. The resolution is to <strong>stop trying to be correct on the write
-path</strong>: accept events fast and unvalidated into an immutable log, and compute the billable
-number <em>afterwards</em> as a derived, recomputable view.</p>
-<p><strong>The second number that matters:</strong> exact deduplication over 5B keys per day. A
-Bloom filter for that is ~6&nbsp;GB at a 1% false-positive rate &mdash; and a 1% false positive
-means <em>dropping</em> 50 million real impressions, which is a 1% under-bill. Probabilistic
-structures are fine for a dashboard and unacceptable for an invoice. Exact dedup comes from sorting
-the day&rsquo;s partition, which batch does trivially and streaming cannot.</p></div>
-</div>
-<div class="design-step api">
-  <div class="ds-header"><span class="ds-ico">&#128268;</span>3. API Design</div>
-  <div class="ds-body"><div class="api-code"><span class="cm">// TV-FACING -- batched, retried, and idempotent by construction</span>
-<span class="kw">POST</span> /v1/impressions:batch
-  Headers:  authorization: bearer &lt;device attestation token&gt;
-  Body:     { device_id, batch_id, events: [ {
-              impression_id,      <span class="cm">// MINTED ON THE TV, stable across retries</span>
-              ad_id, campaign_id, creative_id, network_id,
-              event_time,         <span class="cm">// device clock -- untrusted, for attribution</span>
-              played_ms, screen_on, muted, viewport_pct
-            } ] }
-  Response: 202 { accepted: 500, batch_id }
-            <span class="cm">// 202, not 200: we have DURABLY LOGGED them, not validated</span>
-            <span class="cm">// or billed them. The TV may now delete its local copy.</span>
-  Errors:   <span class="num">429</span> backoff  <span class="num">413</span> batch too large
 
-<span class="cm">// ADVERTISER-FACING</span>
-<span class="kw">GET</span>  /v1/reports?campaign=&amp;from=&amp;to=&amp;granularity=hour
-  Response: { rows:[{ period, impressions, state }] }
-            <span class="cm">// state: "provisional" (streaming) | "final" (batch, billable)</span>
-            <span class="cm">// NEVER show one number without saying which kind it is</span>
+<h4>"Reproducible" is the requirement that shapes the storage</h4>
 
-<span class="kw">GET</span>  /v1/billing/{invoice_id}/lineage
-  Response: { ruleset_version, job_version, input_partitions[],
-              computed_at, adjustments[] }
-  <span class="cm">// this endpoint IS the auditability requirement</span></div></div>
+<p>An advertiser disputes an invoice from four months ago. They want to know why they were charged for
+1,847,221 impressions rather than 1,840,000.</p>
+
+<p>Answering that means being able to <strong>re-derive the number from the raw events</strong>, with
+the rule set version that was in force at the time. Which means the raw events must still exist,
+unchanged, and the rules must be identifiable by version.</p>
+
+<p>So the raw log is not a staging area to be cleaned up after processing &mdash; it is the
+<em>evidence</em>, and it is retained for the full dispute window. Everything downstream is a derived
+view that can be thrown away and recomputed.</p>
+
+<h4>Late events are normal, not exceptional</h4>
+
+<p>A TV offline for four days arrives with four days of events. This is not an edge case; with fifty
+million devices it happens constantly.</p>
+
+<p>Which raises a question that must be answered explicitly: what happens to an event that arrives after
+its billing period closed? Silently dropping it under-bills and destroys trust the moment anyone
+reconciles. The workable answer is to bill it in the next period as an explicit
+<strong>adjustment</strong>, with an audit record &mdash; visible, explainable, and reconcilable.</p></div>
+</div>
+<div class="design-step nfr">
+  <div class="ds-header"><span class="ds-ico">&#9201;</span>3. Non-functional requirements</div>
+  <div class="ds-body"><div class="tw"><table class="to">
+<thead><tr><th style="width:26%">Requirement</th><th style="width:24%">Target</th><th style="width:50%">What it forces</th></tr></thead>
+<tbody>
+<tr><td><strong>Ingest rate</strong></td><td>~250K/sec peak</td><td>Prime time. Too fast for per-event transactions, which is why the write path validates nothing.</td></tr>
+<tr><td><strong>Double billing</strong></td><td class="chosen">Never</td><td>The defining requirement. It depends entirely on where the impression id is minted.</td></tr>
+<tr><td><strong>Late and duplicate data</strong></td><td class="chosen">The normal case</td><td>Stated as a requirement rather than a failure mode, because with 50M devices it is continuous.</td></tr>
+<tr><td><strong>Reproducibility</strong></td><td>Months later</td><td>Raw events retained immutably; rules versioned; jobs versioned.</td></tr>
+<tr><td><strong>Billing lag</strong></td><td>~T+72h then close</td><td>A product decision. Real-time billing is impossible when a device can be offline for a week.</td></tr>
+<tr><td><strong>Error direction</strong></td><td class="chosen">Under, never over</td><td>When uncertain, do not charge. See below.</td></tr>
+</tbody></table></div>
+
+<h4>Why under-billing and over-billing are not symmetric</h4>
+
+<p>This is the judgement that should drive every ambiguous decision in the design, and it is worth
+stating explicitly rather than leaving implicit.</p>
+
+<p><strong>Under-billing</strong> costs revenue you can recover. The impression is in the raw log; next
+month's adjustment picks it up; the advertiser is charged correctly, slightly late. An internal
+accounting problem.</p>
+
+<p><strong>Over-billing</strong> is a trust problem and potentially a legal one. Refunds, disclosure, an
+audit, and an advertiser who now checks every invoice you send them forever. The money is recoverable;
+the credibility is not.</p>
+
+<p>So wherever the system is uncertain &mdash; a malformed event, an ambiguous validity signal, a
+suspected duplicate it cannot confirm &mdash; the rule is <strong>do not charge</strong>. Log it, flag
+it, and leave it out of the invoice.</p>
+
+<h4>And the two numbers advertisers see</h4>
+
+<p>Advertisers want a live dashboard. Billing needs exactness. These cannot be the same number.</p>
+
+<p>So there are two, and <strong>every number is labelled with which kind it is</strong>: a
+<em>provisional</em> figure from the streaming path, available in seconds and approximately right; and a
+<em>final</em> figure from the batch path, available after the close window and billable.</p>
+
+<p>Showing a single unlabelled number is how you end up explaining to an advertiser why their dashboard
+said one thing and their invoice said another.</p></div>
 </div>
 <div class="design-step schema">
-  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="cm">-- 1. RAW: immutable, append-only, partitioned by ARRIVAL hour.</span>
+  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Data model and API</div>
+  <div class="ds-body"><p>Three layers, and the relationship between them is the design: <strong>raw is
+evidence, aggregates are derived, the ledger is money.</strong></p>
+<div class="schema-code"><span class="cm">-- 1. RAW: immutable, append-only, partitioned by ARRIVAL hour.</span>
 <span class="cm">-- Partition by arrival, not event_time: the device clock is</span>
 <span class="cm">-- untrusted and a wrong clock must not scatter rows across months.</span>
 <span class="kw">TABLE</span> raw_events {              <span class="cm">-- object storage, columnar (Parquet)</span>
@@ -18954,12 +19591,154 @@ the day&rsquo;s partition, which batch does trivially and streaming cannot.</p><
   supersedes <span class="ty">UUID</span>,           <span class="cm">-- lineage for a correction</span>
   <span class="pk">UNIQUE</span> (invoice_id, campaign_id, period, kind)
 }
-<span class="cm">-- You never rewrite an invoice. You issue an adjustment against it.</span></div></div>
+<span class="cm">-- You never rewrite an invoice. You issue an adjustment against it.</span></div>
+<h4>Partition raw events by arrival time, not event time</h4>
+
+<p>A detail that looks arbitrary and prevents a real disaster.</p>
+
+<p>The <code>event_time</code> comes from the TV's clock, which is untrusted. A device with a badly wrong
+clock &mdash; not rare, across fifty million consumer devices &mdash; can report events dated 1970 or
+2038.</p>
+
+<p>Partition by event time and those rows scatter across partitions spanning decades, creating tiny
+partitions in periods that are already closed and cannot be reprocessed.</p>
+
+<p>Partition by <strong>arrival time</strong>, the server's clock, and every event lands in the hour it
+actually arrived. The device clock is kept as a field and used for attribution, where being wrong is a
+data-quality issue rather than a structural one.</p>
+
+<h4>The aggregate key is what makes re-runs safe</h4>
+
+<p>The single most important property in the design, and it is expressed entirely in a primary key.</p>
+
+<p>Aggregates are keyed on <code>(campaign, creative, hour, ruleset_version)</code> and written as an
+upsert. Re-running an hour therefore <strong>replaces</strong> that hour's row rather than adding to
+it.</p>
+
+<p>Which means re-running is <em>idempotent</em>: safe to do once, twice, or fifty times. And re-running
+is exactly what you do when a job fails halfway, when late data arrives, or when a bug is found in the
+rules. A design where re-running double-counts is a design where nobody dares fix anything.</p>
+
+<h4>The ledger is append-only, because money is</h4>
+
+<p>You never rewrite an invoice. If a figure was wrong, you issue an <strong>adjustment</strong> &mdash;
+a new row referencing the one it corrects.</p>
+
+<p>That is not a technical preference; it is how accounting works. An invoice that silently changes
+value is unauditable, and the whole point of this system is auditability. The correction history is
+itself part of the record.</p>
+
+<h4>The API</h4>
+<div class="api-code"><span class="cm">// TV-FACING -- batched, retried, and idempotent by construction</span>
+<span class="kw">POST</span> /v1/impressions:batch
+  Headers:  authorization: bearer &lt;device attestation token&gt;
+  Body:     { device_id, batch_id, events: [ {
+              impression_id,      <span class="cm">// MINTED ON THE TV, stable across retries</span>
+              ad_id, campaign_id, creative_id, network_id,
+              event_time,         <span class="cm">// device clock -- untrusted, for attribution</span>
+              played_ms, screen_on, muted, viewport_pct
+            } ] }
+  Response: 202 { accepted: 500, batch_id }
+            <span class="cm">// 202, not 200: we have DURABLY LOGGED them, not validated</span>
+            <span class="cm">// or billed them. The TV may now delete its local copy.</span>
+  Errors:   <span class="num">429</span> backoff  <span class="num">413</span> batch too large
+
+<span class="cm">// ADVERTISER-FACING</span>
+<span class="kw">GET</span>  /v1/reports?campaign=&amp;from=&amp;to=&amp;granularity=hour
+  Response: { rows:[{ period, impressions, state }] }
+            <span class="cm">// state: "provisional" (streaming) | "final" (batch, billable)</span>
+            <span class="cm">// NEVER show one number without saying which kind it is</span>
+
+<span class="kw">GET</span>  /v1/billing/{invoice_id}/lineage
+  Response: { ruleset_version, job_version, input_partitions[],
+              computed_at, adjustments[] }
+  <span class="cm">// this endpoint IS the auditability requirement</span></div>
+<p>Note the <strong>202</strong> on ingest. It means <em>durably logged</em>, not <em>validated</em> and
+not <em>billed</em>. That is precisely what the TV needs to know before deleting its local copy, and
+promising anything more would be a lie the write path cannot support at this rate.</p></div>
+</div>
+<div class="design-step est">
+  <div class="ds-header"><span class="ds-ico">&#128202;</span>5. Capacity estimation</div>
+  <div class="ds-body"><p>The numbers, and the two conclusions they force.</p>
+<div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">50M TVs, ~100 impressions each per day</div><div class="as-b">Ten times the volume changes nothing structurally &mdash; every stage partitions by a hash. It changes the storage bill, not the architecture.</div></div><div class="as-row"><div class="as-a">TVs batch events and retry until acknowledged</div><div class="as-b">If TVs sent fire-and-forget with no retry, you would trade duplicates for silent loss &mdash; which for billing is the worse failure.</div></div><div class="as-row"><div class="as-a">A TV may be offline for days</div><div class="as-b">If devices were always online, the close window could be minutes and the late-data machinery would be unnecessary.</div></div><div class="as-row"><div class="as-a">Raw events are retained 90 days for audit</div><div class="as-b">Shorter retention means an invoice can be disputed after the evidence is gone, which defeats the point of the system.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">5B</div><div class="ng-desc">impressions/day</div></div><div class="ng-cell"><div class="ng-val">~58K/s</div><div class="ng-desc">average ingest</div></div><div class="ng-cell"><div class="ng-val">~250K/s</div><div class="ng-desc">prime-time peak</div></div><div class="ng-cell"><div class="ng-val">~2 TB</div><div class="ng-desc">raw per day</div></div><div class="ng-cell"><div class="ng-val">~500 GB</div><div class="ng-desc">compressed per day</div></div><div class="ng-cell"><div class="ng-val">~45 TB</div><div class="ng-desc">90-day audit store</div></div></div>
+<p>Fifty million TVs at around a hundred impressions a day is <strong>5 billion events daily</strong>
+&mdash; about 58,000 per second on average and <strong>250,000 at prime time</strong>. At 400 bytes
+each, roughly 2 TB of raw data a day, or 500 GB compressed. Ninety days of audit retention is around
+45 TB, which is unremarkable storage.</p>
+
+<h4>Conclusion one: you cannot be correct on the write path</h4>
+
+<p>At 250,000 events per second there is no room for a transaction per event, a uniqueness check per
+event, or a validity evaluation per event. Any of those would need a coordinating store doing a
+quarter of a million serialised operations per second, and it would be the least available component in
+the system.</p>
+
+<p>So <strong>stop trying</strong>. Accept events fast and unvalidated into an immutable log, and compute
+the billable number afterwards as a derived view. Ingest's only job is to not lose anything.</p>
+
+<h4>Conclusion two: deduplication must be exact, which rules out the obvious trick</h4>
+
+<p>The instinct for &ldquo;have I seen this id?&rdquo; at this scale is a Bloom filter, as in
+<span class="srcref">D10</span>. Here it is wrong, and the arithmetic says so clearly.</p>
+
+<p>A filter covering 5 billion keys a day at a 1% false-positive rate is around 6 GB &mdash; and a false
+positive means the filter says &ldquo;already seen&rdquo; about an impression it has never seen. One
+percent of 5 billion is <strong>50 million real impressions dropped, a 1% under-bill, every day</strong>.</p>
+
+<p>Probabilistic structures are fine for a dashboard and unacceptable for an invoice.</p>
+
+<p>Exact deduplication comes from <strong>sorting the day's partition and taking the distinct set</strong>
+&mdash; which a batch job does trivially and a streaming system cannot, because it would need unbounded
+state to remember every id it has ever seen. That difference is the whole argument for having a batch
+layer at all.</p></div>
+</div>
+<div class="design-step tradeoff">
+  <div class="ds-header"><span class="ds-ico">&#9878;</span>6. The key trade-offs</div>
+  <div class="ds-body"><p>The choices, and their costs.</p>
+<div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Impression identity</strong></td><td class='chosen'>Minted on the TV, stable across retries</td><td class='rej'>Minted on the server at arrival</td><td>Server-minted IDs make retries indistinguishable from genuine impressions. Deduplication becomes impossible, permanently &mdash; this is the one decision with no recovery.</td></tr><tr><td><strong>Billing source</strong></td><td class='chosen'>Batch layer, after close</td><td class='rej'>Streaming counts</td><td>Streaming dedup is bounded by its state window, so a TV returning after days double-counts. Exact dedup needs a full sort, which batch does trivially.</td></tr><tr><td><strong>Aggregate writes</strong></td><td class='chosen'>UPSERT keyed by (campaign, creative, hour, ruleset)</td><td class='rej'>INSERT, or increment</td><td>Replacement makes a re-run idempotent. Incrementing means every job retry inflates the bill &mdash; the exact failure the system exists to prevent.</td></tr><tr><td><strong>Late events</strong></td><td class='chosen'>Adjustment in the next period</td><td class='rej'>Retro-insert, or drop</td><td>Retro-inserting mutates a sent invoice; dropping under-bills silently and cannot be reconciled. An adjustment keeps the ledger immutable and the loss visible.</td></tr><tr><td><strong>Windowing clock</strong></td><td class='chosen'><code>arrival_time</code> (server)</td><td class='rej'><code>event_time</code> (device)</td><td>A TV with a wrong clock would scatter its rows across arbitrary months. Device time is kept for attribution, never for deciding the billing period.</td></tr><tr><td><strong>Validity rules</strong></td><td class='chosen'>Versioned data, an input to the job</td><td class='rej'>Logic inside the pipeline</td><td>Rules change. If they live in code, last month's numbers stop being reproducible the moment the code moves on &mdash; which breaks the audit requirement.</td></tr></tbody></table></div>
+<h4>Two layers: fast and approximate, slow and exact</h4>
+
+<p>The structural decision, and it exists because no single system can do both jobs.</p>
+
+<p><strong>Streaming</strong> gives numbers within seconds. It cannot deduplicate exactly, because that
+would require remembering every impression id forever, and it cannot handle data that arrives three days
+late without holding windows open for three days. Its output is <em>provisional</em> and it feeds
+dashboards.</p>
+
+<p><strong>Batch</strong> runs after the close window over a complete, bounded set of data. It sorts,
+deduplicates exactly, applies the versioned rules, and produces the number that goes on the invoice. Its
+output is <em>final</em> and it feeds billing.</p>
+
+<p>The cost is running two implementations of the same logic, which can drift apart &mdash; the standard
+criticism of this shape. The mitigation is to compare them continuously: a persistent gap between
+provisional and final figures is a bug in one of them and should alert.</p>
+
+<p>The reason to accept that cost is that the alternatives are worse. Streaming alone cannot be exact.
+Batch alone means advertisers see nothing for three days.</p>
+
+<h4>Where the close window goes</h4>
+
+<p>A period stays open for late data, then closes. Choosing when is a product decision with real
+consequences on both sides.</p>
+
+<p><strong>Close early</strong> &mdash; say T+6h &mdash; and you bill quickly, and a meaningful volume of
+genuine impressions from offline devices arrives afterwards and must be handled as adjustments.</p>
+
+<p><strong>Close late</strong> &mdash; T+7d &mdash; and you capture nearly everything, and advertisers
+wait a week for an invoice while you carry a week of unbilled revenue.</p>
+
+<p>Around T+72h captures the large majority of late arrivals while keeping billing reasonably prompt.
+And crucially, <strong>closing is not a deadline after which data is discarded</strong>. Events arriving
+later are still ingested, still deduplicated, and billed in the next period as explicit adjustments. The
+window decides when a number becomes final, not when data stops mattering.</p></div>
 </div>
 <div class="design-step arch">
-  <div class="ds-header"><span class="ds-ico">&#127959;</span>5. High-Level Architecture</div>
-  <div class="ds-body">
-<div class="anim" id="anim-adbilling">
+  <div class="ds-header"><span class="ds-ico">&#127959;</span>7. High-level design</div>
+  <div class="ds-body"><div class="anim" id="anim-adbilling">
   <div class="an-head">
     <div class="an-title">Impression ingest &mdash; and the retry that must not become a triple charge</div>
     <div class="an-btns">
@@ -19008,109 +19787,188 @@ the day&rsquo;s partition, which batch does trivially and streaming cannot.</p><
   <div class="an-cap ok-only"><strong>What is moving:</strong> batched impression events, each carrying an <code>impression_id</code> <em>minted on the TV</em> and reused on every retry. Collectors accept fast and validate nothing; the log partitions by hash of that id so every copy lands on one partition. The batch layer sorts, takes the distinct set, and bills <strong>once</strong> &mdash; no matter how many times the TV resent.</div>
   <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> if the id were minted <em>on arrival</em> instead, a TV that never saw its 202 and resends three times produces <strong>three distinct events</strong>. They are not duplicates in any detectable sense &mdash; nothing downstream can tell them apart &mdash; and the advertiser is charged three times for one impression. This is the one decision in the design with <strong>no recovery path</strong>, which is why it is the first clarifying question and belongs in the device contract.</div>
 </div>
-<div class="flow">  <span class="fl-key">MILLIONS OF TVs</span>   batch locally, retry until 202, then delete
-        |            <span class="fl-note">impression_id is minted ONCE on the TV and reused on every</span>
-        |            <span class="fl-note">retry -- this is a client contract, not a server feature</span>
-        v
-  <span class="fl-key">EDGE COLLECTORS</span>   attest device, cap batch size, stamp arrival_time
-        |            accept fast; validate NOTHING here
-        v
-  <span class="fl-key">DURABLE LOG</span>   partitioned by hash(impression_id)
-        |        <span class="fl-note">same id always lands on the same partition, so dedup is local</span>
-        |
-        +----------------------------+
-        v                            v
-  <span class="fl-hi">SPEED LAYER</span>                  <span class="fl-hi">RAW ARCHIVE</span> (immutable, columnar, 90 days)
-  windowed dedup (RocksDB)                 |
-  approximate counts                       v
-  seconds fresh                      <span class="fl-key">BATCH LAYER</span>  hourly + daily close
-        |                            sort -> DISTINCT impression_id  <span class="fl-dim">(exact)</span>
-        v                            apply ruleset vN               <span class="fl-dim">(versioned)</span>
-  <span class="fl-dim">pacing, dashboards,</span>              UPSERT billable_hourly         <span class="fl-dim">(idempotent)</span>
-  <span class="fl-dim">budget caps</span>                             |
-  <span class="fl-bad">NEVER BILLED FROM</span>                       v
-                                     <span class="fl-key">BILLING LEDGER</span>  append-only
-                                     charge | adjustment | credit
-                                           |
-                                           v
-                                     <span class="fl-hi">INVOICE + LINEAGE</span>
-                                     ruleset, job version, input partitions
+<p>One log, two derived views.</p>
+<div class="flow">  <span class="fl-key">MILLIONS OF TVs</span>
 
-  <span class="fl-note">Two paths on purpose: one fast and approximate for spending decisions,</span>
-  <span class="fl-note">one slow and exact for money. Never let the fast one touch an invoice.</span></div>
-<div class="flow-cap">The raw archive is the evidence, the aggregates are a derived view, and the ledger
-is append-only. Every number on an invoice is reproducible by re-running one job over one immutable
-partition.</div></div>
+    batch locally &rarr; send &rarr; wait for 202 &rarr; delete local copy
+    no 202? <span class="fl-bad">resend the same batch</span>
+    <span class="fl-hi">impression_id is minted ONCE on the TV and reused on every retry</span>
+         |
+         v
+  <span class="fl-hi">COLLECTORS</span>   authenticate, accept, <span class="fl-key">validate nothing</span>
+         |          <span class="fl-note">202 = durably logged. not validated, not billed.</span>
+         v
+  <span class="fl-key">IMMUTABLE LOG</span>   partitioned by <span class="fl-hi">hash(impression_id)</span>
+         |             <span class="fl-dim">so every copy of one impression lands on one partition</span>
+         |             partitioned by <span class="fl-hi">ARRIVAL hour</span>, never by device clock
+         |
+         +--------------------------------+
+         v                                v
+  <span class="fl-hi">SPEED LAYER</span>                      <span class="fl-hi">BATCH LAYER</span>   after the close window
+  seconds                           sort partition
+  approximate dedup                 <span class="fl-key">DISTINCT on impression_id</span>  <span class="fl-dim">exact</span>
+  approximate rules                 apply <span class="fl-key">ruleset v7</span>  <span class="fl-dim">versioned, as data</span>
+         |                                |
+         v                                v
+  <span class="fl-dim">dashboards</span>                        <span class="fl-hi">billable_hourly</span>
+  <span class="fl-key">"provisional"</span>                     key: (campaign, creative, hour, ruleset)
+  <span class="fl-bad">never billable</span>                    <span class="fl-hi">UPSERT &rarr; re-running is idempotent</span>
+                                          |
+                                          v
+                                    <span class="fl-key">LEDGER</span>  append-only
+                                    corrections are new rows
+                                    <span class="fl-bad">an invoice is never rewritten</span>
+
+
+  <span class="fl-key">RAW LOG RETAINED 90 DAYS</span>  &mdash; this is the evidence.
+  every invoice must be re-derivable from it alone.</div>
+<div class="flow-cap">Hashing the partition by impression id is what makes exact deduplication a local
+operation: every duplicate of one impression is guaranteed to be in the same partition, so no
+cross-partition comparison is ever needed.</div></div>
+</div>
+<div class="design-step wflow">
+  <div class="ds-header"><span class="ds-ico">&#128260;</span>8. Workflows &mdash; what actually happens</div>
+  <div class="ds-body"><div class="wf">
+  <div class="wf-title">An ad plays on a TV in Lyon</div>
+  <div class="wf-sub">From playback to a line on an invoice.</div>
+  <ol>
+    <li>The ad plays for 8 seconds. The TV records an event and <b>mints an impression id</b> &mdash; a random identifier generated once, on the device, right now.</li>
+    <li>It batches this with 40 other events from the last few minutes and sends them.</li>
+    <li>A collector authenticates the device, appends the batch to the immutable log, and returns <b>202</b>. It validated nothing &mdash; not the rules, not whether this is a duplicate.</li>
+    <li>The TV sees the 202 and deletes its local copy. Elapsed: about 200 ms.</li>
+    <li>Within seconds the speed layer counts it, and the advertiser's dashboard ticks up. That number is labelled <b>provisional</b>.</li>
+    <li>Three days later, after the close window, the batch job runs over that hour's partition. It sorts, takes the distinct set of impression ids, and applies <b>ruleset v7</b>: 8 seconds played, screen on, not muted, viewport above threshold &mdash; <b>billable</b>.</li>
+    <li>It is counted into <code>billable_hourly</code> for that campaign, creative and hour, tagged with the ruleset and job versions.</li>
+    <li>At period close, the aggregates become a ledger entry and an invoice line, labelled <b>final</b>.</li>
+  </ol>
+  <div class="wf-out">The impression was counted twice &mdash; once approximately and fast, once exactly and slowly &mdash; and the two numbers were never confused, because each carried its own label all the way to the advertiser.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">The same TV never sees its acknowledgement</div>
+  <div class="wf-sub">The retry, and why it costs nothing.</div>
+  <ol>
+    <li>The batch is logged successfully and the <b>202 is lost on the way back</b> &mdash; a dropped connection, a flaky home router.</li>
+    <li>The TV has no way to distinguish "never arrived" from "arrived, ack lost". It does the only safe thing: it keeps the batch and resends.</li>
+    <li>It resends twice more before one acknowledgement gets through. The log now holds <b>three copies</b> of the same event.</li>
+    <li>All three carry the <b>identical impression id</b>, because the TV minted it once and reused it &mdash; it did not generate a new one per attempt.</li>
+    <li>All three hash to the same log partition, so they are guaranteed to be co-located.</li>
+    <li>The batch job sorts that partition and takes the distinct set. Three rows collapse to one.</li>
+    <li>The advertiser is billed <b>once</b>. Nobody had to detect anything.</li>
+  </ol>
+  <div class="wf-out">Now the counterfactual: had the id been minted on arrival, those three rows would carry three different ids. They would not be duplicates in any detectable sense &mdash; same content, same everything, three legitimate-looking impressions &mdash; and the advertiser would be charged three times, with no way for anyone to ever discover it.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">A TV comes back after four days offline</div>
+  <div class="wf-sub">Late data, and the adjustment that keeps it honest.</div>
+  <ol>
+    <li>A TV was unplugged during a holiday. It reconnects with 380 buffered events from across four days.</li>
+    <li>They are ingested normally and land in <b>today's arrival partition</b> &mdash; not in the partitions matching their event times, which are already closed.</li>
+    <li>Two of those four days are past the close window. Their invoices have already been issued.</li>
+    <li>Those events are not dropped. Dropping them would under-bill and, worse, would leave the advertiser's own logs disagreeing with ours with no explanation.</li>
+    <li>They are processed into aggregates for their true event periods, flagged as late.</li>
+    <li>At the next billing run they appear as an explicit <b>adjustment</b> entry in the ledger: a new row, referencing the invoice it corrects, with its own audit record.</li>
+    <li>The advertiser sees a small positive adjustment on their next invoice, labelled as late-arriving impressions from specific dates.</li>
+  </ol>
+  <div class="wf-out">Visible and explainable beats silently correct. An advertiser who reconciles their own numbers against ours will find a discrepancy and an adjustment that explains it &mdash; which builds trust rather than eroding it.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">A bug is found in the validity rules</div>
+  <div class="wf-sub">Where the idempotent aggregate key pays for itself.</div>
+  <ol>
+    <li>Someone discovers that ruleset v7 counted impressions where the TV was muted, which the contract says should not be billable. Three weeks of billing are affected.</li>
+    <li>Because the raw log is <b>intact and immutable</b>, every one of those events still exists exactly as received. Nothing was cleaned up after processing.</li>
+    <li>Ruleset <b>v8</b> is written with the corrected condition and given a new version.</li>
+    <li>The batch job is re-run over three weeks of raw partitions with v8.</li>
+    <li>Each run <b>upserts</b> on <code>(campaign, creative, hour, ruleset_version)</code>. A new version means new rows alongside the old ones, and re-running the same version replaces rather than accumulates. <b>Nothing double-counts.</b></li>
+    <li>The difference between v7 and v8 totals is computed per advertiser and issued as credit adjustments in the ledger.</li>
+    <li>Both versions remain queryable, so the question "why did this number change?" has a precise answer: the ruleset version, and the specific condition that differed.</li>
+  </ol>
+  <div class="wf-out">This is the payoff for treating aggregates as derived rather than authoritative. Had the raw events been discarded after processing, or had the rules been code rather than versioned data, the only options would have been to guess at a correction or to leave the error in place.</div>
+</div></div>
 </div>
 <div class="design-step deep">
-  <div class="ds-header"><span class="ds-ico">&#128269;</span>6. Component Deep Dives</div>
-  <div class="ds-body"><p><strong>The impression ID has to be minted on the TV, and this is a requirement rather
-than an implementation detail.</strong> A retry only becomes detectable if the retried event is
-<em>byte-identical in identity</em> to the original. So the TV generates
-<code>impression_id</code> once &mdash; deterministically, say
-<code>hash(device_id, session_id, ad_slot_index, creative_id)</code> so it survives even an app
-restart &mdash; writes it to local storage alongside the event, and reuses it on every attempt
-until the server returns 202. If instead the server mints an ID on arrival, three retries produce
-three different IDs and the duplicates are <em>invisible forever</em>. No downstream cleverness
-recovers from that, which is why this is the first clarifying question and belongs in the device
-contract.</p>
-<p><strong>Streaming dedup is approximate; batch dedup is exact; bill from the exact one.</strong>
-A stream processor can only deduplicate within a bounded window of state &mdash; a few hours of IDs
-in RocksDB, or a Bloom filter. A TV that returns after four days sends events whose IDs left the
-window, so a retry sails through and double-counts. The batch layer has no such limit: sorting a
-day&rsquo;s partition by <code>impression_id</code> and taking the distinct set is exact by
-construction, at any lateness within retention. So the two layers are given different jobs
-&mdash; <em>speed for pacing, batch for money</em> &mdash; and every report labels which one it
-came from. Showing an advertiser a provisional number without saying so is how a support ticket
-becomes a dispute.</p>
-<p><strong>Idempotent aggregation is what makes re-running safe, and re-running is what makes the
-system trustworthy.</strong> Aggregates are written with an <code>UPSERT</code> keyed by
-(campaign, creative, hour, ruleset version), so recomputing an hour <em>replaces</em> its row
-rather than adding to it. Get this wrong &mdash; make it an <code>INSERT</code> or an
-<code>UPDATE &hellip; SET n = n + ?</code> &mdash; and every retry of a failed job silently inflates
-the bill, which is precisely the failure the whole design exists to prevent. Because replacement is
-safe, you can re-run freely: after a bug fix, after late data, after a rule change.</p>
-<p><strong>Late data needs a policy, not an accident.</strong> Define the close: an hour is
-provisional until T+72h, then final. Events arriving after their period closed are not dropped and
-not retro-inserted &mdash; they are counted into the <em>next</em> period as a labelled adjustment,
-carrying their original event time. That keeps invoices immutable while still charging for real
-impressions, and it means the number of late events becomes a metric you can watch rather than a
-silent loss. Windowing uses <code>arrival_time</code>, because a TV with a broken clock would
-otherwise land in an arbitrary month; <code>event_time</code> is kept for attribution and reporting
-only, never for deciding which period is billed.</p>
-<p><strong>Auditability is lineage, and it has to be designed in.</strong> &ldquo;Explain this
-number&rdquo; means: these input partitions, this rule-set version, this job version, at this time,
-produced this count &mdash; and re-running that job over those partitions reproduces it exactly.
-That requires raw events retained immutably, rule sets versioned as data rather than code, and job
-versions recorded with every aggregate row. It also means the pipeline must be
-<strong>deterministic</strong>: no wall-clock reads, no random sampling, no dependence on the order
-events happen to arrive in. A pipeline you cannot re-run to the same answer is a pipeline you
-cannot defend.</p>
-<p><strong>Validity rules belong in data, not in code.</strong> &ldquo;Billable&rdquo; will change
-&mdash; two seconds becomes three, viewport thresholds move, a new fraud signal appears. If those
-live in the pipeline source, then last month&rsquo;s numbers cannot be reproduced once the code has
-moved on. Version the rule set, record which version produced each aggregate, and a restatement
-becomes an explicit, explainable event: <em>&ldquo;we recomputed March under ruleset v7; here is
-the difference and here is the credit.&rdquo;</em></p></div>
-</div>
-<div class="design-step tradeoff">
-  <div class="ds-header"><span class="ds-ico">&#9878;</span>7. Trade-off Analysis</div>
-  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Impression identity</strong></td><td class='chosen'>Minted on the TV, stable across retries</td><td class='rej'>Minted on the server at arrival</td><td>Server-minted IDs make retries indistinguishable from genuine impressions. Deduplication becomes impossible, permanently &mdash; this is the one decision with no recovery.</td></tr><tr><td><strong>Billing source</strong></td><td class='chosen'>Batch layer, after close</td><td class='rej'>Streaming counts</td><td>Streaming dedup is bounded by its state window, so a TV returning after days double-counts. Exact dedup needs a full sort, which batch does trivially.</td></tr><tr><td><strong>Aggregate writes</strong></td><td class='chosen'>UPSERT keyed by (campaign, creative, hour, ruleset)</td><td class='rej'>INSERT, or increment</td><td>Replacement makes a re-run idempotent. Incrementing means every job retry inflates the bill &mdash; the exact failure the system exists to prevent.</td></tr><tr><td><strong>Late events</strong></td><td class='chosen'>Adjustment in the next period</td><td class='rej'>Retro-insert, or drop</td><td>Retro-inserting mutates a sent invoice; dropping under-bills silently and cannot be reconciled. An adjustment keeps the ledger immutable and the loss visible.</td></tr><tr><td><strong>Windowing clock</strong></td><td class='chosen'><code>arrival_time</code> (server)</td><td class='rej'><code>event_time</code> (device)</td><td>A TV with a wrong clock would scatter its rows across arbitrary months. Device time is kept for attribution, never for deciding the billing period.</td></tr><tr><td><strong>Validity rules</strong></td><td class='chosen'>Versioned data, an input to the job</td><td class='rej'>Logic inside the pipeline</td><td>Rules change. If they live in code, last month's numbers stop being reproducible the moment the code moves on &mdash; which breaks the audit requirement.</td></tr></tbody></table></div></div>
-</div>
-<div class="design-step fault">
-  <div class="ds-header"><span class="ds-ico">&#128737;</span>8. Fault Tolerance</div>
-  <div class="ds-body"><div class="ft-row"><div class="ft-fail">A TV never receives the 202 and resends the same batch</div><div class="ft-fix">Every event carries the TV-minted <code>impression_id</code>, and the log is partitioned by its hash, so all copies land on the same partition. Batch dedup takes the distinct set. The TV may resend as often as it likes; the count does not move.</div></div><div class="ft-row"><div class="ft-fail">The batch job crashes halfway through an hour</div><div class="ft-fix">Re-run it. Because aggregates are UPSERTed on a natural key, a partial previous run is overwritten rather than added to. Write to a staging table and swap on success if you also want readers never to see a half-computed hour.</div></div><div class="ft-row"><div class="ft-fail">A TV is offline for a week and then uploads everything</div><div class="ft-fix">Its events arrive after the period closed. They are billed in the current period as an adjustment carrying their original event time, so the advertiser is charged for real impressions and no past invoice is rewritten.</div></div><div class="ft-row"><div class="ft-fail">A device clock is wrong by three months</div><div class="ft-fix">Windowing uses <code>arrival_time</code>, so the events bill in the period they actually arrived. <code>event_time</code> is retained but flagged when it deviates implausibly from arrival &mdash; a large skew population is a fraud signal as much as a clock bug.</div></div><div class="ft-row"><div class="ft-fail">A validity bug over-counted last month, after invoicing</div><div class="ft-fix">Do not rewrite the invoice. Re-run the affected partitions under a new ruleset version, compute the delta, and issue a credit row in the ledger that <code>supersedes</code> the original. The lineage endpoint then explains both numbers.</div></div><div class="ft-row"><div class="ft-fail">A compromised device fabricates impressions</div><div class="ft-fix">Device attestation at the collector, plus per-device rate ceilings derived from physical plausibility &mdash; a TV cannot honestly show 10,000 impressions an hour. Anomalies are quarantined into a separate partition and excluded from billing pending review, rather than silently deleted.</div></div></div>
-</div>
-<div class="design-step concl">
-  <div class="ds-header"><span class="ds-ico">&#127937;</span>9. Conclusion &mdash; what I would say in the last three minutes</div>
-  <div class="ds-body"><div class="concl-grid">
+  <div class="ds-header"><span class="ds-ico">&#128269;</span>9. Deep dives, and what breaks</div>
+  <div class="ds-body"><h4>Why validate nothing at ingest</h4>
+
+<p>It feels wrong. Surely rejecting bad data early is better than storing it?</p>
+
+<p>Three reasons it is not, and they compound.</p>
+
+<p><strong>Throughput.</strong> At 250,000 events per second, evaluating rules per event on the write
+path is real CPU on the most availability-critical component in the system. A collector that does
+nothing but authenticate and append is trivially scalable and almost impossible to break.</p>
+
+<p><strong>The rules change.</strong> An event rejected under v7 might be billable under v8. If it was
+rejected at the door it is gone, and the correction above becomes impossible.</p>
+
+<p><strong>Audit.</strong> The requirement is that every invoice be re-derivable from the raw data.
+Filtering at ingest means the raw data is already a filtered view, and &ldquo;why was this not
+billed?&rdquo; has no answer.</p>
+
+<p>So the collector's only job is <em>do not lose anything</em>, and correctness is a property of the
+derived views. That is the same separation as the buffer in <span class="srcref">D11</span>: protect
+ingest above all else, because lost data is the only unrecoverable failure.</p>
+
+<h4>Hashing the partition by impression id</h4>
+
+<p>This looks like an arbitrary partitioning choice and it is what makes exact deduplication affordable.</p>
+
+<p>Every copy of one impression carries the same id, so hashing by that id puts every copy in the same
+partition &mdash; guaranteed, without any coordination. Deduplication is then a local sort within a
+partition, and partitions are processed independently in parallel.</p>
+
+<p>Partition by device id or by campaign instead, and duplicates could land anywhere. Finding them would
+require comparing across every partition, which is a global operation and enormously more expensive.</p>
+
+<p>Same instinct as partitioning the crawler by host in <span class="srcref">D10</span>: <strong>choose
+the partition key so the constraint you must enforce becomes local.</strong></p>
+
+<h4>Detecting fraud, which the rules alone cannot</h4>
+
+<p>The validity rules answer &ldquo;was this a real impression?&rdquo; for a genuine device. They say
+nothing about a device that is lying.</p>
+
+<p>A compromised or emulated TV can report plausible impressions that never happened, at whatever volume
+it likes. Rules-based validation passes them all, because each individual event looks correct.</p>
+
+<p>Detection is statistical rather than per-event. A device reporting impressions at a rate no human
+viewer could produce, reporting perfectly regular intervals, never reporting a paused or skipped ad, or
+appearing from an implausible network, is anomalous <em>in aggregate</em> even though no single event
+is.</p>
+
+<p>Which suggests where it belongs: a separate analysis over the raw log, producing a device
+trustworthiness signal that feeds the rules as an input. Device attestation at ingest raises the bar for
+getting in at all, and neither is complete on its own.</p>
+
+<p>Worth raising unprompted, because an interviewer asking about ad billing is often listening for
+whether you notice that the input is adversarial.</p>
+
+<h4>Reconciling the two layers</h4>
+
+<p>The standard criticism of running a fast path and a slow path is that they drift &mdash; two
+implementations of the same logic, maintained separately, diverging quietly.</p>
+
+<p>The defence is to make the drift <em>visible</em>. For every closed period, compare the provisional
+total the speed layer reported against the final total the batch layer produced. A stable, small gap is
+expected &mdash; late data and approximate deduplication account for it. A growing gap, or a sudden step
+change, is a bug in one of them.</p>
+
+<p>That comparison should be a monitored metric with an alert, not something someone notices during an
+investigation. It is cheap, it directly measures the thing you are worried about, and it turns a silent
+correctness problem into an ordinary operational one.</p>
+
+<h4>What breaks</h4>
+
+<div class="ft-row"><div class="ft-fail">A TV never receives the 202 and resends the same batch</div><div class="ft-fix">Every event carries the TV-minted <code>impression_id</code>, and the log is partitioned by its hash, so all copies land on the same partition. Batch dedup takes the distinct set. The TV may resend as often as it likes; the count does not move.</div></div><div class="ft-row"><div class="ft-fail">The batch job crashes halfway through an hour</div><div class="ft-fix">Re-run it. Because aggregates are UPSERTed on a natural key, a partial previous run is overwritten rather than added to. Write to a staging table and swap on success if you also want readers never to see a half-computed hour.</div></div><div class="ft-row"><div class="ft-fail">A TV is offline for a week and then uploads everything</div><div class="ft-fix">Its events arrive after the period closed. They are billed in the current period as an adjustment carrying their original event time, so the advertiser is charged for real impressions and no past invoice is rewritten.</div></div><div class="ft-row"><div class="ft-fail">A device clock is wrong by three months</div><div class="ft-fix">Windowing uses <code>arrival_time</code>, so the events bill in the period they actually arrived. <code>event_time</code> is retained but flagged when it deviates implausibly from arrival &mdash; a large skew population is a fraud signal as much as a clock bug.</div></div><div class="ft-row"><div class="ft-fail">A validity bug over-counted last month, after invoicing</div><div class="ft-fix">Do not rewrite the invoice. Re-run the affected partitions under a new ruleset version, compute the delta, and issue a credit row in the ledger that <code>supersedes</code> the original. The lineage endpoint then explains both numbers.</div></div><div class="ft-row"><div class="ft-fail">A compromised device fabricates impressions</div><div class="ft-fix">Device attestation at the collector, plus per-device rate ceilings derived from physical plausibility &mdash; a TV cannot honestly show 10,000 impressions an hour. Anomalies are quarantined into a separate partition and excluded from billing pending review, rather than silently deleted.</div></div><div class="concl-grid">
   <div class="cc"><div class="h">The dominant constraint</div><p><strong>Every event is money, and none of them are trustworthy.</strong> Devices duplicate, arrive days late, and lie about the time. So correctness is not attempted on the write path at all &mdash; events are accepted fast into an immutable log, and the billable number is a derived view recomputed from it.</p></div>
   <div class="cc first"><div class="h">What I would build first</div><p>The TV-minted impression ID and the immutable raw archive. Without the first, deduplication is impossible forever; without the second, no invoice can ever be defended.</p></div>
   <div class="cc"><div class="h">What I deliberately did not build</div><p>Real-time billing, and probabilistic deduplication. A Bloom filter at 1% error would silently under-bill by 50 million impressions a day, which is a rounding error to a dashboard and a material misstatement on an invoice.</p></div>
   <div class="cc risk"><div class="h">The biggest risk</div><p>Non-idempotent aggregation. If a re-run adds instead of replaces, every retried job quietly inflates a bill &mdash; and because the numbers still look plausible, nobody notices until an advertiser reconciles.</p></div>
 </div></div>
 </div>
-  </div>
 
 <div class="followup">
   <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
@@ -19136,7 +19994,9 @@ the difference and here is the credit.&rdquo;</em></p></div>
     <div class="fu-a"><p>For a dashboard, yes. For an invoice, no, and the arithmetic is worth stating.</p><p>A filter sized for five billion daily ids at a 1% false-positive rate is around 6 GB. But a false positive means treating a real impression as a duplicate and <em>dropping</em> it &mdash; so 1% error is a 50-million-impression under-bill every day.</p><p>That is a rounding error on a chart and a material misstatement on a bill. Exactness comes free from the batch sort, so there is no reason to accept it.</p></div>
   </details>
 </div>
+  </div>
 </div>
+
 </div>
 
 <div class="content" id="part3-toolkit">

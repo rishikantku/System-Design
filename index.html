@@ -443,6 +443,9 @@ code { font-family: 'JetBrains Mono', monospace; font-size: calc(13px * var(--fs
 .design-step.tradeoff .ds-header { background: #fffde7; color: #f57f17; border-color: #fff59d; }
 .design-step.fault .ds-header { background: #ffebee; color: #b71c1c; border-color: #ffcdd2; }
 .design-step.concl .ds-header { background: #e0f2f1; color: #004d40; border-color: #b2dfdb; }
+.design-step.fr .ds-header { background: #e8f5e9; color: #1b5e20; border-color: #c8e6c9; }
+.design-step.nfr .ds-header { background: #fce4ec; color: #880e4f; border-color: #f8bbd0; }
+.design-step.wflow .ds-header { background: #ede7f6; color: #4527a0; border-color: #d1c4e9; }
 .ds-ico { margin-right: 8px; font-size: calc(13px * var(--fscale, 1)); opacity: .85; }
 .ds-body { padding: 20px; font-size: calc(14.5px * var(--fscale, 1)); line-height: 1.68; }
 
@@ -1173,6 +1176,32 @@ pre, code { overflow-wrap: break-word; word-break: break-word; }
   .drill > summary { flex-wrap: wrap; padding: 13px 14px; }
   .drill .dr-cue { flex-basis: 100%; margin-top: 6px; }
 }
+
+/* Workflow walkthrough — what actually happens, step by step, with names
+   and numbers. The single most readable thing in a design. */
+.wf { background: #fff; border: 1px solid var(--line); border-radius: 11px; padding: 18px 20px; margin: 18px 0; }
+.wf-title { font-size: calc(15px * var(--fscale, 1)); font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+.wf-sub { font-size: calc(13.4px * var(--fscale, 1)); color: var(--muted); margin-bottom: 13px; }
+.wf ol { list-style: none; counter-reset: wf; margin: 0; padding: 0; }
+.wf li {
+  counter-increment: wf; position: relative; padding: 0 0 14px 40px;
+  font-size: calc(14.6px * var(--fscale, 1)); line-height: 1.68; color: var(--soft);
+}
+.wf li::before {
+  content: counter(wf); position: absolute; left: 0; top: 1px;
+  width: 25px; height: 25px; border-radius: 50%;
+  background: var(--bgcool); color: var(--accent);
+  font-size: calc(12px * var(--fscale, 1)); font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+.wf li::after { content: ''; position: absolute; left: 12px; top: 28px; bottom: 0; width: 1px; background: var(--line); }
+.wf li:last-child { padding-bottom: 0; }
+.wf li:last-child::after { display: none; }
+.wf li b { color: var(--ink); font-weight: 700; }
+.wf li code { background: var(--bgwarm); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; font-size: calc(12.6px * var(--fscale, 1)); }
+.wf-out { margin-top: 12px; padding: 10px 14px; border-radius: 8px; background: var(--teal-bg); font-size: calc(14px * var(--fscale, 1)); color: #00695c; line-height: 1.6; }
+.wf.alt { border-left: 4px solid var(--accent3); }
+@media (max-width: 680px) { .wf { padding: 15px 14px; } .wf li { padding-left: 34px; } }
 
 /* The prompt, stated before the design starts. A design that opens on
    "Clarify first" never shows the reader the question being answered. */
@@ -10826,100 +10855,192 @@ the old column in a later, separate rollout.</p></div>
     <h3 class="dc-title"><span id="design-booking">Design a Reservation &amp; Booking System</span> (airline seats, parking bays, tickets &mdash; inventory under contention)</h3>
     <div class="dc-meta">Difficulty: <strong>Hard (Staff Expectation)</strong> &nbsp;.&nbsp; Target: <strong>40 min</strong></div>
   </div>
-  <div class="dc-body"><div class="asked">
+  <div class="dc-body">
+<div class="asked">
   <div class="ak-q"><span class="ak-l">&#128172; The question, as asked</span><p>&ldquo;Design a reservation and payment system &mdash; a parking garage, an airline, a ticket sale. Users hold an item, pay, and confirm.&rdquo;</p></div>
   <div class="ak-h"><span class="ak-l">&#9889; What makes it hard</span><p>One invariant that cannot bend: <strong>a seat is sold at most once</strong>. Plus an external payment call that can time out ambiguously, leaving you unable to tell whether the customer was charged.</p></div>
 </div>
-
 <div class="design-step req">
-  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Requirements</div>
-  <div class="ds-body"><div class="clarify">
-  <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
-  <div class="cq-row"><div class="cq-q">Is overbooking allowed?</div><div class="cq-w">This is the first question and it reframes everything. If overbooking is permitted the invariant is soft and eventual consistency is viable; if a seat may never be double-sold, you need a hard constraint enforced in one place.</div></div><div class="cq-row"><div class="cq-q">How long may a hold last before payment?</div><div class="cq-w">The hold window is the entire concurrency design. A 10-minute hold means inventory is reserved but unpaid, which needs expiry, and expiry is where the bugs live.</div></div><div class="cq-row"><div class="cq-q">Is payment synchronous with booking?</div><div class="cq-w">Third-party payment takes seconds and can fail or time out ambiguously, which is why booking and payment must be separate steps with an idempotency key between them.</div></div><div class="cq-row"><div class="cq-q">What is the contention shape?</div><div class="cq-w">A parking garage is uniform demand on fungible bays. A concert on-sale is 100,000 people contending for the same 50 seats in one second &mdash; a completely different problem needing a queue.</div></div><div class="cq-row"><div class="cq-q">Are units fungible or individually chosen?</div><div class="cq-w">&ldquo;Any bay&rdquo; allows a counter and is trivially scalable. &ldquo;Seat 14A&rdquo; forces per-unit rows and per-unit locking.</div></div>
-  <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
+  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Understanding the question</div>
+  <div class="ds-body"><p>Here is the prompt you get: <em>&ldquo;Design a system where people reserve something
+and pay for it &mdash; a parking bay, an airline seat, a concert ticket.&rdquo;</em></p>
+
+<p>It sounds small. It is not, and the reason is worth saying up front.</p>
+
+<p>Almost every design in this book can be wrong for a second and recover. A stale feed, a late
+metric, a cache that lags &mdash; nobody is harmed. This one is different. If two people are sold
+seat 14A, somebody gets turned away at the gate. You cannot patch that later, and no amount of
+eventual consistency makes it acceptable.</p>
+
+<p>So the whole design is organised around one sentence:</p>
+
+<div class="insight">
+  <div class="label">&#127919; The one rule</div>
+  <p><strong>A seat is sold at most once.</strong> Everything else &mdash; search, caching, the
+  waiting room, the payment flow &mdash; can bend. This cannot.</p>
 </div>
-<p><strong>Functional:</strong></p>
+
+<h4>What the interviewer is actually looking for</h4>
+
+<p>Three things, and only the first is technical.</p>
+
+<p><strong>Do you find the one invariant?</strong> Plenty of candidates spend ten minutes on
+search, caching and sharding before anyone mentions double-selling. The seat is the whole
+problem.</p>
+
+<p><strong>Do you keep it simple?</strong> This is the trap. The instinct is to reach for a
+distributed lock, or two-phase commit, or a consensus service. You do not need any of them, and
+reaching for them is the most common way to fail this question. One database row does the job.</p>
+
+<p><strong>Do you handle the payment timeout?</strong> Payments go through someone else &mdash;
+Stripe, a bank &mdash; and sometimes the call just times out. You do not know whether the card was
+charged. Most candidates never mention it. It is the most interesting part of the problem.</p>
+</div>
+</div>
+<div class="design-step fr">
+  <div class="ds-header"><span class="ds-ico">&#128221;</span>2. Functional requirements</div>
+  <div class="ds-body"><p>What the system has to do. Nothing exotic:</p>
+
 <ul>
-  <li>Search availability for a resource over a time range</li>
-  <li>Hold a specific unit for a bounded window, then confirm with payment or expire</li>
-  <li>Cancel and refund, returning inventory to the pool</li>
-  <li>Never sell the same unit twice &mdash; the one invariant that cannot bend</li>
+  <li><strong>Search availability.</strong> &ldquo;What seats are free on flight BA117 on 3 May?&rdquo;</li>
+  <li><strong>Hold a seat.</strong> Alice picks 14A and gets a few minutes to pay, during which
+  nobody else can take it.</li>
+  <li><strong>Confirm with payment.</strong> The hold becomes a booking once the money clears.</li>
+  <li><strong>Release it.</strong> Either Alice cancels, or her few minutes run out and the seat
+  goes back on sale automatically.</li>
 </ul>
-<p><strong>Non-Functional:</strong></p>
-<ul>
-  <li>Search is read-heavy and may be slightly stale; <strong>booking may not be</strong></li>
-  <li>Survive a flash sale: 100K concurrent attempts on a few hundred units</li>
-  <li>Money and inventory must never diverge, including across a payment timeout</li>
-</ul></div>
-</div>
-<div class="design-step est">
-  <div class="ds-header"><span class="ds-ico">&#128202;</span>2. Capacity Estimation</div>
-  <div class="ds-body"><div class="assume">
-  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
-  <div class="as-row"><div class="as-a">Inventory per resource is small &mdash; hundreds of units</div><div class="as-b">Millions of units per resource would make per-unit rows expensive and push toward counters plus a reconciliation process.</div></div><div class="as-row"><div class="as-a">Reads outnumber writes by roughly 100:1</div><div class="as-b">If writes dominated, caching search results would stop paying and the design would be write-bound.</div></div><div class="as-row"><div class="as-a">A payment provider may take seconds and time out ambiguously</div><div class="as-b">If payment were instant and reliable, the hold-then-confirm state machine could collapse into a single transaction.</div></div>
-</div>
-<p><strong>Assumptions:</strong> 100K search QPS, 2K booking attempts/sec, flash peaks of 100K/sec on one resource.</p><div class="ng"><div class="ng-cell"><div class="ng-val">100K/s</div><div class="ng-desc">search QPS</div></div><div class="ng-cell"><div class="ng-val">~2K/s</div><div class="ng-desc">booking attempts</div></div><div class="ng-cell"><div class="ng-val">100K/s</div><div class="ng-desc">flash-sale peak on one row</div></div><div class="ng-cell"><div class="ng-val">10 min</div><div class="ng-desc">hold window</div></div><div class="ng-cell"><div class="ng-val">~30%</div><div class="ng-desc">holds that expire unpaid</div></div><div class="ng-cell"><div class="ng-val">1</div><div class="ng-desc">rows the invariant lives on</div></div></div><p><strong>The number that decides the design:</strong> in a flash sale, 100,000 requests contend
-for a few hundred units, and every one of them wants to write the same rows. No amount of
-horizontal scaling helps, because <strong>the contention is on the data, not the compute</strong>.
-The only real answers are to serialise access to that inventory &mdash; a queue in front of it
-&mdash; or to shard the inventory itself into independent buckets. Recognising that this is a
-single-row hot-write problem rather than a throughput problem is most of the answer.</p></div>
-</div>
-<div class="design-step api">
-  <div class="ds-header"><span class="ds-ico">&#128268;</span>3. API Design</div>
-  <div class="ds-body"><div class="api-code"><span class="kw">GET</span>    /v1/availability?resource=&amp;from=&amp;to=
-  Response: 200 { units:[{unit_id, state, price}], as_of }
-  <span class="cm">// explicitly stale: as_of tells the client how much to trust it.</span>
-  <span class="cm">// Availability search is a CACHE; it is never the source of truth.</span>
 
-<span class="kw">POST</span>   /v1/holds
-  Headers:  Idempotency-Key: &lt;client uuid&gt;
-  Body:     { resource, unit_id | any, from, to, user_id }
-  Response: 201 { hold_id, unit_id, expires_at }
-            <span class="num">409</span> unit_unavailable        <span class="cm">// the honest, common answer</span>
-  <span class="cm">// The hold is the ONLY place the invariant is enforced.</span>
+<p>The hold is the interesting one. Without it, Alice types her card details for two minutes and
+discovers at the end that the seat went to someone else. With it, we have to track a seat that is
+neither free nor sold, and remember to free it if she wanders off. That in-between state is where
+most of the bugs live.</p>
+</div>
+</div>
+<div class="design-step nfr">
+  <div class="ds-header"><span class="ds-ico">&#9201;</span>3. Non-functional requirements</div>
+  <div class="ds-body"><p>Now: how well does it have to do those things?</p>
 
-<span class="kw">POST</span>   /v1/holds/{id}/confirm
-  Headers:  Idempotency-Key: &lt;same key retried safely&gt;
-  Body:     { payment_token }
-  Response: 200 { booking_id, state:"confirmed" }
-            <span class="num">410</span> hold_expired
-            <span class="num">402</span> payment_failed          <span class="cm">// hold is released immediately</span>
+<div class="tw"><table class="to">
+  <thead><tr><th style="width:26%">Requirement</th><th style="width:20%">Target</th><th style="width:54%">Why this number</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Never double-sell</strong></td><td class="chosen">Absolute</td><td>Not a percentage. Not five nines. Zero. This is the requirement the design exists to satisfy.</td></tr>
+    <tr><td><strong>Search latency</strong></td><td>&lt; 200 ms</td><td>People browse before they buy, so search gets far more traffic than booking. It is allowed to be slightly out of date.</td></tr>
+    <tr><td><strong>Booking latency</strong></td><td>&lt; 1 s</td><td>Slower than search, and that is fine. A booking is a considered action, not a scroll.</td></tr>
+    <tr><td><strong>Survive a rush</strong></td><td>100K at once</td><td>Concert on-sales are the hard case: tens of thousands of people hitting the same few hundred seats in the same second.</td></tr>
+    <tr><td><strong>Money and seats agree</strong></td><td>Always, eventually</td><td>Nobody charged for a seat they did not get. Nobody flying on a seat they did not pay for.</td></tr>
+  </tbody>
+</table></div>
 
-<span class="kw">DELETE</span> /v1/bookings/{id}   -&gt; 200 { refund_id }   <span class="cm">// idempotent</span></div></div>
+<p>Notice the asymmetry in that list. Search can be stale and nobody minds. Booking cannot be wrong
+and everybody minds. That split &mdash; a relaxed read path and a strict write path &mdash; is what
+lets the system scale at all.</p>
+</div>
 </div>
 <div class="design-step schema">
-  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="cm">-- The invariant lives on ONE ROW per unit. Not in application code,</span>
-<span class="cm">-- not in a distributed lock -- in a uniqueness constraint the</span>
-<span class="cm">-- database cannot be talked out of.</span>
-<span class="kw">TABLE</span> units {
-  unit_id     <span class="ty">VARCHAR</span>  <span class="pk">PRIMARY KEY</span>,   <span class="cm">-- e.g. "FL123-2026-04-01-14A"</span>
-  resource_id <span class="ty">VARCHAR</span>,
-  state       <span class="ty">ENUM</span>(available, held, booked),
-  hold_id     <span class="ty">UUID</span>,      <span class="cm">-- NULL unless held</span>
-  hold_expires <span class="ty">TIMESTAMP</span>, <span class="cm">-- NULL unless held</span>
-  version     <span class="ty">BIGINT</span>     <span class="cm">-- optimistic concurrency</span>
+  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Data model and API</div>
+  <div class="ds-body"><p>The data model is where this design is won, so it is worth going slowly.</p>
+
+<p>Here is the key idea: <strong>we put the rule on a single row.</strong> One row per seat. That
+row knows whether the seat is free, held, or sold. Because it lives in one place, the database can
+settle any argument about it on its own, without asking anybody else.</p>
+
+<div class="schema-code"><span class="kw">TABLE</span> seats {
+  seat_id       <span class="ty">VARCHAR</span>  <span class="pk">PRIMARY KEY</span>,   <span class="cm">-- "BA117-2026-05-03-14A"</span>
+  state         <span class="ty">ENUM</span>(available, held, booked),
+  hold_id       <span class="ty">UUID</span>,                  <span class="cm">-- who is holding it, if anyone</span>
+  hold_expires  <span class="ty">TIMESTAMP</span>              <span class="cm">-- and until when</span>
 }
-<span class="cm">-- The claim is a single conditional UPDATE, which is atomic:</span>
-<span class="cm">--   UPDATE units SET state='held', hold_id=?, hold_expires=now()+10min,</span>
-<span class="cm">--     version=version+1</span>
-<span class="cm">--   WHERE unit_id=? AND (state='available'</span>
-<span class="cm">--     OR (state='held' AND hold_expires &lt; now()))   -- lazy expiry</span>
-<span class="cm">-- 0 rows updated => somebody else won. No lock, no coordination.</span>
 
 <span class="kw">TABLE</span> bookings {
-  booking_id <span class="ty">UUID</span> <span class="pk">PRIMARY KEY</span>, unit_id <span class="ty">VARCHAR</span> <span class="pk">UNIQUE</span>,
-  <span class="cm">-- ^ UNIQUE on unit_id is the belt-and-braces: even a bug in the</span>
-  <span class="cm">--   hold logic cannot produce two confirmed bookings for one unit.</span>
-  user_id <span class="ty">UUID</span>, idempotency_key <span class="ty">VARCHAR</span> <span class="pk">UNIQUE</span>,
-  state <span class="ty">ENUM</span>(confirmed, cancelled), payment_ref <span class="ty">TEXT</span>
-}</div></div>
+  booking_id      <span class="ty">UUID</span>     <span class="pk">PRIMARY KEY</span>,
+  seat_id         <span class="ty">VARCHAR</span>  <span class="pk">UNIQUE</span>,        <span class="cm">-- &lt;-- the safety net</span>
+  user_id         <span class="ty">UUID</span>,
+  idempotency_key <span class="ty">VARCHAR</span>  <span class="pk">UNIQUE</span>,        <span class="cm">-- makes retries safe</span>
+  payment_ref     <span class="ty">TEXT</span>
+}</div>
+
+<p>Two things in there are doing real work.</p>
+
+<p>The <code>UNIQUE</code> on <code>bookings.seat_id</code> is a belt-and-braces guarantee. Even if
+every piece of logic above it is buggy, the database physically cannot store two confirmed bookings
+for the same seat. It will reject the second one. That is a nice property to have when the cost of
+being wrong is somebody standing at a gate.</p>
+
+<p>The <code>idempotency_key</code> is how we survive a flaky network. Alice's phone generates a
+random string before it sends anything. If her connection drops and the app retries, the second
+request carries the same key, and we recognise it as the same booking rather than making a new
+one.</p>
+
+<h4>The API</h4>
+
+<div class="api-code"><span class="kw">GET</span>  /v1/availability?flight=BA117&amp;date=2026-05-03
+  &rarr; { seats: [...], as_of: "10:04:12Z" }
+  <span class="cm">// as_of is honest: this might be a few seconds old</span>
+
+<span class="kw">POST</span> /v1/holds
+  Idempotency-Key: req-8f2a
+  { seat_id: "BA117-2026-05-03-14A", user_id: "alice" }
+  &rarr; 201 { hold_id, expires_at: "10:14:00Z" }
+  &rarr; <span class="num">409</span> seat_unavailable        <span class="cm">// somebody beat you. Normal, not an error.</span>
+
+<span class="kw">POST</span> /v1/holds/{id}/confirm
+  Idempotency-Key: req-8f2a          <span class="cm">// same key, safe to retry</span>
+  { payment_token: "tok_..." }
+  &rarr; 200 { booking_id }
+  &rarr; <span class="num">410</span> hold_expired
+  &rarr; <span class="num">402</span> payment_declined</div>
+
+<p>That <code>409</code> is worth a comment. Losing the race for a seat is not a system failure, it
+is Tuesday. The app should show &ldquo;sorry, that one just went&rdquo; and offer another seat, not
+an error screen.</p>
+</div>
+</div>
+<div class="design-step est">
+  <div class="ds-header"><span class="ds-ico">&#128202;</span>5. Capacity estimation</div>
+  <div class="ds-body"><p>Some quick numbers, mostly to show which parts are actually hard.</p>
+
+<div class="assume">
+  <div class="label">&#9878; What I am assuming, and what changes if I am wrong</div>
+  <div class="as-row"><div class="as-a">People browse far more than they book &mdash; roughly 100 searches per booking</div><div class="as-b">If it were 1:1, caching search results would stop being worth it and the whole read path would look different.</div></div>
+  <div class="as-row"><div class="as-a">Each event has hundreds of seats, not millions</div><div class="as-b">Millions of units per event would make one-row-per-unit expensive and push us toward counters.</div></div>
+  <div class="as-row"><div class="as-a">Payment can take seconds and can time out</div><div class="as-b">If payments were instant and reliable, we would not need the hold at all &mdash; one transaction would do.</div></div>
+</div>
+
+<div class="ng"><div class="ng-cell"><div class="ng-val">100K/s</div><div class="ng-desc">availability searches</div></div><div class="ng-cell"><div class="ng-val">~2K/s</div><div class="ng-desc">booking attempts</div></div><div class="ng-cell"><div class="ng-val">100K/s</div><div class="ng-desc">on the same rows in a rush</div></div><div class="ng-cell"><div class="ng-val">10 min</div><div class="ng-desc">hold window</div></div><div class="ng-cell"><div class="ng-val">~30%</div><div class="ng-desc">holds that expire unpaid</div></div><div class="ng-cell"><div class="ng-val">1</div><div class="ng-desc">row the rule lives on</div></div></div>
+
+<p>Look at the third number. In a concert on-sale, 100,000 people want the same few hundred seats
+in the same second. Every one of those requests wants to write the same handful of rows.</p>
+
+<p>This is worth sitting with, because it changes what &ldquo;scaling&rdquo; means here. Adding
+application servers does nothing. A hundred servers all trying to update row
+<code>14A</code> just means a hundred servers queueing behind each other. <strong>The contention is
+on the data, not on the compute.</strong> You cannot scale your way out of it; you can only control
+the rate at which requests reach the row.</p>
+</div>
+</div>
+<div class="design-step tradeoff">
+  <div class="ds-header"><span class="ds-ico">&#9878;</span>6. The key trade-offs</div>
+  <div class="ds-body"><p>Four decisions matter. Here they are, with what I rejected and why.</p>
+
+<div class="tw"><table class="to">
+  <thead><tr><th>Decision</th><th>What I would do &#10003;</th><th>What I would not &#10007;</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td><strong>How to stop double-selling</strong></td><td class="chosen">One conditional <code>UPDATE</code> on the seat row</td><td class="rej">A distributed lock (Redis, ZooKeeper)</td><td>The rule is naturally about one row, and the database already settles races on one row atomically. A lock takes a local problem, makes it distributed, and adds a component that can fail on its own.</td></tr>
+    <tr><td><strong>How holds expire</strong></td><td class="chosen">Check the clock when someone claims</td><td class="rej">A timer per hold</td><td>Millions of timers is a lot of machinery, and a timer that fails to fire silently locks up a seat forever. Checking on claim cannot be missed.</td></tr>
+    <tr><td><strong>Payment timeout</strong></td><td class="chosen">Do nothing; let the hold lapse</td><td class="rej">Guess either way</td><td>Guess &ldquo;paid&rdquo; and you give away a seat for free. Guess &ldquo;not paid&rdquo; and you charge someone for nothing. Doing nothing is genuinely the right move.</td></tr>
+    <tr><td><strong>Concert rush</strong></td><td class="chosen">A waiting room in front</td><td class="rej">More servers</td><td>More servers make the pile-up on the row worse, not better. A queue turns 100,000 simultaneous writers into a rate the database can actually absorb.</td></tr>
+  </tbody>
+</table></div>
+
+<p>If you take one thing from this design, take the first row. The instinct when you hear
+&ldquo;two people must not get the same thing&rdquo; is to reach for a lock. You almost never need
+one. Ask instead: <em>can I put this rule on a single row?</em> If the answer is yes, the problem
+stops being a distributed systems problem.</p>
+</div>
 </div>
 <div class="design-step arch">
-  <div class="ds-header"><span class="ds-ico">&#127959;</span>5. High-Level Architecture</div>
-  <div class="ds-body">
-<div class="anim" id="anim-booking">
+  <div class="ds-header"><span class="ds-ico">&#127959;</span>7. High-level design</div>
+  <div class="ds-body"><div class="anim" id="anim-booking">
   <div class="an-head">
     <div class="an-title">Hold, pay, confirm &mdash; and the timeout where doing nothing is correct</div>
     <div class="an-btns">
@@ -10955,92 +11076,159 @@ single-row hot-write problem rather than a throughput problem is most of the ans
   <div class="an-cap ok-only"><strong>What is moving:</strong> the request takes a <em>hold</em> via a single conditional UPDATE on one row &mdash; that one statement settles every race atomically &mdash; then calls the payment provider with an idempotency key, and only confirms once payment succeeds.</div>
   <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> the payment call times out. You do not know whether the card was charged (<span class="srcref">Ch 1</span>). Confirming risks giving away a seat nobody paid for; releasing risks charging someone who gets nothing. <strong>The correct action is to do neither</strong> &mdash; leave the hold to expire and reconcile against the provider afterwards. If the charge did land, refund it: a refund is recoverable, a double-sold seat is not.</div>
 </div>
-<div class="flow">  <span class="fl-key">SEARCH PATH</span>  (read-heavy, may be stale)
-    client -&gt; CDN/cache -&gt; availability read replica
-    <span class="fl-dim">stale by seconds; the 409 on hold is what corrects it</span>
+<p>Now the picture. There are two paths through this system and they have completely
+different jobs.</p>
 
-  <span class="fl-key">BOOKING PATH</span>  (must be correct)
-    client
-      |  Idempotency-Key
+<div class="flow">  <span class="fl-key">THE BROWSING PATH</span>   fast, cached, allowed to be slightly wrong
+
+    Alice &rarr; CDN &rarr; availability service &rarr; read replica
+                       <span class="fl-dim">a few seconds stale, and that is fine</span>
+
+
+  <span class="fl-key">THE BOOKING PATH</span>   slower, exact, allowed to say no
+
+    Alice
+      |  Idempotency-Key: req-8f2a
       v
-    <span class="fl-hi">HOLD SERVICE</span>  ---- conditional UPDATE on ONE row ----&gt; <span class="fl-hi">PRIMARY DB</span>
-      |                <span class="fl-note">0 rows = lost the race = 409. No distributed lock,</span>
-      |                <span class="fl-note">no consensus, no coordination. The constraint is local.</span>
+    <span class="fl-hi">HOLD SERVICE</span>
+      |
+      |   one conditional UPDATE, on one row
       v
-    hold granted, expires in 10 min
+    <span class="fl-hi">PRIMARY DATABASE</span>   <span class="fl-note">1 row changed = you win. 0 rows changed = someone else did.</span>
       |
       v
-    <span class="fl-key">PAYMENT</span> (external, slow, can time out ambiguously)
-      |  success -&gt; confirm: state=booked + insert booking row
-      |  failure -&gt; release hold immediately
-      |  <span class="fl-bad">TIMEOUT -&gt; do nothing; let the hold expire</span>
-      |            <span class="fl-note">never guess. Reconcile against the provider later.</span>
+    hold granted, 10 minutes on the clock
+      |
       v
-    <span class="fl-key">EXPIRY</span>  lazy (checked on the next claim) + a sweeper for cleanliness
-           <span class="fl-note">Lazy expiry is what makes this correct without a timer per hold.</span>
+    <span class="fl-key">PAYMENT</span>   <span class="fl-dim">someone else's system. Slow. Can time out.</span>
+      |
+      |  paid      &rarr; confirm: seat becomes booked
+      |  declined  &rarr; release the seat now
+      |  <span class="fl-bad">timed out  &rarr; do nothing. Let the hold lapse.</span>
+      v
+    <span class="fl-key">RECONCILE</span> later against the payment provider's records
 
-  <span class="fl-bad">FLASH SALE</span> -&gt; virtual waiting room in front, admitting N/sec
-                <span class="fl-dim">the queue converts 100K concurrent writers into a rate</span></div>
-<div class="flow-cap">Search is a cache and may lie; the hold is the only place truth is decided. That
-separation is what lets the read path scale without endangering the invariant.</div></div>
+
+  <span class="fl-bad">DURING A RUSH</span>   a waiting room admits N people per second
+                 <span class="fl-note">so the database sees a steady rate instead of a wall</span></div>
+<div class="flow-cap">Search is a cache and is allowed to lie. The hold is the only place where truth is
+decided. Keeping those two apart is what lets the read path scale without putting the one rule at
+risk.</div>
+</div>
+</div>
+<div class="design-step wflow">
+  <div class="ds-header"><span class="ds-ico">&#128260;</span>8. Workflows &mdash; what actually happens</div>
+  <div class="ds-body"><p>This is the part that usually gets skipped, and it is the part that makes a design
+click. Let us walk through what actually happens, with real people and real times.</p>
+
+<div class="wf">
+  <div class="wf-title">Alice books seat 14A</div>
+  <div class="wf-sub">The ordinary case. Nothing goes wrong.</div>
+  <ol>
+    <li><b>10:04:00</b> &mdash; Alice searches for seats. She gets a list from a read replica. It is about four seconds out of date, and the response says so.</li>
+    <li><b>10:04:09</b> &mdash; She taps <b>14A</b>. Her app makes up a random string, <code>req-8f2a</code>, and sends it with the request. That string is how we will recognise a retry later.</li>
+    <li>The hold service runs <b>one statement</b>: set seat 14A to <i>held</i>, <b>but only if it is currently available</b>. The database reports <b>1 row changed</b>. Alice has it.</li>
+    <li>She gets back a hold that expires at <b>10:14:00</b>. The app starts a countdown.</li>
+    <li><b>10:06:30</b> &mdash; She enters her card. We call the payment provider, passing <code>req-8f2a</code> along so that they can spot a duplicate too.</li>
+    <li>Payment succeeds. In <b>one transaction</b> we set the seat to <i>booked</i> and insert the booking row. Both happen or neither does.</li>
+  </ol>
+  <div class="wf-out">Alice has seat 14A. It took about two and a half minutes, and the seat was locked to her for all of it.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">Alice and Bob both want 14A, at the same instant</div>
+  <div class="wf-sub">The race. This is the one the whole design is built for.</div>
+  <ol>
+    <li><b>10:04:09.000</b> &mdash; Both tap <b>14A</b>. Both saw it as free, because both were looking at a slightly stale list.</li>
+    <li>Two requests arrive, possibly at two different servers, possibly in the same millisecond. Neither server knows about the other.</li>
+    <li>Both run the same statement: <i>set 14A to held, only if it is available.</i></li>
+    <li>The database processes them one at a time, because that is what databases do to a single row. <b>Alice's runs first</b> and changes 1 row.</li>
+    <li><b>Bob's runs second.</b> By now the seat is no longer <i>available</i>, so his condition does not match. The database changes <b>0 rows</b>.</li>
+    <li>Bob's server sees &ldquo;0 rows changed&rdquo;, and that is the whole answer. It returns <b>409</b>, and the app says <i>&ldquo;sorry, 14A just went &mdash; how about 14B?&rdquo;</i></li>
+  </ol>
+  <div class="wf-out">One seat, one owner. No lock, no coordination, no extra services. The database did it in the ordinary course of doing its job.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">The payment times out</div>
+  <div class="wf-sub">The hard one. We genuinely do not know what happened.</div>
+  <ol>
+    <li><b>10:06:30</b> &mdash; Alice's hold is good until 10:14. We send the charge to the payment provider.</li>
+    <li><b>10:06:55</b> &mdash; Twenty-five seconds pass and we hear nothing. The call times out.</li>
+    <li>Here is the problem. A timeout tells us the <b>reply</b> never arrived. It tells us nothing about whether the <b>charge</b> happened. Maybe her card was charged and the response was lost. Maybe it never reached them at all. From here, those look identical.</li>
+    <li>If we confirm the booking, we might be giving away a seat nobody paid for.</li>
+    <li>If we release the seat, we might have charged Alice for nothing.</li>
+    <li><b>So we do neither.</b> We leave the hold exactly as it is and let it expire at 10:14. The seat goes back on sale on its own.</li>
+    <li>Separately, a job compares our records against the provider's. If the charge did land, we refund it.</li>
+  </ol>
+  <div class="wf-out">A refund is an annoyance. A double-sold seat is somebody standing at a gate with a valid ticket and no seat. When you cannot tell which happened, choose the mistake you can undo.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">Alice wanders off</div>
+  <div class="wf-sub">Where the lazy expiry idea pays for itself.</div>
+  <ol>
+    <li><b>10:04:09</b> &mdash; Alice takes the hold, then closes her laptop. Nothing tells us she has gone.</li>
+    <li><b>10:14:00</b> &mdash; The hold expires. Notice that <b>nothing runs</b> at this moment. No timer fires. No job wakes up.</li>
+    <li><b>10:21:00</b> &mdash; Bob tries for 14A. His statement says: <i>set to held if the seat is available <b>or</b> it is held and that hold has expired.</i></li>
+    <li>The seat is held, but by an expired hold. The condition matches. <b>1 row changed.</b> Bob gets the seat.</li>
+  </ol>
+  <div class="wf-out">Expiry cost nothing and cannot be forgotten. There is a background job tidying up old rows, but only so the dashboards look right &mdash; if it stopped running tomorrow, nothing would break.</div>
+</div>
+</div>
 </div>
 <div class="design-step deep">
-  <div class="ds-header"><span class="ds-ico">&#128269;</span>6. Component Deep Dives</div>
-  <div class="ds-body"><p><strong>Put the invariant on one row and the problem stops being distributed.</strong>
-&ldquo;This seat is sold at most once&rdquo; is a uniqueness constraint. If the row for that seat
-lives in one place, a single conditional <code>UPDATE ... WHERE state = 'available'</code> settles
-every race atomically: exactly one writer sees one row affected, everyone else sees zero and gets a
-409. No distributed lock, no consensus, no two-phase commit. This is the guide&rsquo;s recurring
-spine &mdash; <em>make the constraint local instead of coordinating</em> &mdash; and it is the same
-move as partitioning by conversation in <a class="qlink" href="#design-whatsapp">D4</a> and by host
-in <a class="qlink" href="#design-crawler">D10</a>. Candidates who reach for Redis locks or 2PC
-here have made a local problem distributed for no reason.</p>
-<p><strong>Lazy expiry beats a timer.</strong> The tempting design gives every hold a scheduled job
-to release it. That is millions of timers, and a missed timer silently strands inventory. Instead,
-make expiry a <em>predicate in the claim itself</em>: a unit is claimable if it is available
-<em>or</em> if it is held and the hold has expired. Now expiry costs nothing, cannot be missed, and
-is correct even if every background sweeper is down. Keep a sweeper anyway, but only to keep
-dashboards honest &mdash; correctness must not depend on it.</p>
-<p><strong>An ambiguous payment timeout is the hard case, and the answer is to do nothing.</strong>
-When the payment provider times out you do not know whether the charge happened
-(<a class="qlink" href="#ch1">Ch 1</a>). Confirming risks giving away a seat that was never paid
-for; releasing risks charging someone who gets nothing. The correct behaviour is to leave the hold
-alone and let it expire, then reconcile against the provider&rsquo;s record of truth
-asynchronously. If the charge did land, refund it &mdash; a refund is a recoverable business
-outcome, whereas a double-sold seat is not. <strong>Idempotency keys on both hold and confirm</strong>
-mean the client can retry the whole flow safely without creating a second booking.</p>
-<p><strong>A flash sale is a rate problem wearing a concurrency costume.</strong> 100,000 people
-hitting the same few hundred rows will convoy on the database regardless of how many application
-servers you run. The fix is a virtual waiting room: admit users at a rate the inventory can absorb,
-give them a queue position so the experience is honest, and let the rest wait. This trades a worse
-experience for a system that stays up &mdash; and it is far better than everyone getting a timeout.
-The alternative, sharding inventory into buckets, works when units are fungible (any parking bay)
-and fails when they are not (seat 14A exists in exactly one place).</p>
-<p><strong>Search may lie, and that is fine.</strong> Availability is read at 100K QPS and cached;
-it will show seats that were taken a second ago. The 409 on hold is the correction, and the UI must
-treat it as a normal outcome rather than an error. Trying to make search strongly consistent would
-put every read on the primary and destroy the read path for no correctness gain, because the seat
-can be taken between the response and the click anyway.</p></div>
+  <div class="ds-header"><span class="ds-ico">&#128269;</span>9. Deep dives, and what breaks</div>
+  <div class="ds-body"><h4>Why one row is enough</h4>
+
+<p>The thing that makes this work is not clever. It is that a database updating a single row does
+so one writer at a time. That is not a feature we asked for, it is how they work.</p>
+
+<p>So when two requests race, we do not need to arrange who goes first. We ask the database to
+change the row <em>only if it still looks the way we expect</em>, and then we look at how many rows
+changed. One means we won. Zero means somebody else did. There is no third answer, and no
+ambiguity to resolve.</p>
+
+<p>Compare that to the alternative. A distributed lock needs a separate service. That service can
+be unreachable. Its leases can expire while you are in the middle of something, so now you need
+fencing tokens. It can be slow, so now you need timeouts. You have added a whole component and
+several failure modes to solve a problem the database was already solving.</p>
+
+<p>This is the most useful habit in system design, and it comes up constantly: <strong>before you
+coordinate, check whether you can rearrange the problem so that coordination is not needed.</strong>
+Put the rule on one row, one shard, one owner. You will see the same move in
+<a class="qlink" href="#design-whatsapp">D4</a>, where messages are partitioned by conversation, and
+in <a class="qlink" href="#design-crawler">D10</a>, where the crawler is partitioned by host.</p>
+
+<h4>The concert rush</h4>
+
+<p>A hundred thousand people, a few hundred seats, one second. More application servers will not
+help &mdash; they will all end up queueing for the same rows, and everybody gets a timeout instead
+of an answer.</p>
+
+<p>The fix is a waiting room. Let people in at a rate the database can handle, show everyone else
+their place in the queue, and be honest about the wait. It is a worse experience than instant
+access. It is a much better experience than the site falling over, which is the actual alternative.</p>
+
+<h4>What breaks, and what happens</h4>
+
+<div class="ft-row"><div class="ft-fail">Two people claim the same seat</div><div class="ft-fix">The conditional update settles it: one gets 1 row changed, the other gets 0 and a clean 409. The <code>UNIQUE</code> constraint on bookings is a second line of defence in case the hold logic ever has a bug.</div></div>
+<div class="ft-row"><div class="ft-fail">Alice's phone retries after a dropped connection</div><div class="ft-fix">The idempotency key means the retry returns her original booking instead of making a second one. Without it, a bad signal gives one person two seats and two charges.</div></div>
+<div class="ft-row"><div class="ft-fail">The payment provider is down</div><div class="ft-fix">Holds are granted but cannot be confirmed, so they expire and the seats come back automatically. &ldquo;You cannot buy right now&rdquo; is acceptable. Losing inventory is not.</div></div>
+<div class="ft-row"><div class="ft-fail">The database fails over mid-hold</div><div class="ft-fix">Holds are ordinary rows, so they survive. In-flight requests fail and the app retries with the same key. Nothing is stranded, because expiry is a condition rather than a scheduled job.</div></div>
+<div class="ft-row"><div class="ft-fail">The cleanup job stops running</div><div class="ft-fix">Nothing breaks. Expired holds are already treated as claimable by the claim itself. The job only tidies rows so reports are accurate.</div></div>
+
+<div class="concl-grid">
+  <div class="cc"><div class="h">If you remember one thing</div><p>A seat is sold at most once, and that rule lives on <strong>a single database row</strong>. One conditional update settles every race, with no lock and no coordination.</p></div>
+  <div class="cc first"><div class="h">What I would build first</div><p>The hold, with expiry checked on claim and idempotency keys on both steps. That is the correctness core. Search, caching and the waiting room all sit on top of it.</p></div>
+  <div class="cc"><div class="h">What I would leave out</div><p>Distributed locks, and strongly consistent search. Both are the instinctive answers, and both add cost and failure modes without buying any correctness.</p></div>
+  <div class="cc risk"><div class="h">The thing that will bite you</div><p>The ambiguous payment timeout. It is rare, it is the one case where doing nothing is right, and it is where real systems quietly double-sell or charge for seats nobody got.</p></div>
 </div>
-<div class="design-step tradeoff">
-  <div class="ds-header"><span class="ds-ico">&#9878;</span>7. Trade-off Analysis</div>
-  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Concurrency control</strong></td><td class='chosen'>Conditional UPDATE on one row</td><td class='rej'>Distributed lock / 2PC</td><td>The invariant is naturally local to one row. Introducing a distributed lock adds a failure domain and a liveness problem to solve something the database already does atomically.</td></tr><tr><td><strong>Hold expiry</strong></td><td class='chosen'>Lazy, as a predicate in the claim</td><td class='rej'>A timer per hold</td><td>Millions of timers, and a missed one strands inventory silently. A predicate cannot be missed and costs nothing.</td></tr><tr><td><strong>Payment timeout</strong></td><td class='chosen'>Do nothing; let the hold expire, reconcile</td><td class='rej'>Assume success or failure</td><td>Guessing either way produces a double-sold seat or a charge with nothing behind it. A later refund is recoverable; a double sale is not.</td></tr><tr><td><strong>Search consistency</strong></td><td class='chosen'>Stale cache, 409 on conflict</td><td class='rej'>Strongly consistent availability</td><td>Strong consistency puts 100K QPS on the primary and still cannot stop the seat being taken between render and click.</td></tr><tr><td><strong>Flash sale</strong></td><td class='chosen'>Virtual waiting room</td><td class='rej'>Scale application servers</td><td>Contention is on rows, not CPU. More servers convoy harder on the same rows; a queue converts concurrency into a rate the inventory can absorb.</td></tr></tbody></table></div></div>
 </div>
-<div class="design-step fault">
-  <div class="ds-header"><span class="ds-ico">&#128737;</span>8. Fault Tolerance</div>
-  <div class="ds-body"><div class="ft-row"><div class="ft-fail">Two users claim the same unit simultaneously</div><div class="ft-fix">The conditional UPDATE settles it atomically &mdash; one row affected, one 409. The UNIQUE constraint on bookings.unit_id is the second line of defence in case the hold logic is ever wrong.</div></div><div class="ft-row"><div class="ft-fail">Client retries a booking after a network timeout</div><div class="ft-fix">The idempotency key returns the original booking rather than creating a second one. Without it, a retry on an ambiguous response is how one user ends up with two seats and two charges.</div></div><div class="ft-row"><div class="ft-fail">Payment provider is down</div><div class="ft-fix">Holds are granted but cannot confirm, so they expire and inventory returns automatically. Degrading to &ldquo;cannot complete purchase&rdquo; is acceptable; losing inventory is not.</div></div><div class="ft-row"><div class="ft-fail">Primary database failover mid-hold</div><div class="ft-fix">Holds are durable rows, so they survive. In-flight claims fail and clients retry with the same idempotency key. Nothing is stranded because expiry is lazy rather than scheduled.</div></div><div class="ft-row"><div class="ft-fail">Expiry sweeper stops running</div><div class="ft-fix">Nothing breaks: the claim predicate already treats an expired hold as claimable. The sweeper only tidies rows so dashboards are accurate &mdash; correctness never depended on it.</div></div></div>
-</div>
-<div class="design-step concl">
-  <div class="ds-header"><span class="ds-ico">&#127937;</span>9. Conclusion &mdash; what I would say in the last three minutes</div>
-  <div class="ds-body"><div class="concl-grid">
-  <div class="cc"><div class="h">The dominant constraint</div><p><strong>The one invariant that cannot bend is &ldquo;sold at most once&rdquo;.</strong> Every decision follows from putting that invariant on a single row, where a conditional UPDATE settles all races atomically and no distributed coordination is required.</p></div>
-  <div class="cc first"><div class="h">What I would build first</div><p>The hold state machine with lazy expiry and idempotency keys on both steps. That is the correctness core; search, caching and the waiting room are all optimisations layered on top.</p></div>
-  <div class="cc"><div class="h">What I deliberately did not build</div><p>Distributed locking, and strongly consistent availability search. Both are the instinctive answers and both add cost and failure modes without buying correctness.</p></div>
-  <div class="cc risk"><div class="h">The biggest risk</div><p>The ambiguous payment timeout. It is rare, it is the one case where doing nothing is right, and it is where systems quietly double-sell inventory or charge for seats nobody received.</p></div>
-</div></div>
 </div>
   </div>
 </div>
+
 <div class="design-card">
   <div class="dc-header">
     <h3 class="dc-title"><span id="design-collab">Design Collaborative Editing</span> (Google Docs, and the same engine for a shared canvas or photo editor)</h3>

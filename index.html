@@ -7265,64 +7265,83 @@ much.</p>
     <h3 class="dc-title"><span id="design-url">Design a URL Shortener (TinyURL / bit.ly)</span></h3>
     <div class="dc-meta">Difficulty: <strong>Medium</strong> &nbsp;.&nbsp; Target: <strong>45 min</strong></div>
   </div>
-  <div class="dc-body"><div class="asked">
+  <div class="dc-body">
+<div class="asked">
   <div class="ak-q"><span class="ak-l">&#128172; The question, as asked</span><p>&ldquo;Design a URL shortener like TinyURL or bit.ly. Users paste a long URL and get a short one back; anyone who visits the short link is redirected. Some customers want custom aliases and click analytics.&rdquo;</p></div>
   <div class="ak-h"><span class="ak-l">&#9889; What makes it hard</span><p>It looks trivial and is really a <strong>read-amplification</strong> problem &mdash; roughly 100 reads per write. The interesting decisions are how short codes are generated without coordination, and whether you can afford a 301 (fast, cacheable, invisible to analytics) or need a 302 (every hit reaches you).</p></div>
 </div>
 <div class="design-step req">
-  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Requirements</div>
-  <div class="ds-body"><div class="clarify">
+  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Understanding the question</div>
+  <div class="ds-body"><p>The prompt is usually one line: <em>&ldquo;Design a URL shortener like bit.ly.&rdquo;</em>
+Paste a long link, get a short one, and anyone who visits the short one ends up at the long one.</p>
+
+<p>It is the classic opener, and it is deceptive. The functionality takes about five minutes to
+describe. What the interviewer is actually watching is whether you notice the shape of the
+traffic.</p>
+
+<p>Because here is the thing about a link shortener: <strong>nobody shortens a link a hundred
+times. They shorten it once and it gets clicked a hundred thousand times.</strong> Writes are rare
+and reads are enormous, and that ratio decides every interesting choice in the design.</p>
+
+<div class="insight">
+  <div class="label">&#127919; The shape of the problem</div>
+  <p>Roughly 100 reads for every write. This is not a database problem; it is a <strong>caching and
+  redirect problem</strong> with a small database attached.</p>
+</div>
+
+<h4>What they are looking for</h4>
+
+<p><strong>Do you see the read:write ratio and act on it?</strong> If you spend the whole session
+on the write path, you have designed for 1% of the traffic.</p>
+
+<p><strong>How do you generate the short code?</strong> This is the one genuinely interesting
+technical choice, and there are three reasonable answers with different trade-offs. Having an
+opinion here, and knowing why, is most of the signal.</p>
+
+<p><strong>Do you know what a 301 costs you?</strong> Most people reach for a permanent redirect
+because it is faster. It is, and it also means you never see the click. If the customer wants
+analytics, you cannot have both.</p>
+<div class="clarify">
   <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
   <div class="cq-row"><div class="cq-q">What is the read-to-write ratio?</div><div class="cq-w">At 100:1 or higher this stops being a database problem and becomes a <strong>caching and CDN problem</strong> &mdash; which changes the entire design.</div></div><div class="cq-row"><div class="cq-q">Are custom aliases allowed?</div><div class="cq-w">A yes introduces a global <strong>uniqueness constraint</strong> and a collision path that a pure counter design does not have.</div></div><div class="cq-row"><div class="cq-q">Do links expire?</div><div class="cq-w">Decides whether you need TTL, garbage collection, and whether short codes can be safely reused.</div></div><div class="cq-row"><div class="cq-q">Do we need per-click analytics?</div><div class="cq-w">This is what forces <strong>302 over 301</strong>. A 301 lets browsers and the CDN absorb the redirect and you never see the hit.</div></div><div class="cq-row"><div class="cq-q">Is it acceptable for codes to be guessable?</div><div class="cq-w">A sequential counter in base62 leaks your creation volume and lets anyone enumerate every link ever made.</div></div>
   <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
 </div>
-
-<p><strong>Functional Requirements:</strong></p>
-<ul>
-  <li>Given a long URL, generate a unique 7-character short code</li>
-  <li>Redirect <code>short.ly/abc1234</code> -> original long URL (HTTP redirect)</li>
-  <li>Optional custom alias: user picks their own short code</li>
-  <li>Optional TTL: URLs expire after N days</li>
-  <li>Analytics: click count, referrer, geography (optional stretch)</li>
-</ul>
-<p><strong>Non-Functional Requirements:</strong></p>
-<ul>
-  <li><strong>Availability:</strong> 99.99% (52 min/yr downtime max)</li>
-  <li><strong>Redirect latency:</strong> p99 &lt; 20ms globally</li>
-  <li><strong>Write latency:</strong> p99 &lt; 200ms (less critical)</li>
-  <li><strong>Scale:</strong> 100M new URLs/day, 10B redirects/day</li>
-  <li><strong>Read/Write ratio:</strong> 100:1</li>
-</ul></div>
-</div><div class="design-step est">
-  <div class="ds-header"><span class="ds-ico">&#128202;</span>2. Capacity Estimation</div>
-  <div class="ds-body"><div class="assume">
-  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
-  <div class="as-row"><div class="as-a">100M new URLs/day, 10B redirects/day</div><div class="as-b">If the ratio were closer to 1:1 the CDN and cache tier stop paying for themselves and this becomes a write-throughput design.</div></div><div class="as-row"><div class="as-a">Short codes are 7 characters, base62</div><div class="as-b">62^7 is ~3.5 trillion. At 100M/day that is ~95 years of headroom; at 10B/day it is under a year and the code length must grow.</div></div><div class="as-row"><div class="as-a">Links are effectively permanent</div><div class="as-b">If most links expired in 30 days, storage would plateau and a TTL sweep becomes a required component rather than an optional one.</div></div>
 </div>
-<p><strong>Assumptions:</strong> 100M new URLs/day, 10B redirects/day</p>
-<div class="ng"><div class="ng-cell"><div class="ng-val">~1,200</div><div class="ng-desc">write QPS avg</div></div><div class="ng-cell"><div class="ng-val">~3,600</div><div class="ng-desc">write QPS peak (3x)</div></div><div class="ng-cell"><div class="ng-val">~116K</div><div class="ng-desc">read QPS avg</div></div><div class="ng-cell"><div class="ng-val">~350K</div><div class="ng-desc">read QPS peak</div></div><div class="ng-cell"><div class="ng-val">~50 GB</div><div class="ng-desc">storage/day</div></div><div class="ng-cell"><div class="ng-val">~18 TB</div><div class="ng-desc">storage/year</div></div></div>
-<p><strong>Bandwidth:</strong> 350K read QPS x 500B = 175 MB/s. CDN absorbs ~95% -> 8.75 MB/s hits origin.</p>
-<p><strong>Servers:</strong> 350K x 5% origin = 17.5K origin reads/sec / 50K QPS/server = 1 read server (CDN does the work). Write path: 3,600 QPS / 1,000 QPS/server = 4 write servers.</p></div>
-</div><div class="design-step api">
-  <div class="ds-header"><span class="ds-ico">&#128268;</span>3. API Design</div>
-  <div class="ds-body"><div class="api-code"><span class="kw">POST</span>   /api/v1/urls
-  Body:     { long_url, alias?, ttl_days? }
-  Response: 201 { short_code, short_url, expires_at? }
-  Errors:   400 (bad URL), 409 (alias taken)
-
-<span class="kw">GET</span>    /{short_code}
-  Response: <span class="num">301</span> Location: {long_url}   (permanent, CDN-cacheable)
-            <span class="num">302</span> Location: {long_url}   (if analytics tracking needed)
-  Errors:   404 (not found), 410 (expired)
-
-<span class="kw">GET</span>    /api/v1/urls/{short_code}/stats
-  Response: { clicks, top_countries, referrers, created_at }
-
-<span class="kw">DELETE</span> /api/v1/urls/{short_code}
-  Response: 204 (idempotent -- safe to retry)</div></div>
-</div><div class="design-step schema">
-  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="cm">-- Primary store (DynamoDB -- key-value, high read throughput)</span>
+</div>
+<div class="design-step fr">
+  <div class="ds-header"><span class="ds-ico">&#128221;</span>2. Functional requirements</div>
+  <div class="ds-body"><p>Small list. That is fine, and worth saying so rather than padding it.</p>
+<ul>
+  <li><strong>Shorten.</strong> Give me a long URL, get back a short one.</li>
+  <li><strong>Redirect.</strong> Visit the short one, land on the long one.</li>
+  <li><strong>Custom aliases</strong>, optionally. A customer wants <code>/black-friday</code> rather than <code>/a7Kd2p</code>.</li>
+  <li><strong>Expiry</strong>, optionally. Some links should stop working after a date.</li>
+  <li><strong>Click analytics</strong>, optionally. How many clicks, from where.</li>
+</ul>
+<p>The three optional ones each pull the design in a different direction, which is why they are
+worth surfacing early rather than discovering at minute thirty. Custom aliases introduce a
+uniqueness problem the generated codes do not have. Analytics rules out the fastest redirect.</p></div>
+</div>
+<div class="design-step nfr">
+  <div class="ds-header"><span class="ds-ico">&#9201;</span>3. Non-functional requirements</div>
+  <div class="ds-body"><p>These matter much more than the feature list.</p>
+<div class="tw"><table class="to">
+<thead><tr><th style="width:26%">Requirement</th><th style="width:20%">Target</th><th style="width:54%">Why</th></tr></thead>
+<tbody>
+<tr><td><strong>Redirect latency</strong></td><td class="chosen">&lt; 50 ms</td><td>This sits between a click and a page load. Every millisecond here is added to somebody else's site being slow.</td></tr>
+<tr><td><strong>Availability</strong></td><td>Very high</td><td>A broken shortener does not degrade gracefully. Every link anyone ever shared is dead at once, including in printed material.</td></tr>
+<tr><td><strong>Shorten latency</strong></td><td>&lt; 500 ms</td><td>Nobody minds waiting half a second once. Compare that to the redirect budget.</td></tr>
+<tr><td><strong>Durability</strong></td><td>Absolute</td><td>Losing a mapping means a link on a billboard now goes nowhere and there is no way to recover it.</td></tr>
+<tr><td><strong>Codes not guessable</strong></td><td>Depends</td><td>If links are public that is fine. If they are shared privately, a sequential counter lets anyone walk the whole space.</td></tr>
+</tbody></table></div>
+<p>Notice availability is the unusual one. Most systems degrade: slower, staler, fewer features. A
+shortener does not. It works or every link in the world that points through you is broken.</p></div>
+</div>
+<div class="design-step schema">
+  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Data model and API</div>
+  <div class="ds-body"><p>The data model is almost trivially small, and that is worth noticing. One row per
+link, keyed by the short code.</p>
+<div class="schema-code"><span class="cm">-- Primary store (DynamoDB -- key-value, high read throughput)</span>
 <span class="kw">TABLE</span> urls {
   short_code   <span class="ty">VARCHAR(10)</span>   <span class="pk">PARTITION KEY</span>,
   long_url     <span class="ty">TEXT</span>,              <span class="cm">-- up to 2KB</span>
@@ -7342,11 +7361,61 @@ much.</p>
 }
 
 <span class="cm">-- Click counter (Redis, async flush to DynamoDB every 60s)</span>
-<span class="kw">KEY</span> click_count:{short_code}  ->  <span class="ty">INTEGER</span></div></div>
-</div><div class="design-step arch">
-  <div class="ds-header"><span class="ds-ico">&#127959;</span>5. High-Level Architecture</div>
-  <div class="ds-body">
-<div class="anim" id="anim-url">
+<span class="kw">KEY</span> click_count:{short_code}  ->  <span class="ty">INTEGER</span></div>
+<p>There is no relational structure here at all. We look up by short code and nothing else, which
+is why a key-value store fits so naturally: no joins, no secondary access patterns, and a workload
+that is 99% point reads.</p>
+<h4>The API</h4>
+<div class="api-code"><span class="kw">POST</span>   /api/v1/urls
+  Body:     { long_url, alias?, ttl_days? }
+  Response: 201 { short_code, short_url, expires_at? }
+  Errors:   400 (bad URL), 409 (alias taken)
+
+<span class="kw">GET</span>    /{short_code}
+  Response: <span class="num">301</span> Location: {long_url}   (permanent, CDN-cacheable)
+            <span class="num">302</span> Location: {long_url}   (if analytics tracking needed)
+  Errors:   404 (not found), 410 (expired)
+
+<span class="kw">GET</span>    /api/v1/urls/{short_code}/stats
+  Response: { clicks, top_countries, referrers, created_at }
+
+<span class="kw">DELETE</span> /api/v1/urls/{short_code}
+  Response: 204 (idempotent -- safe to retry)</div>
+<p>The <code>301</code> versus <code>302</code> line is the whole design in miniature. A 301 says
+&ldquo;this is permanent&rdquo;, so browsers and CDNs cache it and stop asking us. Our traffic
+drops enormously. We also stop seeing the clicks.</p>
+<p>So the answer is per link, not per system. Links that need analytics get a 302 and cost us a
+request every time. Everything else gets a 301 and costs us nothing after the first visit.</p></div>
+</div>
+<div class="design-step est">
+  <div class="ds-header"><span class="ds-ico">&#128202;</span>5. Capacity estimation</div>
+  <div class="ds-body"><p>Rough numbers, to show which parts are actually under pressure.</p>
+<div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">100M new URLs/day, 10B redirects/day</div><div class="as-b">If the ratio were closer to 1:1 the CDN and cache tier stop paying for themselves and this becomes a write-throughput design.</div></div><div class="as-row"><div class="as-a">Short codes are 7 characters, base62</div><div class="as-b">62^7 is ~3.5 trillion. At 100M/day that is ~95 years of headroom; at 10B/day it is under a year and the code length must grow.</div></div><div class="as-row"><div class="as-a">Links are effectively permanent</div><div class="as-b">If most links expired in 30 days, storage would plateau and a TTL sweep becomes a required component rather than an optional one.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">~1,200</div><div class="ng-desc">write QPS avg</div></div><div class="ng-cell"><div class="ng-val">~3,600</div><div class="ng-desc">write QPS peak (3x)</div></div><div class="ng-cell"><div class="ng-val">~116K</div><div class="ng-desc">read QPS avg</div></div><div class="ng-cell"><div class="ng-val">~350K</div><div class="ng-desc">read QPS peak</div></div><div class="ng-cell"><div class="ng-val">~50 GB</div><div class="ng-desc">storage/day</div></div><div class="ng-cell"><div class="ng-val">~18 TB</div><div class="ng-desc">storage/year</div></div></div>
+<p>Look at the two QPS figures. Writes are about a thousand a second, which one modest database
+handles without thinking. Reads are a hundred times that.</p>
+<p>Then notice that most of those reads never reach us at all, because 301s are cached at the edge.
+<strong>The system we are designing mostly exists to handle the small fraction of traffic that gets
+past the CDN.</strong> Storage is similarly undramatic: a few hundred bytes per link, tens of
+terabytes over years, which is large but not interesting.</p></div>
+</div>
+<div class="design-step tradeoff">
+  <div class="ds-header"><span class="ds-ico">&#9878;</span>6. The key trade-offs</div>
+  <div class="ds-body"><p>Four choices carry the design.</p>
+<div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>DB choice</strong></td><td class='chosen'>DynamoDB</td><td class='rej'>PostgreSQL</td><td>Pure key-value access. No joins. Auto-scales. Managed. 100:1 read ratio means caching dominates -- DB is rarely hit.</td></tr><tr><td><strong>ID generation</strong></td><td class='chosen'>Counter + Base62</td><td class='rej'>Random/Hash</td><td>No collision handling. Predictable length. Pre-allocated ranges eliminate hot path to counter service.</td></tr><tr><td><strong>Redirect code</strong></td><td class='chosen'>301 (popular URLs)</td><td class='rej'>302 always</td><td>301 = CDN/browser cache = massive origin load reduction. 302 required for analytics. Use 301 for non-tracked, 302 for tracked.</td></tr><tr><td><strong>Analytics</strong></td><td class='chosen'>Async Kafka pipeline</td><td class='rej'>Sync DB write on redirect</td><td>Zero added latency to redirect critical path. Analytics are eventually consistent -- acceptable.</td></tr></tbody></table></div>
+<p>The first row is the one to be able to defend. Hashing the long URL is the instinctive answer and
+it sounds elegant: same URL, same code, no state. But hashes collide, so now you need collision
+detection and a retry loop, and you have to decide whether two people shortening the same URL should
+get the same code (which leaks that somebody else shortened it).</p>
+<p>A counter has none of those problems. It cannot collide, the code length is predictable, and
+handing each server a block of a million ids means the counter is not on the hot path.</p></div>
+</div>
+<div class="design-step arch">
+  <div class="ds-header"><span class="ds-ico">&#127959;</span>7. High-level design</div>
+  <div class="ds-body"><div class="anim" id="anim-url">
   <div class="an-head">
     <div class="an-title">Redirect path &mdash; and the viral link that goes cold</div>
     <div class="an-btns">
@@ -7388,65 +7457,143 @@ much.</p>
   <div class="an-cap ok-only"><strong>What is moving:</strong> a short code out, a <code>301</code> back. Because a 301 is permanent, browsers and the CDN cache it, so a popular link is served almost entirely at the edge and the origin never sees most of its traffic.</div>
   <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> a purge or a TTL expiry empties the edge just as a link goes viral. Every request now misses through to the service and the KV store, which was sized on the assumption that the edge absorbs ~95% of reads. The fix is not a bigger database &mdash; it is <strong>request coalescing</strong> so N simultaneous misses become one lookup (<span class="srcref">Ch 9</span>), plus 301 rather than 302 wherever analytics permits.</div>
 </div>
-<div class="dc-diagram"><svg width="680" height="220" viewBox="0 0 680 220" xmlns="http://www.w3.org/2000/svg">
-  <defs><marker id="u1" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
-  <text x="10" y="20" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="#636e72">WRITE PATH</text>
-  <rect x="10" y="28" width="70" height="32" rx="6" fill="#5c6bc0"/><text x="45" y="48" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Client</text>
-  <line x1="80" y1="44" x2="108" y2="44" stroke="#636e72" stroke-width="1.2" marker-end="url(#u1)"/>
-  <rect x="110" y="28" width="90" height="32" rx="6" fill="#0984e3"/><text x="155" y="48" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Write API</text>
-  <line x1="200" y1="44" x2="228" y2="44" stroke="#636e72" stroke-width="1.2" marker-end="url(#u1)"/>
-  <rect x="230" y="28" width="100" height="32" rx="6" fill="#e17055"/><text x="280" y="42" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">ID Generator</text><text x="280" y="54" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">(Base62 encode)</text>
-  <line x1="330" y1="44" x2="358" y2="44" stroke="#636e72" stroke-width="1.2" marker-end="url(#u1)"/>
-  <rect x="360" y="28" width="90" height="32" rx="6" fill="#00b894"/><text x="405" y="48" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">DynamoDB</text>
-  <line x1="450" y1="44" x2="478" y2="44" stroke="#636e72" stroke-width="1.2" marker-end="url(#u1)"/>
-  <rect x="480" y="28" width="80" height="32" rx="6" fill="#e84393"/><text x="520" y="48" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Redis Cache</text>
-  <text x="10" y="100" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="#636e72">READ PATH (REDIRECT)</text>
-  <rect x="10" y="108" width="70" height="32" rx="6" fill="#5c6bc0"/><text x="45" y="128" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">User</text>
-  <line x1="80" y1="124" x2="108" y2="124" stroke="#636e72" stroke-width="1.2" marker-end="url(#u1)"/>
-  <rect x="110" y="108" width="90" height="32" rx="6" fill="#f39c12"/><text x="155" y="128" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">CDN Edge</text>
-  <text x="155" y="152" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="#636e72">301 cache hit</text>
-  <line x1="200" y1="124" x2="228" y2="124" stroke="#636e72" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#u1)"/>
-  <text x="214" y="118" font-family="Inter,sans-serif" font-size="8" fill="#636e72">miss</text>
-  <rect x="230" y="108" width="90" height="32" rx="6" fill="#0984e3"/><text x="275" y="128" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Read API</text>
-  <line x1="320" y1="124" x2="348" y2="124" stroke="#636e72" stroke-width="1.2" marker-end="url(#u1)"/>
-  <rect x="350" y="108" width="90" height="32" rx="6" fill="#e84393"/><text x="395" y="128" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Redis Cache</text>
-  <line x1="440" y1="124" x2="468" y2="124" stroke="#636e72" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#u1)"/>
-  <text x="454" y="118" font-family="Inter,sans-serif" font-size="8" fill="#636e72">miss</text>
-  <rect x="470" y="108" width="90" height="32" rx="6" fill="#00b894"/><text x="515" y="128" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">DynamoDB</text>
-  <text x="10" y="185" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="#636e72">ANALYTICS (ASYNC -- NOT on redirect path)</text>
-  <rect x="10" y="195" width="80" height="20" rx="5" fill="#b2bec3"/><text x="50" y="209" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="white">Click Event</text>
-  <line x1="90" y1="205" x2="118" y2="205" stroke="#636e72" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#u1)"/>
-  <rect x="120" y="195" width="60" height="20" rx="5" fill="#b2bec3"/><text x="150" y="209" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="white">Kafka</text>
-  <line x1="180" y1="205" x2="208" y2="205" stroke="#636e72" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#u1)"/>
-  <rect x="210" y="195" width="90" height="20" rx="5" fill="#b2bec3"/><text x="255" y="209" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="white">Analytics DB</text>
-</svg><div class="dc-caption">Write path creates short code and caches. Read path: CDN -> Redis -> DynamoDB. Analytics on separate async path.</div></div></div>
-</div><div class="design-step deep">
-  <div class="ds-header"><span class="ds-ico">&#128269;</span>6. Component Deep Dives</div>
-  <div class="ds-body"><p><strong>ID Generation -- The Key Decision:</strong> The 7-character code needs to be unique globally without coordination overhead. Options:</p>
-<ul>
-  <li><strong>Counter + Base62 (chosen):</strong> Each write server gets a range of counters (e.g., 1M IDs/batch from a central counter service). Convert to base62. 627 = ~3.5 trillion URLs. No collision. Predictable length. Pre-allocate ranges to avoid hot path to counter service.</li>
-  <li><strong>Hash of long URL:</strong> MD5(long_url) -> first 7 chars. Same URL -> same code. But collision probability and no guaranteed uniqueness.</li>
-  <li><strong>Random:</strong> UUID-like. High collision probability at scale without checking DB.</li>
-</ul>
-<p><strong>Caching Strategy:</strong> Write-through: on creation, immediately cache (short_code -> long_url) in Redis with 24h TTL. Redirect path: Redis O(1) lookup (~0.1ms). Cache miss -> DynamoDB (~5ms). Redis hit rate target: 99% (popular 1M URLs out of 100M cached).</p>
-<p><strong>301 vs 302:</strong> 301 (permanent) = browsers and CDNs cache it. Near-zero origin load for popular URLs. 302 (temporary) = every redirect hits your server. Use 301 for static URLs, 302 if you need to track every click or change destination later.</p>
-<p><strong>Expiration:</strong> Store expires_at in DynamoDB. Redis TTL = expires_at - now. On redirect: check expiry -> 410 Gone. Background sweeper job daily deletes expired entries.</p></div>
-</div><div class="design-step tradeoff">
-  <div class="ds-header"><span class="ds-ico">&#9878;</span>7. Trade-off Analysis</div>
-  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>DB choice</strong></td><td class='chosen'>DynamoDB</td><td class='rej'>PostgreSQL</td><td>Pure key-value access. No joins. Auto-scales. Managed. 100:1 read ratio means caching dominates -- DB is rarely hit.</td></tr><tr><td><strong>ID generation</strong></td><td class='chosen'>Counter + Base62</td><td class='rej'>Random/Hash</td><td>No collision handling. Predictable length. Pre-allocated ranges eliminate hot path to counter service.</td></tr><tr><td><strong>Redirect code</strong></td><td class='chosen'>301 (popular URLs)</td><td class='rej'>302 always</td><td>301 = CDN/browser cache = massive origin load reduction. 302 required for analytics. Use 301 for non-tracked, 302 for tracked.</td></tr><tr><td><strong>Analytics</strong></td><td class='chosen'>Async Kafka pipeline</td><td class='rej'>Sync DB write on redirect</td><td>Zero added latency to redirect critical path. Analytics are eventually consistent -- acceptable.</td></tr></tbody></table></div></div>
-</div><div class="design-step fault">
-  <div class="ds-header"><span class="ds-ico">&#128737;</span>8. Fault Tolerance</div>
-  <div class="ds-body"><div class="ft-row"><div class="ft-fail">DynamoDB node failure</div><div class="ft-fix">Managed multi-AZ DynamoDB: automatic failover. Read from Redis during DB degradation -- cache continues serving popular URLs. On cache miss during outage: return 503 with Retry-After header.</div></div><div class="ft-row"><div class="ft-fail">Redis failure</div><div class="ft-fix">Redis Cluster with replicas. On failure: read API falls through to DynamoDB directly (5ms vs 0.1ms, but correct). CDN cache continues serving popular URLs without any origin hit.</div></div><div class="ft-row"><div class="ft-fail">ID generator crash</div><div class="ft-fix">Pre-allocated ranges stored per server. On crash: ID range is abandoned (some IDs wasted, no duplicates). New instance gets new range. No coordination needed on hot path.</div></div><div class="ft-row"><div class="ft-fail">CDN outage</div><div class="ft-fix">DNS failover to origin. Higher latency (CDN miss -> origin). Multi-CDN strategy (CloudFront + Fastly) as mitigation for critical SLAs.</div></div><div class="ft-row"><div class="ft-fail">Analytics pipeline lag</div><div class="ft-fix">Kafka durable (7-day retention). Consumer lag = analytics delayed, not lost. Zero impact on redirect service -- analytics consumer entirely decoupled.</div></div></div>
-</div><div class="design-step concl">
-  <div class="ds-header"><span class="ds-ico">&#127937;</span>9. Conclusion &mdash; what I would say in the last three minutes</div>
-  <div class="ds-body">
-  <div class="concl-grid">
+<p>Two paths, and they look nothing like each other.</p>
+<div class="flow">  <span class="fl-key">WRITING A LINK</span>  rare, ~1,200/s
+
+    client &rarr; API &rarr; grab an id from this server's pre-allocated block
+                     &rarr; base62 encode it
+                     &rarr; write one row
+                     <span class="fl-dim">no coordination: the block was handed out in advance</span>
+
+
+  <span class="fl-key">READING A LINK</span>  constant, ~350,000/s at peak
+
+    click
+      |
+      v
+    <span class="fl-hi">CDN / browser cache</span>   <span class="fl-note">most 301s never get past here</span>
+      |  miss
+      v
+    <span class="fl-hi">REDIRECT SERVICE</span>
+      |
+      v
+    <span class="fl-hi">CACHE</span>  hot links, ~99% hit
+      |  miss
+      v
+    <span class="fl-hi">KEY-VALUE STORE</span>  one point read</div>
+<div class="flow-cap">Three layers of caching in front of a very small database. That is the design:
+the store is almost an implementation detail, and the interesting engineering is in how little
+traffic ever reaches it.</div></div>
+</div>
+<div class="design-step wflow">
+  <div class="ds-header"><span class="ds-ico">&#128260;</span>8. Workflows &mdash; what actually happens</div>
+  <div class="ds-body"><p>Let us walk through it with a real link.</p>
+
+<div class="wf">
+  <div class="wf-title">Priya shortens a link</div>
+  <div class="wf-sub">The write path. Happens once.</div>
+  <ol>
+    <li>Priya pastes a long article URL into the box and hits <b>Shorten</b>.</li>
+    <li>The request lands on <b>server 7</b>. That server was handed ids <b>4,000,000&ndash;4,999,999</b> when it started, and it is currently on <b>4,213,887</b>. It takes the next one. No other server can hand out that id, so there is nothing to coordinate.</li>
+    <li>4,213,888 in base62 is <code>Ru1M</code>. Four characters, because the number is still small.</li>
+    <li>One row is written: <code>Ru1M</code> maps to her long URL.</li>
+    <li>She gets back <code>short.ly/Ru1M</code> and posts it.</li>
+  </ol>
+  <div class="wf-out">One database write, no locks, no collision check, no coordination between servers. The id block is what buys all of that.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">200,000 people click it</div>
+  <div class="wf-sub">The read path, and where the traffic actually goes.</div>
+  <ol>
+    <li><b>First click.</b> The CDN has never seen <code>Ru1M</code>. It asks our redirect service, which checks the cache, misses, reads one row, and returns <b>301</b> to the article.</li>
+    <li>The CDN stores that redirect. So does the visitor's browser.</li>
+    <li><b>Second click, different person, same city.</b> The CDN answers it. We never hear about it.</li>
+    <li><b>Clicks 3 through 200,000.</b> Handled at the edge, or by browsers that already have it. A few thousand reach us as each new CDN region warms up.</li>
+    <li>Of 200,000 clicks, we serve maybe a few hundred.</li>
+  </ol>
+  <div class="wf-out">This is why the database being small is not a problem. The design's job is to make sure almost every click is answered by somebody else.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">Two customers want <code>/black-friday</code></div>
+  <div class="wf-sub">Custom aliases, where the generated-code guarantees do not apply.</div>
+  <ol>
+    <li>Both submit the alias <b>black-friday</b> within the same second.</li>
+    <li>A naive implementation checks &ldquo;is it taken?&rdquo;, sees <i>no</i> for both, and then writes for both. One silently overwrites the other.</li>
+    <li>Instead we do a <b>conditional insert</b>: write this alias only if it does not already exist. The first one succeeds.</li>
+    <li>The second violates the uniqueness constraint. The database rejects it and we return <b>409</b>.</li>
+    <li>That customer is told the alias is taken and offered another.</li>
+  </ol>
+  <div class="wf-out">Generated codes can never collide because the counter guarantees it. Chosen codes can, which is why the two paths need different write logic.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">The link goes viral right after a cache purge</div>
+  <div class="wf-sub">The one case that actually hurts.</div>
+  <ol>
+    <li>A deploy purges the CDN. Every cached redirect is gone.</li>
+    <li>At that moment the link is being shared heavily. <b>40,000 requests a second</b> arrive, and every one is a miss.</li>
+    <li>They pass through to the redirect service, which finds nothing in its cache either, and all of them go to the database for the same row.</li>
+    <li>With <b>request coalescing</b>, the first miss does the read and the other 39,999 wait for that one result.</li>
+    <li>One database read instead of 40,000. The answer is cached and the next second is served from memory.</li>
+  </ol>
+  <div class="wf-out">Note what coalescing traded: 40,000 requests now depend on one read finishing. That is fine here, because the read is sub-millisecond. It still needs a timeout.</div>
+</div></div>
+</div>
+<div class="design-step deep">
+  <div class="ds-header"><span class="ds-ico">&#128269;</span>9. Deep dives, and what breaks</div>
+  <div class="ds-body"><h4>Choosing how to make the short code</h4>
+
+<p>Three options, and the reasoning matters more than the answer.</p>
+
+<p><strong>Hash the long URL.</strong> Take an MD5, keep the first seven characters. It is stateless
+and the same URL always produces the same code. But hashes collide, so you need to detect the
+collision and try again, which means a read before every write. And identical URLs producing
+identical codes leaks information: I can find out whether somebody else has already shortened a
+link.</p>
+
+<p><strong>Random.</strong> Generate seven random characters. No information leak. But with enough
+links you start colliding, so you are back to checking before writing.</p>
+
+<p><strong>A counter.</strong> Keep a global number, encode it in base62. It cannot collide, ever.
+Code length grows naturally as the number does. The obvious objection is that a global counter is a
+bottleneck, and the fix is to hand each server a block of a million ids at startup. Now the counter
+is touched once per million links rather than once per link.</p>
+
+<p>That last design has a downside worth admitting: codes are sequential, so anyone can walk them.
+If that matters, encrypt the counter before encoding it. You keep uniqueness and lose the
+predictability.</p>
+
+<h4>The 301 decision</h4>
+
+<p>A permanent redirect is cached by browsers and CDNs, often for a very long time. That is
+wonderful for load and terrible for two things.</p>
+
+<p>You cannot count clicks, because you never see them. And you cannot really change where a link
+points, because copies of the old answer are sitting in caches you do not control.</p>
+
+<p>So this is a per-link decision driven by what the customer bought. Analytics customers get 302s
+and we absorb their traffic. Everyone else gets 301s, and their links cost us almost nothing after
+the first visit in each region.</p>
+
+<h4>Why a key-value store</h4>
+
+<p>There are no joins here. There is one access pattern, by primary key, and it is 99% reads. A
+relational database would work perfectly well and you would use almost none of what it offers.</p>
+
+<p>The reason to prefer a key-value store is not speed at small scale, where they are comparable. It
+is that the workload is a natural fit for horizontal partitioning by key, and short codes are
+uniformly distributed by construction, so the shards stay balanced without any effort.</p>
+
+<h4>What breaks</h4>
+
+<div class="ft-row"><div class="ft-fail">DynamoDB node failure</div><div class="ft-fix">Managed multi-AZ DynamoDB: automatic failover. Read from Redis during DB degradation -- cache continues serving popular URLs. On cache miss during outage: return 503 with Retry-After header.</div></div><div class="ft-row"><div class="ft-fail">Redis failure</div><div class="ft-fix">Redis Cluster with replicas. On failure: read API falls through to DynamoDB directly (5ms vs 0.1ms, but correct). CDN cache continues serving popular URLs without any origin hit.</div></div><div class="ft-row"><div class="ft-fail">ID generator crash</div><div class="ft-fix">Pre-allocated ranges stored per server. On crash: ID range is abandoned (some IDs wasted, no duplicates). New instance gets new range. No coordination needed on hot path.</div></div><div class="ft-row"><div class="ft-fail">CDN outage</div><div class="ft-fix">DNS failover to origin. Higher latency (CDN miss -> origin). Multi-CDN strategy (CloudFront + Fastly) as mitigation for critical SLAs.</div></div><div class="ft-row"><div class="ft-fail">Analytics pipeline lag</div><div class="ft-fix">Kafka durable (7-day retention). Consumer lag = analytics delayed, not lost. Zero impact on redirect service -- analytics consumer entirely decoupled.</div></div><div class="concl-grid">
     <div class="cc"><div class="h">The dominant constraint</div><p><strong>The 100:1 read-to-write ratio.</strong> Everything follows from it: a counter-based ID so writes never coordinate, and a CDN plus cache tier that absorbs almost all reads before they reach storage.</p></div>
     <div class="cc first"><div class="h">What I would build first</div><p>The KGS counter with pre-allocated ranges and the cache-in-front-of-KV read path. Analytics can be added later without touching either.</p></div>
     <div class="cc"><div class="h">What I deliberately did not build</div><p>Real-time analytics, custom domains, and link previews. I would use 302 only for the small subset of links that need per-click tracking, and 301 for the rest so the CDN keeps absorbing them.</p></div>
     <div class="cc risk"><div class="h">The biggest risk</div><p>The cache tier. At a 99% hit rate the origin sees 1% of 350K QPS; at 95% it sees five times that. I would alert on hit rate, not just on origin latency.</p></div>
-  </div>
-  </div>
+  </div></div>
 </div>
 
 <div class="followup">
@@ -7473,70 +7620,88 @@ much.</p>
     <div class="fu-a"><p>You cannot pull it out of every browser cache, which is the honest answer and worth saying. A 301 you have handed out may be cached for a year.</p><p>So deletion is best-effort: remove it from the database, purge the CDN, and accept that clients who already cached it will keep redirecting for a while. If a customer genuinely needs revocation to be immediate, they cannot have 301s at all, and the cost is that every hit now reaches your origin.</p></div>
   </details>
 </div>
+  </div>
 </div>
-</div>
+
 <div class="design-card">
   <div class="dc-header">
     <h3 class="dc-title"><span id="design-twitter">Design Twitter / Social Media Feed</span></h3>
     <div class="dc-meta">Difficulty: <strong>Hard</strong> &nbsp;.&nbsp; Target: <strong>45 min</strong></div>
   </div>
-  <div class="dc-body"><div class="asked">
+  <div class="dc-body">
+<div class="asked">
   <div class="ak-q"><span class="ak-l">&#128172; The question, as asked</span><p>&ldquo;Design the home timeline for a social network. A user posts; their followers should see it. Timelines must load fast for hundreds of millions of users.&rdquo;</p></div>
   <div class="ak-h"><span class="ak-l">&#9889; What makes it hard</span><p><strong>Follower-count skew.</strong> Most accounts have a few hundred followers and a handful have tens of millions, so no single strategy works for both. Precomputing timelines is fast to read and impossible for celebrities; computing on read is the reverse.</p></div>
 </div>
 <div class="design-step req">
-  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Requirements</div>
-  <div class="ds-body"><div class="clarify">
+  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Understanding the question</div>
+  <div class="ds-body"><p>The prompt: <em>&ldquo;Design the home timeline for a social network. Someone posts;
+their followers see it.&rdquo;</em></p>
+
+<p>Two sentences, and almost all of the difficulty is hidden in the word <em>followers</em>.</p>
+
+<p>If everyone had roughly the same number of followers, this would be easy. Pick either strategy
+and it works. But follower counts are wildly uneven: most accounts have a few hundred, and a handful
+have forty million. <strong>No single strategy serves both ends of that distribution</strong>, and
+recognising that is the entire question.</p>
+
+<div class="insight">
+  <div class="label">&#127919; The tension</div>
+  <p>You can do the work <em>when someone posts</em> (fast reads, impossible for celebrities) or
+  <em>when someone reads</em> (cheap writes, slow feeds). Neither works alone. The answer is both,
+  with a threshold.</p>
+</div>
+
+<h4>What they are looking for</h4>
+
+<p><strong>Do you reach for fan-out and then notice it breaks?</strong> Precomputing every follower's
+timeline is the natural first answer and it is right for 99.9% of accounts. The signal is whether
+you catch the case where it is catastrophically wrong before being prompted.</p>
+
+<p><strong>Do you know which way the traffic runs?</strong> Reads outnumber writes by orders of
+magnitude. That is what justifies doing expensive work at write time at all.</p>
+
+<p><strong>Can you name the cost of your choice?</strong> Fan-out-on-write makes deletes expensive
+and ranking awkward. Saying so unprompted is worth more than the design itself.</p>
+<div class="clarify">
   <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
   <div class="cq-row"><div class="cq-q">What is the follower count at the 99th percentile?</div><div class="cq-w">This is the dominant constraint. A few accounts with tens of millions of followers is what breaks fan-out-on-write and forces a hybrid.</div></div><div class="cq-row"><div class="cq-q">Is the timeline chronological or ranked?</div><div class="cq-w">Ranked puts a <strong>scoring service on the read path</strong>, which changes the latency budget and makes precomputation much harder.</div></div><div class="cq-row"><div class="cq-q">How stale may a new post be before it appears?</div><div class="cq-w">Seconds allows fan-out-on-write; instant forces pull. This single number decides push versus pull.</div></div><div class="cq-row"><div class="cq-q">Do we support edits and deletes?</div><div class="cq-w">Fan-out-on-write copies a post into millions of timelines, so retraction becomes an expensive distributed cleanup.</div></div><div class="cq-row"><div class="cq-q">What is the read-to-write ratio?</div><div class="cq-w">Fan-out-on-write only pays off when reads dominate. If they do not, you have pre-computed work nobody reads.</div></div>
   <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
 </div>
-<p><strong>Functional:</strong></p>
-<ul>
-  <li>Post tweets (text <= 280 chars, optional media)</li>
-  <li>Follow / Unfollow users</li>
-  <li>Home timeline: tweets from followed users, reverse-chronological</li>
-  <li>User profile timeline: all tweets by a user</li>
-  <li>Likes, Retweets, Replies</li>
-  <li>Search: hashtags, full-text (stretch)</li>
-</ul>
-<p><strong>Non-Functional:</strong></p>
-<ul>
-  <li>500M DAU. Celebrities with 100M+ followers.</li>
-  <li>Timeline load p99 &lt; 200ms</li>
-  <li>Post latency p99 &lt; 500ms</li>
-  <li>Read >> Write (100:1)</li>
-  <li>Eventual consistency for timeline (2-5 sec lag OK)</li>
-</ul></div>
-</div><div class="design-step est">
-  <div class="ds-header"><span class="ds-ico">&#128202;</span>2. Capacity Estimation</div>
-  <div class="ds-body"><div class="assume">
-  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
-  <div class="as-row"><div class="as-a">Median user follows a few hundred accounts</div><div class="as-b">If the median were tens of thousands, fan-out-on-write stops being affordable for everyone, not just celebrities.</div></div><div class="as-row"><div class="as-a">Timeline is chronological</div><div class="as-b">Ranking would put a scoring service on the read path and largely invalidate precomputed timelines.</div></div><div class="as-row"><div class="as-a">A few seconds of delay before a post appears is acceptable</div><div class="as-b">Instant visibility rules out fan-out-on-write entirely and forces a pull-and-merge design.</div></div>
 </div>
-<p><strong>Core scale:</strong> 500M DAU, avg 2 tweets/user/day, avg 200 followers/user</p>
-<div class="ng"><div class="ng-cell"><div class="ng-val">~12K</div><div class="ng-desc">tweet write QPS avg</div></div><div class="ng-cell"><div class="ng-val">~36K</div><div class="ng-desc">write QPS peak</div></div><div class="ng-cell"><div class="ng-val">~1.2M</div><div class="ng-desc">read QPS avg</div></div><div class="ng-cell"><div class="ng-val">~3.6M</div><div class="ng-desc">read QPS peak</div></div><div class="ng-cell"><div class="ng-val">~500 GB</div><div class="ng-desc">tweet storage/day</div></div><div class="ng-cell"><div class="ng-val">2.4M</div><div class="ng-desc">fan-out ops/sec avg</div></div></div>
-<p><strong>The fan-out problem:</strong> 1 tweet x avg 200 followers = 200 timeline writes. 12K writes/sec x 200 = 2.4M fan-out ops/sec. Celebrity: 1 tweet x 100M followers = 100M writes. Synchronous fan-out for celebrities is impossible.</p></div>
-</div><div class="design-step api">
-  <div class="ds-header"><span class="ds-ico">&#128268;</span>3. API Design</div>
-  <div class="ds-body"><div class="api-code"><span class="kw">POST</span>   /v1/tweets
-  Body:     { text, media_ids?, reply_to? }
-  Response: 201 { tweet_id, created_at }
-  <span class="cm">// returns as soon as the tweet is durable; fan-out is async</span>
-
-<span class="kw">GET</span>    /v1/timeline/home?cursor=&amp;limit=50
-  Response: { items:[{tweet_id, author, text, ts}], next_cursor }
-  <span class="cm">// cursor is (ts, tweet_id), never an offset -- offsets skip</span>
-  <span class="cm">// or repeat items when the feed mutates under the reader</span>
-
-<span class="kw">GET</span>    /v1/timeline/user/{user_id}?cursor=&amp;limit=50
-<span class="kw">POST</span>   /v1/follow      Body: { target_id }   -&gt; 202
-  <span class="cm">// 202: following a celebrity may enqueue backfill work</span>
-<span class="kw">DELETE</span> /v1/tweets/{id}                       -&gt; 204 (idempotent)</div></div>
+</div>
+<div class="design-step fr">
+  <div class="ds-header"><span class="ds-ico">&#128221;</span>2. Functional requirements</div>
+  <div class="ds-body"><ul>
+  <li><strong>Post.</strong> Write something; it becomes visible to followers.</li>
+  <li><strong>Home timeline.</strong> A reverse-chronological list of posts from people you follow, paginated.</li>
+  <li><strong>User timeline.</strong> Everything one account posted.</li>
+  <li><strong>Follow and unfollow.</strong></li>
+  <li><strong>Delete.</strong> A post disappears from everywhere it was shown.</li>
+</ul>
+<p>Delete is the one people skip, and it is worth keeping on the list because it is the requirement
+that punishes the design we are about to choose. If a post has been copied into half a million
+timelines, removing it is half a million writes unless you plan for it.</p></div>
+</div>
+<div class="design-step nfr">
+  <div class="ds-header"><span class="ds-ico">&#9201;</span>3. Non-functional requirements</div>
+  <div class="ds-body"><div class="tw"><table class="to">
+<thead><tr><th style="width:26%">Requirement</th><th style="width:20%">Target</th><th style="width:54%">Why</th></tr></thead>
+<tbody>
+<tr><td><strong>Timeline load</strong></td><td class="chosen">&lt; 200 ms</td><td>This is the app's home screen. It is the most-run query in the entire system, by a wide margin.</td></tr>
+<tr><td><strong>Post visibility</strong></td><td>A few seconds</td><td>Nobody can tell whether their post reached followers instantly or three seconds later. This tolerance is what makes asynchronous fan-out possible.</td></tr>
+<tr><td><strong>Read:write ratio</strong></td><td>~1000:1</td><td>People scroll far more than they post. Spending effort at write time to make reads cheap is therefore a good trade.</td></tr>
+<tr><td><strong>Availability</strong></td><td>Reads &gt; writes</td><td>A feed that will not load is a dead app. A post that fails can be retried by the user.</td></tr>
+<tr><td><strong>Ordering</strong></td><td>Roughly chronological</td><td>&ldquo;Roughly&rdquo; matters. Strict global ordering across millions of writers would need coordination nobody needs.</td></tr>
+</tbody></table></div>
+<p>That third row is the one that licenses the whole design. When reads outnumber writes a thousand
+to one, doing a thousand units of work at write time to save one unit at read time is still a
+win.</p></div>
 </div>
 <div class="design-step schema">
-  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="cm">-- Tweets (Cassandra -- write-heavy, time-series, no joins)</span>
+  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Data model and API</div>
+  <div class="ds-body"><p>Two things to store: the posts themselves, and each person's precomputed timeline.</p>
+<div class="schema-code"><span class="cm">-- Tweets (Cassandra -- write-heavy, time-series, no joins)</span>
 <span class="kw">TABLE</span> tweets {
   tweet_id      <span class="ty">BIGINT</span>        <span class="pk">PRIMARY KEY</span>,  <span class="cm">-- Snowflake: time-sortable</span>
   user_id       <span class="ty">BIGINT</span>,
@@ -7568,11 +7733,57 @@ much.</p>
   username      <span class="ty">VARCHAR(50)</span>  UNIQUE,
   is_celebrity  <span class="ty">BOOLEAN</span>,     <span class="cm">-- follower_count > 1M</span>
   follower_count<span class="ty">BIGINT</span>
-}</div></div>
-</div><div class="design-step arch">
-  <div class="ds-header"><span class="ds-ico">&#127959;</span>5. High-Level Architecture</div>
-  <div class="ds-body">
-<div class="anim" id="anim-twitter">
+}</div>
+<p>Storing <strong>ids rather than posts</strong> in the timeline is the decision that makes this
+affordable. A post appearing in a million timelines is stored once and referenced a million times.
+It also makes deletion cheap, which we will come back to.</p>
+<p>Post ids are time-sortable, so a timeline is already in order without storing timestamps
+alongside, and pagination is a cursor rather than an offset. Offsets break badly on a feed that
+mutates while you read it.</p>
+<h4>The API</h4>
+<div class="api-code"><span class="kw">POST</span>   /v1/tweets
+  Body:     { text, media_ids?, reply_to? }
+  Response: 201 { tweet_id, created_at }
+  <span class="cm">// returns as soon as the tweet is durable; fan-out is async</span>
+
+<span class="kw">GET</span>    /v1/timeline/home?cursor=&amp;limit=50
+  Response: { items:[{tweet_id, author, text, ts}], next_cursor }
+  <span class="cm">// cursor is (ts, tweet_id), never an offset -- offsets skip</span>
+  <span class="cm">// or repeat items when the feed mutates under the reader</span>
+
+<span class="kw">GET</span>    /v1/timeline/user/{user_id}?cursor=&amp;limit=50
+<span class="kw">POST</span>   /v1/follow      Body: { target_id }   -&gt; 202
+  <span class="cm">// 202: following a celebrity may enqueue backfill work</span>
+<span class="kw">DELETE</span> /v1/tweets/{id}                       -&gt; 204 (idempotent)</div></div>
+</div>
+<div class="design-step est">
+  <div class="ds-header"><span class="ds-ico">&#128202;</span>5. Capacity estimation</div>
+  <div class="ds-body"><p>The numbers that decide things.</p>
+<div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">Median user follows a few hundred accounts</div><div class="as-b">If the median were tens of thousands, fan-out-on-write stops being affordable for everyone, not just celebrities.</div></div><div class="as-row"><div class="as-a">Timeline is chronological</div><div class="as-b">Ranking would put a scoring service on the read path and largely invalidate precomputed timelines.</div></div><div class="as-row"><div class="as-a">A few seconds of delay before a post appears is acceptable</div><div class="as-b">Instant visibility rules out fan-out-on-write entirely and forces a pull-and-merge design.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">~12K</div><div class="ng-desc">tweet write QPS avg</div></div><div class="ng-cell"><div class="ng-val">~36K</div><div class="ng-desc">write QPS peak</div></div><div class="ng-cell"><div class="ng-val">~1.2M</div><div class="ng-desc">read QPS avg</div></div><div class="ng-cell"><div class="ng-val">~3.6M</div><div class="ng-desc">read QPS peak</div></div><div class="ng-cell"><div class="ng-val">~500 GB</div><div class="ng-desc">tweet storage/day</div></div><div class="ng-cell"><div class="ng-val">2.4M</div><div class="ng-desc">fan-out ops/sec avg</div></div></div>
+<p>The important one is not in the table: <strong>the follower distribution.</strong> Median around
+a few hundred, ninety-ninth percentile in the tens of thousands, and a long tail running to tens of
+millions.</p>
+<p>Fan-out cost is the sum of follower counts across all posts. At the median that is a few hundred
+writes per post, which is nothing. For one account with forty million followers it is forty million
+writes for a single post, which is more work than the entire rest of the platform does in that
+second.</p></div>
+</div>
+<div class="design-step tradeoff">
+  <div class="ds-header"><span class="ds-ico">&#9878;</span>6. The key trade-offs</div>
+  <div class="ds-body"><p>The choices, and what each costs.</p>
+<div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Fan-out strategy</strong></td><td class='chosen'>Hybrid (write for regular, read for celebs)</td><td class='rej'>Pure write OR pure read</td><td>Pure write: 100M ops for one celebrity tweet impossible. Pure read: 1,000 Cassandra reads per timeline load for heavy followers. Hybrid balances both.</td></tr><tr><td><strong>Tweet storage</strong></td><td class='chosen'>Cassandra</td><td class='rej'>MySQL</td><td>Write-heavy, time-series access, no joins. Cassandra's LSM-tree excellent for append-heavy workloads. MySQL's B-tree would be slower for writes.</td></tr><tr><td><strong>Timeline storage</strong></td><td class='chosen'>Redis sorted set</td><td class='rej'>Cassandra</td><td>Sub-ms sorted reads. Volatile OK (rebuild from Cassandra on miss). ZRANGE is ideal for time-ordered tweet IDs.</td></tr><tr><td><strong>Consistency</strong></td><td class='chosen'>Eventual (seconds lag OK)</td><td class='rej'>Strong</td><td>Strong consistency requires synchronous fan-out to millions of Redis nodes. Not feasible. 2-5 second timeline lag is invisible to users.</td></tr></tbody></table></div>
+<p>The first row is the design. Everything after it follows.</p>
+<p>Fan-out-on-write means a read is a single sequential fetch of a list somebody already built for
+you. That is why feeds load fast. You pay for it at write time, and you pay again on delete, and
+you pay a third time if ranking ever arrives.</p></div>
+</div>
+<div class="design-step arch">
+  <div class="ds-header"><span class="ds-ico">&#127959;</span>7. High-level design</div>
+  <div class="ds-body"><div class="anim" id="anim-twitter">
   <div class="an-head">
     <div class="an-title">Fan-out on write &mdash; and the celebrity that stalls it for everybody</div>
     <div class="an-btns">
@@ -7619,59 +7830,122 @@ much.</p>
   <div class="an-cap ok-only"><strong>What is moving:</strong> the post is written once and made durable, then &mdash; asynchronously &mdash; <em>copied into every follower&rsquo;s timeline</em>. Reads afterwards are a single sequential fetch of a precomputed list, which is why this shape wins when reads vastly outnumber writes.</div>
   <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> an account with 40 million followers posts. The same loop now enqueues <strong>40 million copies</strong>, saturating the fan-out workers, and every ordinary user&rsquo;s post sits behind it &mdash; a queue delay that has nothing to do with those users. This is why production systems are <strong>hybrid</strong>: above a follower threshold, stop fanning out and merge the celebrity&rsquo;s posts at read time instead.</div>
 </div>
-<div class="dc-diagram"><svg width="680" height="240" viewBox="0 0 680 240" xmlns="http://www.w3.org/2000/svg">
-  <defs><marker id="t1" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
-  <!-- Post tweet -->
-  <rect x="10" y="15" width="70" height="32" rx="6" fill="#5c6bc0"/><text x="45" y="35" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">User posts</text>
-  <line x1="80" y1="31" x2="108" y2="31" stroke="#636e72" stroke-width="1.2" marker-end="url(#t1)"/>
-  <rect x="110" y="15" width="90" height="32" rx="6" fill="#0984e3"/><text x="155" y="35" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Tweet Service</text>
-  <line x1="200" y1="31" x2="228" y2="31" stroke="#636e72" stroke-width="1.2" marker-end="url(#t1)"/>
-  <rect x="230" y="15" width="80" height="32" rx="6" fill="#f39c12"/><text x="270" y="31" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Kafka</text><text x="270" y="43" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.7)">tweet_posted</text>
-  <!-- Regular fan-out -->
-  <line x1="310" y1="24" x2="338" y2="70" stroke="#2e7d32" stroke-width="1.2" marker-end="url(#t1)"/>
-  <rect x="340" y="62" width="130" height="38" rx="6" fill="#2e7d32"/><text x="405" y="78" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Fan-out Service</text><text x="405" y="91" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">(regular users &lt;1M followers)</text>
-  <line x1="470" y1="81" x2="498" y2="81" stroke="#636e72" stroke-width="1.2" marker-end="url(#t1)"/>
-  <rect x="500" y="65" width="120" height="32" rx="6" fill="#e84393"/><text x="560" y="85" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Redis Timelines</text>
-  <!-- Celebrity no fan-out -->
-  <line x1="310" y1="38" x2="338" y2="135" stroke="#c62828" stroke-width="1.2" marker-end="url(#t1)"/>
-  <rect x="340" y="130" width="310" height="55" rx="8" fill="#ffebee" stroke="#c62828" stroke-width="1.5"/>
-  <text x="495" y="150" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="#b71c1c">Celebrity (>1M followers): No fan-out!</text>
-  <text x="495" y="167" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#c62828">Tweet stored in Cassandra. On timeline load:</text>
-  <text x="495" y="180" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#c62828">fetch from Redis + merge celebrity tweets inline</text>
-  <!-- Timeline read -->
-  <text x="10" y="210" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="#636e72">TIMELINE READ</text>
-  <text x="10" y="226" font-family="Inter,sans-serif" font-size="9" fill="#636e72">1. Get tweet IDs from Redis sorted set</text>
-  <text x="10" y="240" font-family="Inter,sans-serif" font-size="9" fill="#636e72">2. Batch-fetch tweet content from Cassandra (parallel)</text>
-  <text x="350" y="226" font-family="Inter,sans-serif" font-size="9" fill="#636e72">3. Merge celebrity latest tweets (fan-out-on-read)</text>
-  <text x="350" y="240" font-family="Inter,sans-serif" font-size="9" fill="#636e72">4. Sort by tweet_id (time-sorted Snowflake) -> return</text>
-</svg><div class="dc-caption">Hybrid fan-out: write fan-out for regular users, read fan-out for celebrities. Both merged on timeline load.</div></div></div>
-</div><div class="design-step deep">
-  <div class="ds-header"><span class="ds-ico">&#128269;</span>6. Component Deep Dives</div>
-  <div class="ds-body"><p><strong>The Fan-out Decision (Most Important):</strong></p>
-<p>Three approaches to fan-out:</p>
-<ul>
-  <li><strong>Fan-out on write (push):</strong> When tweet is posted, push tweet_id to all followers' Redis timelines immediately. Fast reads. Bad for celebrities: 100M Redis writes per tweet.</li>
-  <li><strong>Fan-out on read (pull):</strong> No pre-computation. On timeline load, fetch last 20 tweets from each followed user. Read is slow if you follow 1,000 people: 1,000 Cassandra reads per timeline load.</li>
-  <li><strong>Hybrid (Twitter's actual approach):</strong> Fan-out on write for regular users (&lt;1M followers). Skip fan-out for celebrities -- their tweets are pulled on timeline load and merged in. Threshold tuned dynamically.</li>
-</ul>
-<p><strong>Timeline as sorted set:</strong> Redis ZADD timeline:{user_id} {tweet_id} {tweet_id}. Score = tweet_id (Snowflake is time-sortable). Fetch: ZREVRANGE -> get latest N tweet IDs. Cap at 800 to prevent unbounded memory. If user hasn't logged in for 30 days, delete their timeline (rebuild on next login from Cassandra).</p>
-<p><strong>Like counts:</strong> Redis INCR like:{tweet_id}. Async flush to Cassandra every 60s. Read likes from Redis (fresh) not Cassandra. Eventual consistency -- +/-60s accuracy on like count is fine.</p></div>
-</div><div class="design-step tradeoff">
-  <div class="ds-header"><span class="ds-ico">&#9878;</span>7. Trade-off Analysis</div>
-  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Fan-out strategy</strong></td><td class='chosen'>Hybrid (write for regular, read for celebs)</td><td class='rej'>Pure write OR pure read</td><td>Pure write: 100M ops for one celebrity tweet impossible. Pure read: 1,000 Cassandra reads per timeline load for heavy followers. Hybrid balances both.</td></tr><tr><td><strong>Tweet storage</strong></td><td class='chosen'>Cassandra</td><td class='rej'>MySQL</td><td>Write-heavy, time-series access, no joins. Cassandra's LSM-tree excellent for append-heavy workloads. MySQL's B-tree would be slower for writes.</td></tr><tr><td><strong>Timeline storage</strong></td><td class='chosen'>Redis sorted set</td><td class='rej'>Cassandra</td><td>Sub-ms sorted reads. Volatile OK (rebuild from Cassandra on miss). ZRANGE is ideal for time-ordered tweet IDs.</td></tr><tr><td><strong>Consistency</strong></td><td class='chosen'>Eventual (seconds lag OK)</td><td class='rej'>Strong</td><td>Strong consistency requires synchronous fan-out to millions of Redis nodes. Not feasible. 2-5 second timeline lag is invisible to users.</td></tr></tbody></table></div></div>
-</div><div class="design-step fault">
-  <div class="ds-header"><span class="ds-ico">&#128737;</span>8. Fault Tolerance</div>
-  <div class="ds-body"><div class="ft-row"><div class="ft-fail">Redis timeline lost</div><div class="ft-fix">Redis Cluster. On node loss: rebuild affected timelines from Cassandra on next request. Slow first load (~500ms), fast thereafter. Alert if rebuild rate is high (many nodes lost).</div></div><div class="ft-row"><div class="ft-fail">Fan-out service overwhelmed</div><div class="ft-fix">Kafka back-pressure: fan-out workers pull at their own rate. Scale worker pods horizontally. Kafka retains messages for 7 days -- no loss during overload. Users see timeline lag, not errors.</div></div><div class="ft-row"><div class="ft-fail">Cassandra node failure</div><div class="ft-fix">RF=3, quorum reads/writes. Node failure -> automatic reroute to replicas. Cassandra's gossip protocol detects failure in ~3s. No manual intervention.</div></div><div class="ft-row"><div class="ft-fail">Celebrity posts viral tweet (traffic spike)</div><div class="ft-fix">Celebrity tweets use read fan-out -- no write spike. CDN caches user profile pages. Rate limit profile page fetches. Auto-scale read API pods on CPU metric.</div></div></div>
-</div><div class="design-step concl">
-  <div class="ds-header"><span class="ds-ico">&#127937;</span>9. Conclusion &mdash; what I would say in the last three minutes</div>
-  <div class="ds-body">
-  <div class="concl-grid">
+<p>The two halves.</p>
+<div class="flow">  <span class="fl-key">WRITE</span>  someone posts
+
+    author &rarr; write post (durable) &rarr; return 201 immediately
+                      |
+                      v
+               <span class="fl-hi">FAN-OUT QUEUE</span>   <span class="fl-note">asynchronous: the author is not waiting</span>
+                      |
+          +-----------+-----------+
+          v                       v
+    <span class="fl-hi">ORDINARY AUTHOR</span>          <span class="fl-bad">CELEBRITY</span>
+    push post_id into         do nothing.
+    each follower's list      leave it in their own timeline.
+    <span class="fl-dim">a few hundred writes</span>       <span class="fl-dim">zero writes</span>
+
+
+  <span class="fl-key">READ</span>  someone opens the app
+
+    <span class="fl-hi">precomputed timeline</span>  (one sequential read)
+              +
+    <span class="fl-hi">recent posts from the celebrities they follow</span>  (a few reads)
+              |
+              v
+         merge by time, return 50</div>
+<div class="flow-cap">Most users follow nobody above the threshold, so the merge is usually a no-op and
+the read is a single fetch. The hybrid only costs something for the people it exists to serve.</div></div>
+</div>
+<div class="design-step wflow">
+  <div class="ds-header"><span class="ds-ico">&#128260;</span>8. Workflows &mdash; what actually happens</div>
+  <div class="ds-body"><div class="wf">
+  <div class="wf-title">Sam posts, and his 400 followers see it</div>
+  <div class="wf-sub">The ordinary case, which is 99.9% of posts.</div>
+  <ol>
+    <li>Sam posts. We write one row and return <b>201</b> straight away. He is not waiting for anything else.</li>
+    <li>A job picks it up from the fan-out queue and looks up who follows Sam. <b>400 people.</b></li>
+    <li>It pushes Sam's post id onto the front of each of those 400 timeline lists. Ids only, about 8 bytes each.</li>
+    <li>Each list is trimmed to its most recent few hundred entries, so it cannot grow forever.</li>
+    <li>Total time from post to visible: <b>under two seconds.</b></li>
+    <li>When Dana opens the app, we fetch her list, take the first 50 ids, and load those 50 posts. One sequential read plus a batch get.</li>
+  </ol>
+  <div class="wf-out">Dana's feed loaded without touching the follow graph at all. The work was done two seconds earlier, once, by Sam's post.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">An account with 40 million followers posts</div>
+  <div class="wf-sub">Where the strategy above falls apart.</div>
+  <ol>
+    <li>Same first step: write the post, return 201.</li>
+    <li>The fan-out job looks up the follower count and sees <b>40,000,000</b>.</li>
+    <li>If we fanned out, that is 40 million list writes for one post. At any realistic throughput this takes minutes, and <b>every other post queued behind it waits</b>.</li>
+    <li>That is the real damage. It is not that the celebrity's post is slow; it is that Sam's post, sitting behind it in the queue, is now also slow.</li>
+    <li>So we stop. The post stays in the celebrity's own timeline and nothing is pushed anywhere.</li>
+    <li>When Dana opens the app, we fetch her precomputed list <i>and</i> the recent posts of the three celebrities she follows, and merge by time.</li>
+  </ol>
+  <div class="wf-out">Three extra reads on Dana's feed load. Compare that to 40 million writes, most of which would land in timelines nobody opens today.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">Sam deletes a post that reached 500,000 timelines</div>
+  <div class="wf-sub">The bill for fan-out-on-write.</div>
+  <ol>
+    <li>The post id is sitting in half a million lists.</li>
+    <li>Deleting it properly means half a million list edits, which is as expensive as the original fan-out.</li>
+    <li>Instead we do one write: mark the post deleted, and put its id in a small set of deleted ids held in cache.</li>
+    <li>When Dana loads her feed, we fetch 50 ids and drop any that are in that set before loading the posts.</li>
+    <li>The stale ids are cleaned out of the lists lazily, in the background, whenever a list is next trimmed.</li>
+  </ol>
+  <div class="wf-out">Reads do a tiny bit more work; the delete is one write instead of 500,000. That is the right side to pay on, because deletes are rare and reads never stop.</div>
+</div></div>
+</div>
+<div class="design-step deep">
+  <div class="ds-header"><span class="ds-ico">&#128269;</span>9. Deep dives, and what breaks</div>
+  <div class="ds-body"><h4>Why precompute at all</h4>
+
+<p>The alternative is to build the feed when it is asked for: look up who you follow, fetch their
+recent posts, merge, return. It is simple and it stores nothing extra.</p>
+
+<p>It is also the same work repeated on every single feed load. If you follow 500 accounts, that is
+500 lookups every time you pull to refresh, and you refresh far more often than the people you
+follow post. Doing it once at write time and reusing the result is strictly less work when reads
+outnumber writes a thousand to one.</p>
+
+<h4>Where the threshold should sit</h4>
+
+<p>There is no correct number, and saying so is better than inventing one. What matters is what you
+watch.</p>
+
+<p>The metric is fan-out lag: how long between a post being accepted and it reaching the last
+follower's timeline. Set the threshold too high and one large account stalls the queue for
+everybody, which shows up as ordinary users' posts taking minutes to appear. Set it too low and you
+push lots of accounts onto the read-time merge path, which makes feeds slower for the people who
+follow them.</p>
+
+<p>Start somewhere in the tens of thousands, watch lag broken down by author tier, and move it. The
+point is that it is a dial with an observable consequence, not a constant.</p>
+
+<h4>What ranking would cost</h4>
+
+<p>Everything here assumes reverse-chronological order, and that assumption is load-bearing. A
+timeline is a sorted list, so appending to it is cheap and reading it is a sequential scan.</p>
+
+<p>Ranking breaks that. If the order depends on a score computed from recency, engagement and your
+own history, then the list is no longer stable and precomputing it means recomputing it constantly.</p>
+
+<p>The usual compromise keeps fan-out for the candidate set and ranks at read time over a few
+hundred candidates rather than the whole corpus. You keep the cheap write path and accept a scoring
+service on the read path, which is a real latency cost you should name rather than gloss over.</p>
+
+<h4>What breaks</h4>
+
+<div class="ft-row"><div class="ft-fail">Redis timeline lost</div><div class="ft-fix">Redis Cluster. On node loss: rebuild affected timelines from Cassandra on next request. Slow first load (~500ms), fast thereafter. Alert if rebuild rate is high (many nodes lost).</div></div><div class="ft-row"><div class="ft-fail">Fan-out service overwhelmed</div><div class="ft-fix">Kafka back-pressure: fan-out workers pull at their own rate. Scale worker pods horizontally. Kafka retains messages for 7 days -- no loss during overload. Users see timeline lag, not errors.</div></div><div class="ft-row"><div class="ft-fail">Cassandra node failure</div><div class="ft-fix">RF=3, quorum reads/writes. Node failure -> automatic reroute to replicas. Cassandra's gossip protocol detects failure in ~3s. No manual intervention.</div></div><div class="ft-row"><div class="ft-fail">Celebrity posts viral tweet (traffic spike)</div><div class="ft-fix">Celebrity tweets use read fan-out -- no write spike. CDN caches user profile pages. Rate limit profile page fetches. Auto-scale read API pods on CPU metric.</div></div><div class="concl-grid">
     <div class="cc"><div class="h">The dominant constraint</div><p><strong>Follower-count skew.</strong> A handful of accounts with tens of millions of followers is what makes a single fan-out strategy impossible, so the design is a hybrid rather than a choice between push and pull.</p></div>
     <div class="cc first"><div class="h">What I would build first</div><p>Fan-out-on-write for the ordinary case, with a celebrity threshold above which posts are pulled and merged at read time.</p></div>
     <div class="cc"><div class="h">What I deliberately did not build</div><p>Ranking, ads and notifications. A chronological timeline is a legitimate v1 and it keeps the read path free of a scoring service.</p></div>
     <div class="cc risk"><div class="h">The biggest risk</div><p>Getting the celebrity threshold wrong. Too high and one account can stall the fan-out queue for everyone; I would make it a tunable and monitor fan-out lag per tier.</p></div>
-  </div>
-  </div>
+  </div></div>
 </div>
 
 <div class="followup">
@@ -7698,8 +7972,9 @@ much.</p>
     <div class="fu-a"><p>The mirror image of the celebrity problem, and much rarer. Fan-out-on-write is fine for them, because it costs the <em>writers</em>, not the reader. Their timeline is just a longer list.</p><p>Where it hurts is the read-time merge for any celebrities in that set. If someone follows 5,000 accounts that are all above the threshold, their feed load is 5,000 fetches.</p><p>In practice you cap it: merge only the most recent N celebrity posts, and accept that a user following thousands of large accounts sees an approximate feed.</p></div>
   </details>
 </div>
+  </div>
 </div>
-</div>
+
 <div class="design-card">
   <div class="dc-header">
     <h3 class="dc-title"><span id="design-kv">Design a Distributed Key-Value Store</span> (like Redis / Amazon Dynamo)</h3>

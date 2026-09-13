@@ -17313,67 +17313,139 @@ claiming the current one scales forever.</p>
     <h3 class="dc-title"><span id="design-sort">Design a Distributed Sort</span> (&ldquo;the data set does not fit in memory and you have many workers&rdquo;)</h3>
     <div class="dc-meta">Difficulty: <strong>Medium-Hard</strong> &nbsp;.&nbsp; Target: <strong>35 min</strong></div>
   </div>
-  <div class="dc-body"><div class="asked">
+  <div class="dc-body">
+<div class="asked">
   <div class="ak-q"><span class="ak-l">&#128172; The question, as asked</span><p>&ldquo;You have a data set far too large to fit in memory on one machine, and many workers. How do you sort it?&rdquo;</p></div>
   <div class="ak-h"><span class="ak-l">&#9889; What makes it hard</span><p>Real keys are <strong>always skewed</strong>, so an evenly divided key space sends most rows to one worker and the job takes as long as that worker does. The fix costs minutes and is the step people skip.</p></div>
 </div>
-
 <div class="design-step req">
-  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Requirements</div>
-  <div class="ds-body"><div class="clarify">
+  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Understanding the question</div>
+  <div class="ds-body"><p>The prompt: <em>&ldquo;You have a data set far too large to fit in memory on one
+machine, and many workers. How do you sort it?&rdquo;</em></p>
+
+<p>This is the most algorithmic question in the guide, and it still turns on a systems judgement rather
+than an algorithm.</p>
+
+<h4>Start with one machine</h4>
+
+<p>Before distributing anything, solve the smaller version: how does <em>one</em> machine sort 100 GB
+with 16 GB of RAM?</p>
+
+<p>You cannot load it, so you sort it in pieces. Read 16 GB, sort it in memory, write it out. Repeat
+until you have several sorted files on disk. Then <strong>merge</strong> them: read a little from the
+front of each, repeatedly take the smallest, and write out a single sorted stream.</p>
+
+<p>The merge is the clever part, because it needs almost no memory. You only ever hold the front of each
+run, so merging seven 16 GB files uses a few megabytes of buffer. That is external sorting, and the
+distributed version is the same idea with the network in the middle.</p>
+
+<h4>The distributed version, and where it goes wrong</h4>
+
+<p>With 100 workers, the obvious plan: give each worker a range of the key space, have everyone send
+each row to the worker owning its range, and let each worker sort what it received. Concatenate the
+outputs and the whole thing is sorted.</p>
+
+<p>It is correct, and it fails in practice for one reason.</p>
+
+<div class="insight">
+  <div class="label">&#127919; Real keys are always skewed</div>
+  <p>Divide the key space evenly and you have assumed the <em>data</em> is spread evenly across it. It
+  never is.</p>
+  <p>Sort by surname and the worker holding S&ndash;T gets far more than the one holding Q&ndash;R. Sort
+  by country and one worker gets China. Sort by customer and one worker gets your largest account.
+  Sort by URL and one worker gets an entire domain.</p>
+  <p>The job then takes as long as the most loaded worker. Ninety-nine workers finish in ten minutes and
+  one runs for three hours. <strong>You have 100 machines and the throughput of one.</strong></p>
+</div>
+
+<p>The fix is to <em>look at the data before deciding the ranges</em>: sample a small fraction, see
+where the keys actually fall, and choose boundaries that give each worker an equal share of rows rather
+than an equal share of key space.</p>
+
+<p>It costs a few minutes and it is the step people skip. Everything else here is mechanical.</p>
+
+<h4>What they are looking for</h4>
+
+<p><strong>Do you raise skew unprompted?</strong> This is the question.</p>
+
+<p><strong>Do you know the merge is memory-bounded?</strong> It is what makes external sorting work at
+all.</p>
+
+<p><strong>Do you ask what &ldquo;sorted&rdquo; means?</strong> Globally ordered output is much stricter
+than sorted files in order, and downstream consumers usually only need the latter.</p>
+<div class="clarify">
   <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
   <div class="cq-row"><div class="cq-q">Does the whole result need to be globally sorted, or only partitioned?</div><div class="cq-w">A globally ordered single output is much stricter than &ldquo;each output file is sorted and files are in order&rdquo;. Downstream consumers usually only need the latter, and it is far cheaper.</div></div><div class="cq-row"><div class="cq-q">What is the key distribution?</div><div class="cq-w">Uniform keys make range partitioning trivial. Skewed keys &mdash; and real keys are always skewed &mdash; are the entire difficulty, because one reducer gets everything.</div></div><div class="cq-row"><div class="cq-q">Is this one-off or recurring?</div><div class="cq-w">A recurring job justifies sampling, tuning and a stored partition map. A one-off should use the simplest thing that finishes.</div></div><div class="cq-row"><div class="cq-q">Where does the data live and where must the output go?</div><div class="cq-w">If input and output are the same object store, network shuffle is the cost. If workers have local disks, spilling changes the arithmetic.</div></div><div class="cq-row"><div class="cq-q">Are duplicate keys significant, and must the sort be stable?</div><div class="cq-w">Stability constrains how you merge and rules out some parallel shortcuts.</div></div>
   <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
 </div>
-<p><strong>Functional:</strong></p>
-<ul>
-  <li>Sort a data set far larger than any single machine&rsquo;s memory, by a specified key</li>
-  <li>Produce output that is globally ordered across partitions</li>
-  <li>Tolerate a worker dying mid-job without restarting from scratch</li>
+</div>
+</div>
+<div class="design-step fr">
+  <div class="ds-header"><span class="ds-ico">&#128221;</span>2. Functional requirements</div>
+  <div class="ds-body"><ul>
+  <li><strong>Sort a data set far larger than any machine's memory</strong>, by a specified key.</li>
+  <li><strong>Produce globally ordered output</strong> across partitions.</li>
+  <li><strong>Tolerate a worker dying</strong> mid-job without restarting from scratch.</li>
 </ul>
-<p><strong>Non-Functional:</strong></p>
-<ul>
-  <li>Scale roughly linearly with worker count until the network saturates</li>
-  <li>Skewed keys must not make one worker the whole job&rsquo;s runtime</li>
-  <li>Bounded memory per worker &mdash; the job must never depend on fitting in RAM</li>
-</ul></div>
-</div>
-<div class="design-step est">
-  <div class="ds-header"><span class="ds-ico">&#128202;</span>2. Capacity Estimation</div>
-  <div class="ds-body"><div class="assume">
-  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
-  <div class="as-row"><div class="as-a">10&nbsp;TB input, 100 workers with 16&nbsp;GB RAM each</div><div class="as-b">Total RAM is 1.6 TB against 10 TB of data, so the data cannot be held in memory even collectively. That is what forces external sorting.</div></div><div class="as-row"><div class="as-a">Keys are skewed, as real keys always are</div><div class="as-b">Uniform keys would make fixed-range partitioning correct and sampling unnecessary.</div></div><div class="as-row"><div class="as-a">The network is the bottleneck, not the CPU</div><div class="as-b">On very fast interconnects, comparison cost can dominate instead and merge strategy matters more.</div></div>
-</div>
-<p><strong>Assumptions:</strong> 10&nbsp;TB input, 100 workers, 16&nbsp;GB RAM each, 10&nbsp;Gbps per node.</p><div class="ng"><div class="ng-cell"><div class="ng-val">10 TB</div><div class="ng-desc">input size</div></div><div class="ng-cell"><div class="ng-val">1.6 TB</div><div class="ng-desc">total cluster RAM</div></div><div class="ng-cell"><div class="ng-val">~100 GB</div><div class="ng-desc">per worker share</div></div><div class="ng-cell"><div class="ng-val">~6&times;</div><div class="ng-desc">spill passes at 16 GB</div></div><div class="ng-cell"><div class="ng-val">10 TB</div><div class="ng-desc">bytes crossing the network once</div></div><div class="ng-cell"><div class="ng-val">~2.2 h</div><div class="ng-desc">shuffle floor at 10 Gbps</div></div></div><p><strong>The number that frames the whole problem:</strong> 10&nbsp;TB of data against
-1.6&nbsp;TB of total RAM means the data cannot be resident even across the entire cluster. So this
-is an <strong>external sort</strong>: sort what fits, spill sorted runs to disk, then merge. And
-because every record must reach the worker that owns its key range, at least 10&nbsp;TB crosses the
-network exactly once &mdash; roughly 2.2 hours at 10&nbsp;Gbps per node. <strong>The shuffle is the
-job.</strong> Everything else is an optimisation around that floor.</p></div>
-</div>
-<div class="design-step api">
-  <div class="ds-header"><span class="ds-ico">&#128268;</span>3. API Design</div>
-  <div class="ds-body"><div class="api-code"><span class="kw">POST</span>   /v1/sorts
-  Body:     { input_prefix, output_prefix, key_spec, order,
-              workers, sample_rate }
-  Response: 201 { job_id, state:"sampling" }
 
-<span class="kw">GET</span>    /v1/sorts/{id}
-  Response: { state, phase:"sample|map|shuffle|merge",
-              partitions:[{ id, bytes, state, worker }],
-              skew_ratio }        <span class="cm">// max partition / mean partition</span>
-  <span class="cm">// skew_ratio is the number to watch: above ~3 the job is</span>
-  <span class="cm">// waiting on one straggler and the partition map was wrong.</span>
+<h4>What "globally ordered" is allowed to mean</h4>
 
-<span class="cm">// WORKER-FACING</span>
-<span class="kw">POST</span>   /internal/tasks/claim   -&gt; { task_id, kind, inputs[], attempt }
-<span class="kw">POST</span>   /internal/tasks/report  Body: { task_id, state, output_refs[] }
-  <span class="cm">// tasks are idempotent and write to attempt-scoped paths, so a</span>
-  <span class="cm">// duplicate execution is harmless -- see the fault table</span></div></div>
+<p>Worth pinning down, because the two readings differ enormously in cost.</p>
+
+<p><strong>Strict:</strong> one output stream, fully ordered end to end. Producing it means a final
+merge through a single point, which is a serial step that undoes much of the parallelism you just
+bought.</p>
+
+<p><strong>Practical:</strong> N output files, each internally sorted, where every key in file 3 is less
+than every key in file 4. Reading them in order gives a globally sorted stream, and each was written in
+parallel with no final merge at all.</p>
+
+<p>Almost every real consumer is happy with the second, because reading files in order is trivial. Asking
+which is needed can remove a serial bottleneck from the design, which is precisely the kind of question
+worth asking.</p>
+
+<h4>Fault tolerance, which changes the job structure</h4>
+
+<p>A ten-thousand-worker-minute job will lose a worker. If that restarts everything, long jobs never
+finish &mdash; the probability of completing without a failure falls as the job grows.</p>
+
+<p>So work is divided into <strong>independently retryable tasks</strong> whose outputs are written
+durably. A dead worker's tasks are re-run on another machine and everything else is untouched. That
+requirement is what makes the intermediate shuffle output something you materialise rather than stream
+&mdash; a real cost, paid deliberately.</p></div>
+</div>
+<div class="design-step nfr">
+  <div class="ds-header"><span class="ds-ico">&#9201;</span>3. Non-functional requirements</div>
+  <div class="ds-body"><div class="tw"><table class="to">
+<thead><tr><th style="width:26%">Requirement</th><th style="width:22%">Target</th><th style="width:52%">What it forces</th></tr></thead>
+<tbody>
+<tr><td><strong>Memory per worker</strong></td><td class="chosen">Bounded</td><td>The job must never depend on fitting in RAM. This is what makes it external sorting rather than sorting.</td></tr>
+<tr><td><strong>Skew tolerance</strong></td><td class="chosen">No worker dominates</td><td>The requirement the naive design fails. It is why sampling exists.</td></tr>
+<tr><td><strong>Scaling</strong></td><td>~Linear in workers</td><td>Until the network saturates. The shuffle is the wall.</td></tr>
+<tr><td><strong>Worker failure</strong></td><td>Re-run one task</td><td>Not the job. Requires durable intermediate output.</td></tr>
+<tr><td><strong>Shuffle volume</strong></td><td>~Input size, once</td><td>Every row crosses the network exactly once. That is the floor, and it sets the minimum runtime.</td></tr>
+</tbody></table></div>
+
+<h4>The shuffle floor</h4>
+
+<p>The one piece of arithmetic worth doing early, because it bounds everything.</p>
+
+<p>Every row must travel from the worker that read it to the worker that will sort its range. That is
+<strong>the entire data set crossing the network, once</strong>. Ten terabytes over a hundred workers at
+10 Gbps each is roughly <strong>two hours</strong>, and no amount of algorithmic cleverness reduces it.</p>
+
+<p>So the network, not the CPU, is the bottleneck, and the optimisations that matter are the ones that
+move fewer bytes: compress the shuffle, drop unneeded columns before shuffling, and combine locally
+first where the operation allows it.</p>
+
+<p>Establishing that the job is network-bound in the first two minutes is what stops the discussion
+drifting into comparison-sort micro-optimisation.</p></div>
 </div>
 <div class="design-step schema">
-  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="cm">-- The partition map is the artefact that decides whether this job</span>
+  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Data model and API</div>
+  <div class="ds-body"><p>There is no schema. There is a partition map, and it is the only shared state in the
+job.</p>
+<div class="schema-code"><span class="cm">-- The partition map is the artefact that decides whether this job</span>
 <span class="cm">-- finishes in two hours or twenty. It is built by SAMPLING, not</span>
 <span class="cm">-- by assuming a uniform key space.</span>
 <span class="kw">TABLE</span> partition_map {
@@ -17395,12 +17467,137 @@ job.</strong> Everything else is an optimisation around that floor.</p></div>
   <span class="pk">PRIMARY KEY</span> (job_id, task_id, attempt)
 }
 <span class="cm">-- Attempt-scoped output paths are what make retries safe: a</span>
-<span class="cm">-- zombie worker writes to a path nobody will ever read.</span></div></div>
+<span class="cm">-- zombie worker writes to a path nobody will ever read.</span></div>
+<p>The partition map is a list of key boundaries: <em>keys below B go to worker 0, B to F to worker 1,
+and so on.</em> Every worker holds the same copy, so routing a row is a local decision &mdash; a binary
+search over a hundred boundaries &mdash; with no coordination.</p>
+
+<p>It is tiny. A hundred boundaries is kilobytes. And it is the entire mechanism that makes the output
+globally ordered: because the ranges are disjoint and increasing, concatenating the workers' outputs in
+order gives a sorted result.</p>
+
+<h4>Choosing the boundaries by sampling</h4>
+
+<p>The boundaries are not chosen by dividing the key space. They are chosen by looking at the data.</p>
+
+<p>Read a small random sample &mdash; a fraction of a percent is plenty &mdash; sort it, and take evenly
+spaced values from the sorted sample as the boundaries. If 12% of the sample falls below
+<code>&ldquo;B&rdquo;</code>, roughly 12% of the data does too, so the first boundary lands where 1% of
+the sample sits rather than at an arbitrary letter.</p>
+
+<p>The result is <strong>equal numbers of rows per worker</strong>, not equal key ranges. Which is
+exactly the property that makes the job finish in the time of the average worker rather than the worst
+one.</p>
+
+<p>The sample must be random across the whole input, not the first N rows. Input files are frequently
+already ordered by something, and sampling the head of the data gives boundaries that describe one
+corner of it &mdash; a mistake that produces worse skew than not sampling at all.</p>
+
+<h4>What the intermediate output looks like</h4>
+
+<p>Each map task writes one file per partition: a hundred small sorted files. A reduce task then reads
+its own file from every map task &mdash; ten thousand small reads in total for a hundred-by-hundred
+job.</p>
+
+<p>That fan-out is why shuffle is operationally painful, and why the number of small files, not the
+bytes, is often what actually limits a large job.</p>
+
+<h4>The API</h4>
+<div class="api-code"><span class="kw">POST</span>   /v1/sorts
+  Body:     { input_prefix, output_prefix, key_spec, order,
+              workers, sample_rate }
+  Response: 201 { job_id, state:"sampling" }
+
+<span class="kw">GET</span>    /v1/sorts/{id}
+  Response: { state, phase:"sample|map|shuffle|merge",
+              partitions:[{ id, bytes, state, worker }],
+              skew_ratio }        <span class="cm">// max partition / mean partition</span>
+  <span class="cm">// skew_ratio is the number to watch: above ~3 the job is</span>
+  <span class="cm">// waiting on one straggler and the partition map was wrong.</span>
+
+<span class="cm">// WORKER-FACING</span>
+<span class="kw">POST</span>   /internal/tasks/claim   -&gt; { task_id, kind, inputs[], attempt }
+<span class="kw">POST</span>   /internal/tasks/report  Body: { task_id, state, output_refs[] }
+  <span class="cm">// tasks are idempotent and write to attempt-scoped paths, so a</span>
+  <span class="cm">// duplicate execution is harmless -- see the fault table</span></div></div>
+</div>
+<div class="design-step est">
+  <div class="ds-header"><span class="ds-ico">&#128202;</span>5. Capacity estimation</div>
+  <div class="ds-body"><p>The numbers, and the two conclusions they force.</p>
+<div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">10&nbsp;TB input, 100 workers with 16&nbsp;GB RAM each</div><div class="as-b">Total RAM is 1.6 TB against 10 TB of data, so the data cannot be held in memory even collectively. That is what forces external sorting.</div></div><div class="as-row"><div class="as-a">Keys are skewed, as real keys always are</div><div class="as-b">Uniform keys would make fixed-range partitioning correct and sampling unnecessary.</div></div><div class="as-row"><div class="as-a">The network is the bottleneck, not the CPU</div><div class="as-b">On very fast interconnects, comparison cost can dominate instead and merge strategy matters more.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">10 TB</div><div class="ng-desc">input size</div></div><div class="ng-cell"><div class="ng-val">1.6 TB</div><div class="ng-desc">total cluster RAM</div></div><div class="ng-cell"><div class="ng-val">~100 GB</div><div class="ng-desc">per worker share</div></div><div class="ng-cell"><div class="ng-val">~6&times;</div><div class="ng-desc">spill passes at 16 GB</div></div><div class="ng-cell"><div class="ng-val">10 TB</div><div class="ng-desc">bytes crossing the network once</div></div><div class="ng-cell"><div class="ng-val">~2.2 h</div><div class="ng-desc">shuffle floor at 10 Gbps</div></div></div>
+<p><strong>The data does not fit, even collectively.</strong> Ten terabytes against a hundred workers
+with 16 GB each is 1.6 TB of total RAM &mdash; about a sixth of the data. So this is external sorting
+not just per worker but cluster-wide, and every stage must be designed to spill to disk.</p>
+
+<p>Each worker's share is around 100 GB against 16 GB of memory, which means roughly six sorted runs per
+worker and a merge over them. Six is a comfortable merge width; a thousand would not be, which is where
+multi-pass merging becomes necessary.</p>
+
+<p><strong>The shuffle sets the floor.</strong> Ten terabytes crossing the network once, at 10 Gbps per
+node, is about two hours if the network is perfectly utilised &mdash; and it never is. That is the
+minimum runtime, and it is worth stating before anyone optimises the comparison function.</p>
+
+<h4>How many partitions</h4>
+
+<p>A real decision with a trade on both sides.</p>
+
+<p><strong>Too few</strong> and each partition exceeds what a worker can handle efficiently, forcing
+deeper spilling, and there is no room to rebalance if the sample was slightly off.</p>
+
+<p><strong>Too many</strong> and the small-file problem dominates: a thousand-by-thousand shuffle is a
+million intermediate files, and the per-file overhead swamps the actual data movement.</p>
+
+<p>A few times the worker count is the usual answer. It keeps per-partition size manageable and gives the
+scheduler room to hand extra partitions to workers that finish early &mdash; which is, incidentally, a
+second and cheaper defence against mild skew.</p></div>
+</div>
+<div class="design-step tradeoff">
+  <div class="ds-header"><span class="ds-ico">&#9878;</span>6. The key trade-offs</div>
+  <div class="ds-body"><p>The choices, and their costs.</p>
+<div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Partitioning</strong></td><td class='chosen'>Range partition from a sample</td><td class='rej'>Equal key ranges, or hash</td><td>Equal ranges collapse on skewed data. Hash partitioning balances beautifully but destroys order, so the output is not globally sorted.</td></tr><tr><td><strong>Sort strategy</strong></td><td class='chosen'>External merge sort with spills</td><td class='rej'>Sort in memory</td><td>The data is larger than total cluster RAM. Any design that assumes it fits is answering a different question.</td></tr><tr><td><strong>Global order</strong></td><td class='chosen'>Falls out of partition boundaries</td><td class='rej'>A final merge of all partitions</td><td>A single final merge is a serial bottleneck through one machine. Ordered partitions give the same result with no coordination.</td></tr><tr><td><strong>Retries</strong></td><td class='chosen'>Attempt-scoped output paths</td><td class='rej'>Locking a task to one worker</td><td>A slow worker is indistinguishable from a dead one. Idempotent output makes duplicate execution harmless instead of dangerous.</td></tr><tr><td><strong>Stragglers</strong></td><td class='chosen'>Speculative duplicate tasks</td><td class='rej'>Wait</td><td>The last few tasks dominate tail runtime, and duplication is cheap once tasks are idempotent.</td></tr></tbody></table></div>
+<h4>Sampling: a few minutes against hours of straggler</h4>
+
+<p>The central trade, and it is lopsided enough to be easy.</p>
+
+<p>Sampling costs a pass over a small fraction of the input &mdash; minutes on a ten-terabyte job. Skipping
+it risks one worker receiving many times its share and running for hours after everyone else has
+finished.</p>
+
+<p>The reason anyone skips it is that it adds a <em>serial</em> stage: everyone waits while the sample is
+collected and the boundaries computed. On a job that would otherwise start immediately, that feels like
+pure overhead, and on uniformly distributed keys it is.</p>
+
+<p>The rule worth stating: <strong>sample unless you have measured the distribution and know it is
+uniform.</strong> Assuming uniformity is how you end up with the 99-idle-workers outcome, and the
+assumption is almost never true of real keys.</p>
+
+<h4>Materialise the shuffle, or stream it</h4>
+
+<p><strong>Materialising</strong> &mdash; map tasks write their partitioned output to disk, reduce tasks
+read it &mdash; means a dead reducer simply re-reads the data that is still sitting there. Recovery is
+cheap and local.</p>
+
+<p>The cost is a full write and read of the entire data set: significant I/O, and the reduce phase cannot
+begin until the map phase finishes, so the two do not overlap.</p>
+
+<p><strong>Streaming</strong> &mdash; map tasks send rows directly to reducers &mdash; avoids that I/O
+and overlaps the phases, so the job is meaningfully faster. But if a reducer dies, the data it was
+receiving is gone, and the map tasks that produced it must be re-run.</p>
+
+<p>The failure probability is what decides it. A ten-minute job on twenty workers can afford to stream
+and occasionally redo everything. A six-hour job on a thousand workers will lose a worker, so
+materialising is the only structure that finishes.</p>
+
+<p>This is a general pattern worth naming: <strong>checkpointing trades throughput for recoverability,
+and the right amount depends on the expected number of failures during the job.</strong></p></div>
 </div>
 <div class="design-step arch">
-  <div class="ds-header"><span class="ds-ico">&#127959;</span>5. High-Level Architecture</div>
-  <div class="ds-body">
-<div class="anim" id="anim-sort">
+  <div class="ds-header"><span class="ds-ico">&#127959;</span>7. High-level design</div>
+  <div class="ds-body"><div class="anim" id="anim-sort">
   <div class="an-head">
     <div class="an-title">External sort &mdash; and the key skew that makes one reducer the whole job</div>
     <div class="an-btns">
@@ -17447,85 +17644,164 @@ job.</strong> Everything else is an optimisation around that floor.</p></div>
   <div class="an-cap ok-only"><strong>What is moving:</strong> a small random sample first, to choose partition boundaries with roughly <em>equal bytes</em> per range; then the data itself, sorted in memory, spilled as runs, and shuffled to the reducer that owns its range. Ordering falls out of the boundaries &mdash; no reducer ever compares against another.</div>
   <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> skip the sample and split the key space evenly, and a skewed distribution sends most rows to one reducer. The job&rsquo;s runtime becomes that single worker&rsquo;s runtime. Worse, if a <em>single key value</em> exceeds a partition&rsquo;s budget, no boundary choice helps &mdash; it cannot be split without breaking the sort, and needs special handling or an accepted straggler.</div>
 </div>
-<div class="flow">  <span class="fl-key">PHASE 0 -- SAMPLE</span>   read ~0.1% of records at random
-      |            build the partition map so each range holds
-      |            roughly EQUAL BYTES, not equal key width
-      v            <span class="fl-note">this phase costs minutes and saves hours</span>
+<p>Three phases, and one of them is optional-looking and essential.</p>
+<div class="flow">  <span class="fl-key">PHASE 0 &mdash; SAMPLE</span>   <span class="fl-note">the step people skip</span>
 
-  <span class="fl-key">PHASE 1 -- MAP / SORT</span>   each worker reads its input split
-      |   sort in memory until the buffer is full
-      |   <span class="fl-hi">spill a sorted run to local disk</span>
-      |   repeat; partition each run by the partition map
-      v
+    read ~0.1% at random from across the whole input
+    sort the sample
+    take evenly spaced values as boundaries
+         |
+         v
+    <span class="fl-hi">PARTITION MAP</span>   kilobytes, identical on every worker
+       keys &lt; "B"    &rarr; worker 0
+       "B" .. "F"    &rarr; worker 1      <span class="fl-dim">equal ROWS, not equal key ranges</span>
+       ...
 
-  <span class="fl-key">PHASE 2 -- SHUFFLE</span>   every partition's data moves to its owner
-      |   <span class="fl-bad">10 TB crosses the network exactly once -- the job's floor</span>
-      v
 
-  <span class="fl-key">PHASE 3 -- MERGE</span>   owner k-way merges its sorted runs
-      |   streaming, bounded memory: one buffer per run
-      |   never materialises the partition in RAM
-      v
-  <span class="fl-hi">OUTPUT</span>  part-00000 .. part-00099, each internally sorted,
-          partitions in key order = globally sorted result
+  <span class="fl-key">PHASE 1 &mdash; MAP</span>   parallel, one task per input split
 
-  <span class="fl-note">Globally sorted WITHOUT any global comparison: ordering comes from the</span>
-  <span class="fl-note">partition boundaries, and each partition is sorted independently.</span></div>
-<div class="flow-cap">Range-partition then sort locally. That is the whole trick: it makes the global
-order fall out of the partition map rather than out of any cross-worker coordination.</div></div>
+    read split &rarr; for each row, binary-search the map &rarr; route
+                &rarr; buffer per partition
+                &rarr; sort each buffer, <span class="fl-hi">write one file per partition</span>
+    <span class="fl-dim">100 map tasks &times; 100 partitions = 10,000 intermediate files</span>
+
+
+  <span class="fl-key">PHASE 2 &mdash; SHUFFLE + REDUCE</span>   <span class="fl-bad">the network floor lives here</span>
+
+    reducer 7 fetches its file from all 100 mappers
+         |
+         v
+    <span class="fl-hi">MERGE</span>  100 sorted streams &rarr; one sorted output
+           <span class="fl-note">holds only the head of each stream: megabytes, not gigabytes</span>
+         |
+         v
+    output-00007   <span class="fl-hi">sorted, and every key &lt; those in output-00008</span>
+
+
+  concatenating outputs 0..99 in order = globally sorted</div>
+<div class="flow-cap">No final merge step exists, and that is the point: because the partition ranges are
+disjoint and increasing, the parallel outputs are already in order relative to each other.</div></div>
+</div>
+<div class="design-step wflow">
+  <div class="ds-header"><span class="ds-ico">&#128260;</span>8. Workflows &mdash; what actually happens</div>
+  <div class="ds-body"><div class="wf">
+  <div class="wf-title">Sorting 10 TB of web logs by URL</div>
+  <div class="wf-sub">The whole job, end to end.</div>
+  <ol>
+    <li><b>Sample.</b> Each worker reads a random 0.1% of its assigned splits &mdash; about 10 GB total. These are collected and sorted centrally: a small, fast job.</li>
+    <li>Ninety-nine boundaries are picked at evenly spaced points in the sorted sample, producing 100 partitions with roughly equal row counts. The map is broadcast to every worker.</li>
+    <li><b>Map.</b> Each worker reads its 100 GB share. For every row it binary-searches the partition map and appends to the right in-memory buffer.</li>
+    <li>When a buffer fills, it is sorted and written out. Each worker ends up with 100 sorted files &mdash; one per partition.</li>
+    <li><b>Shuffle.</b> Reducer 7 fetches file 7 from all 100 mappers. This is where the two-hour network floor is spent.</li>
+    <li><b>Merge.</b> It merges those 100 sorted streams into one output, holding only the head of each &mdash; a few megabytes of buffer for 100 GB of output.</li>
+    <li>Every reducer does the same in parallel. The 100 output files, read in order, are a globally sorted 10 TB data set.</li>
+  </ol>
+  <div class="wf-out">Notice there is no final merge. The partition map guaranteed the ordering between files before a single row moved, which is what keeps the last phase fully parallel.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">The same job without sampling</div>
+  <div class="wf-sub">What the skipped step costs.</div>
+  <ol>
+    <li>Boundaries are chosen by dividing the key space evenly &mdash; for URLs, by splitting the alphabet into 100 equal slices.</li>
+    <li>Map runs normally. Nothing looks wrong; the phase completes in the usual time.</li>
+    <li>Shuffle begins and the imbalance appears. One partition covers a range containing a handful of enormous domains and receives <b>4 TB</b> instead of 100 GB.</li>
+    <li>Ninety-nine reducers finish their 100 GB in about ten minutes.</li>
+    <li>Reducer 43 is still merging. With 4 TB against 16 GB of memory it needs many more spill passes, so it is not 40&times; slower &mdash; it is worse than that.</li>
+    <li>It may not finish at all: if the partition exceeds its local disk, the task fails, is retried on another worker, and fails there too. <b>The job is stuck</b>, and retrying cannot help because the problem is the partitioning.</li>
+  </ol>
+  <div class="wf-out">The failure is not graceful. It is not "the job is a bit slower" but "one task cannot complete and retrying it changes nothing" &mdash; which is why sampling is worth a few minutes on any job where the distribution is unknown.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">One key is 30% of the data</div>
+  <div class="wf-sub">Where sampling is not enough.</div>
+  <ol>
+    <li>Sorting by customer id, and one customer accounts for 30% of all rows.</li>
+    <li>Sampling detects this correctly &mdash; the boundaries will try to give that key its own partition.</li>
+    <li>It does not help. A <b>single key cannot be split across partitions</b> without breaking the sort, so one reducer gets 3 TB no matter how the boundaries are drawn.</li>
+    <li>This is the limit of range partitioning, and recognising it is the point: no choice of boundaries fixes a single dominant key.</li>
+    <li>One escape: if the sort key is composite &mdash; customer <i>then</i> timestamp &mdash; the heavy key can be split on the secondary field, giving multiple partitions with ordered sub-ranges.</li>
+    <li>Another: handle that key separately. Route it to a dedicated set of workers that sort it among themselves, and merge the result back at the correct position.</li>
+    <li>And sometimes the right answer is to question the requirement. If downstream only needs rows grouped by customer, sorting within each customer independently is a much cheaper job.</li>
+  </ol>
+  <div class="wf-out">Worth being able to say plainly: sampling fixes <i>uneven distribution across keys</i> and does nothing for <i>concentration on one key</i>. That distinction &mdash; the same one as the hot key in <span class="srcref">D12</span> and the stadium in <span class="srcref">D9</span> &mdash; recurs throughout distributed systems.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">A worker dies during the reduce phase</div>
+  <div class="wf-sub">Why the intermediate output was written to disk.</div>
+  <ol>
+    <li>Reducer 43 is 70% through merging when its machine fails.</li>
+    <li>Its partial output is discarded &mdash; it was never complete and cannot be resumed from the middle.</li>
+    <li>But its <b>inputs still exist</b>: the 100 intermediate files written by the map tasks are sitting in durable storage, untouched.</li>
+    <li>The scheduler assigns partition 43 to another worker. It fetches the same files and redoes the merge.</li>
+    <li>Cost: one reducer's work, perhaps ten minutes. The other 99 partitions are unaffected and the map phase is not re-run.</li>
+    <li>Had the shuffle been streamed rather than materialised, those 100 map tasks would have had to re-run to regenerate the data &mdash; an hour of work instead of ten minutes.</li>
+  </ol>
+  <div class="wf-out">This is the recoverability that the materialised shuffle was paid for. On a short job the extra I/O is not worth it; on a job long enough that a failure is likely, it is the difference between finishing and restarting.</div>
+</div></div>
 </div>
 <div class="design-step deep">
-  <div class="ds-header"><span class="ds-ico">&#128269;</span>6. Component Deep Dives</div>
-  <div class="ds-body"><p><strong>Sampling is the difference between a good job and a stuck one.</strong> The
-obvious approach &mdash; divide the key space into equal ranges &mdash; assumes a uniform
-distribution that real data never has. If 40% of your keys start with the same prefix, one reducer
-receives 40% of the data and the job&rsquo;s runtime is that one worker. Reading a small random
-sample first and choosing boundaries at the sample&rsquo;s quantiles gives partitions of roughly
-equal <em>size</em>, which is what actually matters. This phase costs minutes and routinely saves
-hours, and skipping it is the single most common way this problem is answered badly.</p>
-<p><strong>Even with sampling, a single hot key can defeat you.</strong> If one key value alone
-exceeds a partition&rsquo;s budget, no boundary choice helps &mdash; that key cannot be split
-across partitions without breaking the sort. The honest answers are to handle that key
-specially (sort its records separately and concatenate, since they are all equal on the sort key
-anyway), or to accept the straggler. Naming this limitation is better than pretending sampling
-solves everything. It is the same hot-key problem as <a class="qlink" href="#ch5">Ch 5</a>, and it
-has the same shape: partitioning distributes keys, not load.</p>
-<p><strong>External merge is where the memory bound is actually held.</strong> A worker sorts what
-fits in its buffer, writes that sorted run to disk, and repeats until its input is consumed. Then
-it merges the runs with a heap, holding one small read buffer per run &mdash; so peak memory is
-<em>number of runs &times; buffer size</em>, not data size. If there are too many runs to merge at
-once, merge in multiple passes. Each pass rereads the data, which is why buffer size matters: the
-number of passes is roughly log-base-(runs per pass) of the total runs.</p>
-<p><strong>Retries must be idempotent, and the trick is the output path.</strong> A worker that is
-slow may not be dead, so a scheduler that reassigns its task can end up with two workers writing
-the same output. Give every attempt its own output prefix and have the coordinator record which
-attempt won; the loser&rsquo;s bytes are simply never read and are garbage-collected later. This
-turns an exactly-once problem into an at-least-once one with a commit step &mdash; the same move as
-fencing in <a class="qlink" href="#design-jobs">D6</a>.</p>
-<p><strong>Speculative execution is how you beat stragglers.</strong> Near the end of a phase, when
-most tasks are done and a few are lagging, start duplicate copies of the slow ones and take
-whichever finishes first. Because the tasks are already idempotent, this costs only wasted compute
-and it protects against the far more common cause of a slow task: a degraded machine rather than
-skewed data.</p></div>
-</div>
-<div class="design-step tradeoff">
-  <div class="ds-header"><span class="ds-ico">&#9878;</span>7. Trade-off Analysis</div>
-  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Partitioning</strong></td><td class='chosen'>Range partition from a sample</td><td class='rej'>Equal key ranges, or hash</td><td>Equal ranges collapse on skewed data. Hash partitioning balances beautifully but destroys order, so the output is not globally sorted.</td></tr><tr><td><strong>Sort strategy</strong></td><td class='chosen'>External merge sort with spills</td><td class='rej'>Sort in memory</td><td>The data is larger than total cluster RAM. Any design that assumes it fits is answering a different question.</td></tr><tr><td><strong>Global order</strong></td><td class='chosen'>Falls out of partition boundaries</td><td class='rej'>A final merge of all partitions</td><td>A single final merge is a serial bottleneck through one machine. Ordered partitions give the same result with no coordination.</td></tr><tr><td><strong>Retries</strong></td><td class='chosen'>Attempt-scoped output paths</td><td class='rej'>Locking a task to one worker</td><td>A slow worker is indistinguishable from a dead one. Idempotent output makes duplicate execution harmless instead of dangerous.</td></tr><tr><td><strong>Stragglers</strong></td><td class='chosen'>Speculative duplicate tasks</td><td class='rej'>Wait</td><td>The last few tasks dominate tail runtime, and duplication is cheap once tasks are idempotent.</td></tr></tbody></table></div></div>
-</div>
-<div class="design-step fault">
-  <div class="ds-header"><span class="ds-ico">&#128737;</span>8. Fault Tolerance</div>
-  <div class="ds-body"><div class="ft-row"><div class="ft-fail">A worker dies mid-task</div><div class="ft-fix">Its task is reassigned and rerun from the input split. Only that task&rsquo;s work is lost, not the job &mdash; which is the whole reason for splitting work into independently retryable units.</div></div><div class="ft-row"><div class="ft-fail">A worker is slow but alive</div><div class="ft-fix">Speculative execution starts a duplicate; the first to finish commits. Attempt-scoped outputs mean the loser&rsquo;s bytes are inert rather than corrupting.</div></div><div class="ft-row"><div class="ft-fail">Partition skew discovered mid-job</div><div class="ft-fix">Monitor the skew ratio during shuffle. A badly skewed map is worth aborting and resampling early; discovering it at the merge phase means the job has already paid the shuffle cost.</div></div><div class="ft-row"><div class="ft-fail">Disk fills during spilling</div><div class="ft-fix">Bound the number of runs per worker and merge intermediate runs early to reclaim space. Running out of disk mid-merge fails the task late, after the most expensive phase.</div></div><div class="ft-row"><div class="ft-fail">Coordinator fails</div><div class="ft-fix">Task state is in a durable store, so a replacement resumes from it. In-flight tasks complete and report; the coordinator holds no state that cannot be rebuilt.</div></div></div>
-</div>
-<div class="design-step concl">
-  <div class="ds-header"><span class="ds-ico">&#127937;</span>9. Conclusion &mdash; what I would say in the last three minutes</div>
-  <div class="ds-body"><div class="concl-grid">
+  <div class="ds-header"><span class="ds-ico">&#128269;</span>9. Deep dives, and what breaks</div>
+  <div class="ds-body"><h4>Why the merge needs so little memory</h4>
+
+<p>The property that makes external sorting possible, and it is worth being able to state precisely.</p>
+
+<p>To merge N sorted streams you only need the <em>current front element</em> of each. Take the smallest,
+emit it, advance that stream, repeat. At no point do you hold more than N elements &mdash; plus whatever
+buffer you use to read efficiently.</p>
+
+<p>So merging a hundred 100 GB files needs a few megabytes, not ten terabytes. Memory is proportional to
+the number of streams, not their size.</p>
+
+<p>Which is also why merge <em>width</em> matters. With a thousand streams, the per-stream read buffer
+shrinks until reads become inefficiently small, and you are better off merging in two passes &mdash;
+groups of thirty, then thirty results &mdash; reading more data twice but reading it in larger chunks.
+The crossover depends on the storage, and knowing that it exists is the useful part.</p>
+
+<h4>Stragglers, and speculative execution</h4>
+
+<p>Even with perfect partitioning, one task will be slow: a degraded disk, a noisy neighbour, a machine
+that is simply worse.</p>
+
+<p>Since the job finishes when its last task does, one slow task extends everything. The standard answer
+is <strong>speculative execution</strong>: when a task is running far slower than its peers, start a
+second copy elsewhere and take whichever finishes first.</p>
+
+<p>It costs a small amount of duplicated work and removes the long tail. It only works because tasks are
+<em>idempotent</em> &mdash; running the same partition twice and discarding one result must be harmless,
+which it is here because the output is deterministic and written atomically.</p>
+
+<p>It also cannot fix a partition that is genuinely too large. Speculating a task that is slow because it
+has 4 TB of data just runs two slow tasks, which is a useful diagnostic: if speculation does not help,
+the problem is data, not hardware.</p>
+
+<h4>Compressing the shuffle</h4>
+
+<p>Since the job is network-bound, the highest-leverage optimisation is moving fewer bytes.</p>
+
+<p>Compressing intermediate output typically trades a little CPU &mdash; which is idle, since the
+bottleneck is the network &mdash; for a substantial reduction in bytes. On text-like data a 3&ndash;4&times;
+reduction is ordinary, which turns a two-hour shuffle floor into well under an hour.</p>
+
+<p>The fast-but-weak compressors are the right choice here rather than the strong-but-slow ones: the goal
+is to keep the network busy, not to minimise size. A compressor that halves the bytes at negligible CPU
+cost beats one that quarters them while becoming the new bottleneck.</p>
+
+<p>Dropping columns before the shuffle is even better where the sort only needs a subset &mdash; bytes
+never sent cost nothing at all.</p>
+
+<h4>What breaks</h4>
+
+<div class="ft-row"><div class="ft-fail">A worker dies mid-task</div><div class="ft-fix">Its task is reassigned and rerun from the input split. Only that task&rsquo;s work is lost, not the job &mdash; which is the whole reason for splitting work into independently retryable units.</div></div><div class="ft-row"><div class="ft-fail">A worker is slow but alive</div><div class="ft-fix">Speculative execution starts a duplicate; the first to finish commits. Attempt-scoped outputs mean the loser&rsquo;s bytes are inert rather than corrupting.</div></div><div class="ft-row"><div class="ft-fail">Partition skew discovered mid-job</div><div class="ft-fix">Monitor the skew ratio during shuffle. A badly skewed map is worth aborting and resampling early; discovering it at the merge phase means the job has already paid the shuffle cost.</div></div><div class="ft-row"><div class="ft-fail">Disk fills during spilling</div><div class="ft-fix">Bound the number of runs per worker and merge intermediate runs early to reclaim space. Running out of disk mid-merge fails the task late, after the most expensive phase.</div></div><div class="ft-row"><div class="ft-fail">Coordinator fails</div><div class="ft-fix">Task state is in a durable store, so a replacement resumes from it. In-flight tasks complete and report; the coordinator holds no state that cannot be rebuilt.</div></div><div class="concl-grid">
   <div class="cc"><div class="h">The dominant constraint</div><p><strong>The data is bigger than the cluster&rsquo;s total memory.</strong> That forces an external sort &mdash; spill sorted runs, then merge with bounded buffers &mdash; and it means at least one full pass of the data across the network, which is the floor on runtime.</p></div>
   <div class="cc first"><div class="h">What I would build first</div><p>The sampling phase and the partition map. Minutes of work that decide whether the job finishes in hours or hangs on one straggler for a day.</p></div>
   <div class="cc"><div class="h">What I deliberately did not build</div><p>A globally strict single output file, and hash partitioning. The first serialises the job through one machine; the second balances perfectly and destroys the ordering the job exists to produce.</p></div>
   <div class="cc risk"><div class="h">The biggest risk</div><p>Key skew that sampling cannot fix. A single value larger than a partition budget cannot be split, and no amount of boundary tuning helps &mdash; it needs special handling or an accepted straggler.</p></div>
 </div></div>
 </div>
-  
+
 <div class="followup">
   <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
   <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
@@ -17546,68 +17822,145 @@ skewed data.</p></div>
     <div class="fu-a"><p>It does, and it destroys the ordering that the job exists to produce. Hashing scatters adjacent keys across unrelated partitions, so the output is sorted within each partition but the partitions have no relationship to each other.</p><p>Range partitioning is what makes the global order fall out of the boundaries: each partition is sorted independently, and concatenating them in order gives a sorted result with no cross-worker comparison at all.</p></div>
   </details>
 </div>
+  </div>
 </div>
-</div>
+
 <div class="design-card">
   <div class="dc-header">
     <h3 class="dc-title"><span id="design-social-graph">Design Degrees of Connection</span> (&ldquo;is this profile 1st, 2nd or 3rd degree?&rdquo; at LinkedIn scale)</h3>
     <div class="dc-meta">Difficulty: <strong>Hard (Staff Expectation)</strong> &nbsp;.&nbsp; Target: <strong>40 min</strong></div>
   </div>
-  <div class="dc-body"><div class="asked">
+  <div class="dc-body">
+<div class="asked">
   <div class="ak-q"><span class="ak-l">&#128172; The question, as asked</span><p>&ldquo;On a professional network, a search results page must instantly show whether each profile is a first-, second- or third-degree connection.&rdquo;</p></div>
   <div class="ak-h"><span class="ak-l">&#9889; What makes it hard</span><p>The arithmetic kills the obvious approach: at 500 connections each, third degree is about <strong>125 million people</strong> per viewer. It cannot be precomputed and cannot be cached.</p></div>
 </div>
-
 <div class="design-step req">
-  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Requirements</div>
-  <div class="ds-body"><div class="clarify">
+  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Understanding the question</div>
+  <div class="ds-body"><p>The prompt: <em>&ldquo;On a professional network, a search results page must instantly
+show whether each profile is a first-, second- or third-degree connection.&rdquo;</em></p>
+
+<p>Do the arithmetic before anything else, because it eliminates the two designs everyone reaches for
+first.</p>
+
+<div class="insight">
+  <div class="label">&#127919; The numbers that decide the design</div>
+  <p>With an average of 500 connections per member:</p>
+  <ul style="margin:8px 0 0">
+    <li><strong>First degree:</strong> 500 people. Trivial &mdash; a set lookup.</li>
+    <li><strong>Second degree:</strong> 500 &times; 500 &asymp; <strong>250,000</strong>. Large, and
+    storable &mdash; a few megabytes as a compact set.</li>
+    <li><strong>Third degree:</strong> 500 &times; 250,000 &asymp; <strong>125 million</strong>. For
+    <em>one viewer</em>. Across a billion members that is not storable by any margin.</li>
+  </ul>
+  <p>So third degree cannot be precomputed and cannot be cached. Whatever answers it has to work
+  differently.</p>
+</div>
+
+<h4>The insight that makes it possible</h4>
+
+<p>You do not need to <em>enumerate</em> the third-degree neighbourhood. You need to answer a yes/no
+question about one specific person.</p>
+
+<p>And &ldquo;is P within three hops of V?&rdquo; can be answered without exploring 125 million people,
+because of a simple observation: if there is a path of length 3 from V to P, then somewhere along it
+there is a midpoint. Specifically, <strong>V's second-degree set and P's first-degree set must
+intersect.</strong></p>
+
+<p>Both of those are small. V's second-degree set is 250,000 &mdash; a set we can hold. P's connections
+are 500 &mdash; a list we can fetch. Testing 500 members against a 250,000-element set is 500 cheap
+lookups.</p>
+
+<p>That is the whole design: <strong>meet in the middle, from both ends, so neither side ever grows
+large.</strong> The expensive set is never built.</p>
+
+<h4>And the constraint that makes it harder</h4>
+
+<p>This is not one lookup. It renders inline with a page of search results, so it is <strong>25 answers
+in one request, in under 50 milliseconds</strong>. That changes the per-item budget to about two
+milliseconds, and it rules out doing 25 independent graph traversals.</p>
+
+<p>The saving grace is that all 25 share the same viewer, so V's second-degree set is fetched once and
+reused for every profile on the page.</p>
+
+<h4>What they are looking for</h4>
+
+<p><strong>Do you do the 125-million arithmetic?</strong> Early, and conclude precomputation is out?</p>
+
+<p><strong>Do you find the meet-in-the-middle?</strong> This is the question.</p>
+
+<p><strong>Do you handle the members with 30,000 connections?</strong> Their neighbourhoods break every
+assumption above.</p>
+<div class="clarify">
   <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
   <div class="cq-row"><div class="cq-q">How many degrees do we need &mdash; and is 3 the maximum?</div><div class="cq-w">This is the whole design. Degrees 1 and 2 are cheap; degree 3 is where the neighbourhood explodes and precomputation stops being possible.</div></div><div class="cq-row"><div class="cq-q">Is this shown on a profile view, or on a search results page?</div><div class="cq-w">One profile is a single query. A results page needs the degree for 25 profiles at once, which is a batch problem with a much tighter per-item budget.</div></div><div class="cq-row"><div class="cq-q">Is the answer allowed to be slightly stale?</div><div class="cq-w">A connection made five seconds ago not yet showing as 1st degree is almost always acceptable, and that tolerance is what makes caching viable.</div></div><div class="cq-row"><div class="cq-q">Do we need the connecting path, or just the number?</div><div class="cq-w">&ldquo;You are connected via Priya&rdquo; is a much more expensive query than &ldquo;2nd degree&rdquo;, because it needs an actual path, not just its existence.</div></div><div class="cq-row"><div class="cq-q">What is the degree distribution at the top end?</div><div class="cq-w">A user with 30,000 connections has a second-degree neighbourhood in the tens of millions. Those users break every naive approach and must be handled explicitly.</div></div>
   <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
 </div>
-<p><strong>Functional:</strong></p>
-<ul>
-  <li>Given viewer V and profile P, return 1, 2, 3 or &ldquo;out of network&rdquo;</li>
-  <li>Answer for a page of ~25 profiles in one request</li>
-  <li>Reflect new connections within seconds</li>
+</div>
+</div>
+<div class="design-step fr">
+  <div class="ds-header"><span class="ds-ico">&#128221;</span>2. Functional requirements</div>
+  <div class="ds-body"><ul>
+  <li><strong>Given a viewer and a profile, return 1, 2, 3, or &ldquo;out of network&rdquo;.</strong></li>
+  <li><strong>Answer for a page of about 25 profiles in one request.</strong></li>
+  <li><strong>Reflect new connections within seconds.</strong></li>
 </ul>
-<p><strong>Non-Functional:</strong></p>
-<ul>
-  <li>p99 under <strong>50&nbsp;ms</strong> for a batch of 25 &mdash; it renders inline with search results</li>
-  <li>Handle 1B members with an average of 500 connections</li>
-  <li>Slight staleness acceptable; a wrong answer that is one degree too far is tolerable, one that is too close is not</li>
-</ul></div>
-</div>
-<div class="design-step est">
-  <div class="ds-header"><span class="ds-ico">&#128202;</span>2. Capacity Estimation</div>
-  <div class="ds-body"><div class="assume">
-  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
-  <div class="as-row"><div class="as-a">1B members, ~500 connections average</div><div class="as-b">At 50 average the second-degree set fits comfortably and the whole design simplifies.</div></div><div class="as-row"><div class="as-a">Answers may be seconds stale</div><div class="as-b">Strict freshness would remove caching and force every query to hit the graph store.</div></div><div class="as-row"><div class="as-a">Degree 3 is the maximum required</div><div class="as-b">Degree 4 makes the neighbourhood approach the whole graph and the question stops being answerable this way.</div></div>
-</div>
-<p><strong>Assumptions:</strong> 1B members, ~500 connections each, 25 profiles per search page.</p><div class="ng"><div class="ng-cell"><div class="ng-val">1B</div><div class="ng-desc">members</div></div><div class="ng-cell"><div class="ng-val">~500</div><div class="ng-desc">average connections</div></div><div class="ng-cell"><div class="ng-val">~250K</div><div class="ng-desc">2nd-degree neighbourhood</div></div><div class="ng-cell"><div class="ng-val">~125M</div><div class="ng-desc">3rd degree &mdash; unusable</div></div><div class="ng-cell"><div class="ng-val">~500 GB</div><div class="ng-desc">edge list, compressed</div></div><div class="ng-cell"><div class="ng-val">50 ms</div><div class="ng-desc">p99 for a batch of 25</div></div></div><p><strong>The arithmetic that decides everything:</strong> at 500 connections, second degree is
-roughly 500&nbsp;&times;&nbsp;500&nbsp;=&nbsp;<strong>250,000</strong> members &mdash; large but
-storable. Third degree is 500&sup3; = <strong>125 million</strong>, which is an eighth of the
-network and cannot be precomputed or cached per user. So the design must be <strong>asymmetric</strong>:
-precompute or cache the second-degree set, and answer third degree by a bounded search rather than
-by materialising anything.</p></div>
-</div>
-<div class="design-step api">
-  <div class="ds-header"><span class="ds-ico">&#128268;</span>3. API Design</div>
-  <div class="ds-body"><div class="api-code"><span class="kw">POST</span>   /v1/degrees:batch
-  Body:     { viewer_id, target_ids:[ ...up to 100... ] }
-  Response: 200 { results:{ target_id: { degree: 1|2|3|null,
-                                         via?: [member_id] } } }
-  <span class="cm">// batch by construction: a search results page needs 25 at once,</span>
-  <span class="cm">// and 25 separate round trips cannot fit a 50 ms budget</span>
 
-<span class="kw">GET</span>    /v1/connections/{member}?cursor=  -&gt; paged 1st-degree list
-<span class="kw">POST</span>   /v1/connections    Body: { a, b }   <span class="cm">// creates an undirected edge</span>
-  <span class="cm">// invalidates the 2nd-degree cache for a, b and all their</span>
-  <span class="cm">// 1st-degree neighbours -- the expensive part of a write</span></div></div>
+<h4>The asymmetry in what a wrong answer costs</h4>
+
+<p>Worth stating because it shapes every caching decision that follows.</p>
+
+<p>Showing someone as <strong>further away than they are</strong> &mdash; 3rd degree when they are
+actually 2nd &mdash; is a missed opportunity. The user does not notice; nothing looks broken.</p>
+
+<p>Showing someone as <strong>closer than they are</strong> &mdash; 2nd degree when there is no such
+connection &mdash; is visibly wrong. The user clicks through expecting a shared contact, finds none, and
+now distrusts the feature.</p>
+
+<p>So staleness must err outward. A connection made five seconds ago not yet showing as 1st degree is
+fine. A connection <em>removed</em> five seconds ago still showing as 1st degree is not. Which means
+removals need to invalidate promptly while additions can propagate lazily &mdash; an asymmetry worth
+building in deliberately rather than discovering later.</p>
+
+<h4>Path or just the number?</h4>
+
+<p>A clarifying question with a large consequence. <em>&ldquo;2nd degree&rdquo;</em> requires only
+proving an intersection exists. <em>&ldquo;You are connected via Priya&rdquo;</em> requires producing an
+actual path and then fetching and ranking the shared contacts.</p>
+
+<p>The first is a boolean; the second is a query. Scoping to the number for the results page &mdash; and
+computing the path only on the profile page, where there is one target and a larger budget &mdash; is
+the right split.</p></div>
+</div>
+<div class="design-step nfr">
+  <div class="ds-header"><span class="ds-ico">&#9201;</span>3. Non-functional requirements</div>
+  <div class="ds-body"><div class="tw"><table class="to">
+<thead><tr><th style="width:26%">Requirement</th><th style="width:22%">Target</th><th style="width:52%">What it forces</th></tr></thead>
+<tbody>
+<tr><td><strong>Batch latency</strong></td><td class="chosen">p99 &lt; 50 ms for 25</td><td>Renders inline with search results. About 2 ms per profile, which rules out 25 separate traversals.</td></tr>
+<tr><td><strong>Scale</strong></td><td>1B members, ~500 edges</td><td>Around 500 GB of edge data compressed &mdash; large, but distributable across memory.</td></tr>
+<tr><td><strong>2nd-degree set</strong></td><td>~250K per member</td><td>Storable. This is the number that makes the design work.</td></tr>
+<tr><td><strong>3rd-degree set</strong></td><td class="chosen">~125M &mdash; unusable</td><td>The number that rules out precomputation and forces meet-in-the-middle.</td></tr>
+<tr><td><strong>Freshness</strong></td><td>Seconds</td><td>And asymmetric: removals must propagate faster than additions.</td></tr>
+<tr><td><strong>Error direction</strong></td><td>Too far, never too close</td><td>Stale in the safe direction. An inflated degree is invisible; a deflated one is a visible bug.</td></tr>
+</tbody></table></div>
+
+<h4>Why the batch requirement is the hard part</h4>
+
+<p>A single lookup in 50 ms would be comfortable. Twenty-five in 50 ms is not, if each is independent.</p>
+
+<p>What rescues it is that they share a viewer. The expensive object &mdash; V's second-degree set
+&mdash; is built or fetched <em>once</em> and then used 25 times. The per-profile work drops to fetching
+one connection list and doing 500 set lookups, which is well under a millisecond.</p>
+
+<p>This is a generally useful framing: <strong>when a batch shares a parameter, find the work that
+depends only on that parameter and hoist it.</strong> Here it turns an impossible per-item budget into a
+comfortable one.</p></div>
 </div>
 <div class="design-step schema">
-  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="cm">-- Adjacency, sharded by member. Both directions are stored, because</span>
+  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Data model and API</div>
+  <div class="ds-body"><p>Two things to store: the edges, and the derived second-degree sets.</p>
+<div class="schema-code"><span class="cm">-- Adjacency, sharded by member. Both directions are stored, because</span>
 <span class="cm">-- "who is connected to X" must be answerable without a scan.</span>
 <span class="kw">TABLE</span> edges {
   member_id  <span class="ty">BIGINT</span>,
@@ -17630,12 +17983,131 @@ by materialising anything.</p></div>
 
 <span class="cm">-- No 3rd-degree cache exists. 125M IDs per member is ~500 MB per</span>
 <span class="cm">-- user even compressed; storing it for 1B members is absurd.</span>
-<span class="cm">-- Degree 3 is COMPUTED, never stored.</span></div></div>
+<span class="cm">-- Degree 3 is COMPUTED, never stored.</span></div>
+<h4>Edges, stored as sorted integer lists</h4>
+
+<p>The connection graph is symmetric &mdash; connections are mutual &mdash; so each member has one list of
+neighbours. A billion members at 500 connections is 500 billion directed edges.</p>
+
+<p>Stored naively as 8-byte ids, that is terabytes. Two things shrink it dramatically: member ids are
+integers, and each list can be kept <strong>sorted</strong>, so consecutive ids can be stored as small
+deltas rather than full values. The same delta-encoding idea as the time-series stores in
+<span class="srcref">D11</span>, applied to ids rather than timestamps.</p>
+
+<p>Sorted lists also make intersection cheap &mdash; a linear merge rather than a nested loop &mdash;
+which matters for the path queries.</p>
+
+<h4>Second-degree sets, and why they are approximate</h4>
+
+<p>The 250,000-member second-degree set is fetched on almost every request, so it wants to be small and
+fast rather than exact.</p>
+
+<p>Stored as explicit ids it is around 1 MB &mdash; workable, but a lot to ship per request. Stored as a
+<strong>Bloom filter</strong> it is a few hundred kilobytes with a small false-positive rate, and
+membership testing is a handful of hash computations with no allocation.</p>
+
+<p>The false positives are acceptable <em>only because of the error asymmetry stated in step 2</em>
+&mdash; wait, in the wrong direction. A Bloom filter false positive says &ldquo;this person is in your
+second-degree set&rdquo; when they are not, which is the <em>unsafe</em> direction: it shows someone as
+closer than they are.</p>
+
+<p>So the filter is used as a <em>cheap first pass</em>, not as the answer. A negative is definitive and
+settles the vast majority of profiles immediately. A positive triggers an exact check against the real
+set, which is rare enough to afford. Same structure as the crawler's seen-set in
+<span class="srcref">D10</span>: <strong>cheap probabilistic filter in front, exact confirmation
+behind.</strong></p>
+
+<h4>The API</h4>
+<div class="api-code"><span class="kw">POST</span>   /v1/degrees:batch
+  Body:     { viewer_id, target_ids:[ ...up to 100... ] }
+  Response: 200 { results:{ target_id: { degree: 1|2|3|null,
+                                         via?: [member_id] } } }
+  <span class="cm">// batch by construction: a search results page needs 25 at once,</span>
+  <span class="cm">// and 25 separate round trips cannot fit a 50 ms budget</span>
+
+<span class="kw">GET</span>    /v1/connections/{member}?cursor=  -&gt; paged 1st-degree list
+<span class="kw">POST</span>   /v1/connections    Body: { a, b }   <span class="cm">// creates an undirected edge</span>
+  <span class="cm">// invalidates the 2nd-degree cache for a, b and all their</span>
+  <span class="cm">// 1st-degree neighbours -- the expensive part of a write</span></div>
+<p>The API is deliberately batch-first. A single-profile endpoint would invite callers to loop, and
+looping is precisely what the latency budget cannot afford.</p></div>
+</div>
+<div class="design-step est">
+  <div class="ds-header"><span class="ds-ico">&#128202;</span>5. Capacity estimation</div>
+  <div class="ds-body"><p>The numbers, restated as design conclusions.</p>
+<div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">1B members, ~500 connections average</div><div class="as-b">At 50 average the second-degree set fits comfortably and the whole design simplifies.</div></div><div class="as-row"><div class="as-a">Answers may be seconds stale</div><div class="as-b">Strict freshness would remove caching and force every query to hit the graph store.</div></div><div class="as-row"><div class="as-a">Degree 3 is the maximum required</div><div class="as-b">Degree 4 makes the neighbourhood approach the whole graph and the question stops being answerable this way.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">1B</div><div class="ng-desc">members</div></div><div class="ng-cell"><div class="ng-val">~500</div><div class="ng-desc">average connections</div></div><div class="ng-cell"><div class="ng-val">~250K</div><div class="ng-desc">2nd-degree neighbourhood</div></div><div class="ng-cell"><div class="ng-val">~125M</div><div class="ng-desc">3rd degree &mdash; unusable</div></div><div class="ng-cell"><div class="ng-val">~500 GB</div><div class="ng-desc">edge list, compressed</div></div><div class="ng-cell"><div class="ng-val">50 ms</div><div class="ng-desc">p99 for a batch of 25</div></div></div>
+<p><strong>First degree: 500.</strong> Fetch the list, check membership. Nothing to design.</p>
+
+<p><strong>Second degree: ~250,000.</strong> A megabyte as explicit ids, a few hundred kilobytes as a
+filter. Cacheable per member, rebuildable in milliseconds from the edge store. This is the number that
+makes everything work.</p>
+
+<p><strong>Third degree: ~125 million.</strong> Per viewer. At a billion members, storing these would be
+more data than exists in the rest of the product by orders of magnitude. Not large &mdash;
+<strong>impossible</strong>, and saying so plainly is what forces the better approach.</p>
+
+<p>The edge data overall is around 500 GB compressed. Too much for one machine, comfortable across a
+sharded in-memory tier &mdash; and partitioned by member id, since every query starts from a member.</p>
+
+<h4>The degree distribution is the real risk</h4>
+
+<p>All of the above uses the <em>average</em>, and a social graph's degree distribution is extremely
+skewed.</p>
+
+<p>A member with 30,000 connections has a second-degree neighbourhood in the tens of millions rather than
+250,000. Every assumption above fails for them: the set is not cacheable, the filter is not small, and
+building it is not a millisecond operation.</p>
+
+<p>They are rare and they are also disproportionately likely to appear in results and to be doing
+searches. Designing for the average and discovering the tail in production is the standard failure here,
+which is why <em>&ldquo;what is the degree distribution at the top end?&rdquo;</em> belongs in the
+clarifying questions.</p></div>
+</div>
+<div class="design-step tradeoff">
+  <div class="ds-header"><span class="ds-ico">&#9878;</span>6. The key trade-offs</div>
+  <div class="ds-body"><p>The choices, and their costs.</p>
+<div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Degree 3</strong></td><td class='chosen'>Meet in the middle (2 from viewer + 1 from target)</td><td class='rej'>Expand 3 hops from the viewer</td><td>Three hops is ~125M members. Bidirectional search gives the identical answer for a few hundred operations.</td></tr><tr><td><strong>2nd-degree set</strong></td><td class='chosen'>Cached compressed bitmap</td><td class='rej'>Computed per request</td><td>Recomputing 250K members per query cannot meet 50 ms, and the same set is reused across all 25 targets on the page.</td></tr><tr><td><strong>High-degree members</strong></td><td class='chosen'>Expand from the smaller side</td><td class='rej'>Cache everything uniformly</td><td>A 30K-connection member has a tens-of-millions neighbourhood. Symmetry of the relation lets you choose the cheap end instead.</td></tr><tr><td><strong>Invalidation</strong></td><td class='chosen'>Lazy, version-stamped</td><td class='rej'>Eager recompute on every edge</td><td>One new connection dirties ~1,000 cached sets, most of which will never be read before changing again.</td></tr><tr><td><strong>Freshness</strong></td><td class='chosen'>Stale additions, immediate removals</td><td class='rej'>Uniform TTL</td><td>Degree gates profile visibility, so being one degree too far is harmless and being too close is a privacy incident.</td></tr></tbody></table></div>
+<h4>Precompute, traverse, or meet in the middle</h4>
+
+<p><strong>Precompute everything.</strong> Store each member's full third-degree set and make queries a
+lookup. Ruled out by arithmetic &mdash; 125 million entries per member, a billion members.</p>
+
+<p><strong>Traverse at query time.</strong> Breadth-first search from V until you reach P or exhaust
+three hops. Correct, and it explores the full 125-million neighbourhood in the worst case, which does
+not fit in 50 milliseconds for one profile, let alone 25.</p>
+
+<p><strong>Meet in the middle.</strong> Search two hops from V and one hop from P, and test whether the
+two sets intersect. The work is 250,000 (held once, reused) plus 500 per profile.</p>
+
+<p>The general principle is worth naming because it recurs: <strong>a bidirectional search meets at
+depth d/2 from each end, and neighbourhood size grows exponentially with depth, so two searches of half
+the depth are vastly cheaper than one of full depth.</strong> Here it is the difference between 125
+million and 500.</p>
+
+<h4>Caching, and which direction staleness must go</h4>
+
+<p>Second-degree sets are expensive enough to want caching and change often enough to go stale.</p>
+
+<p>The resolution follows from the error asymmetry. A cached set that is <em>missing</em> a recent
+addition reports someone as 3rd degree when they are 2nd &mdash; invisible, acceptable, self-correcting
+on the next rebuild. A cached set that still <em>contains</em> a removed connection reports someone as
+2nd degree when they are not &mdash; visibly wrong.</p>
+
+<p>So the two events are treated differently. <strong>Additions propagate lazily</strong>, picked up
+whenever the set is next rebuilt. <strong>Removals invalidate eagerly</strong>, pushing an invalidation
+for both endpoints' sets and for the sets of everyone connected to them.</p>
+
+<p>That second part is a real fan-out &mdash; removing one edge invalidates up to 1,000 cached sets
+&mdash; and it is worth it, because removals are far rarer than additions and the failure they cause is
+the visible one.</p></div>
 </div>
 <div class="design-step arch">
-  <div class="ds-header"><span class="ds-ico">&#127959;</span>5. High-Level Architecture</div>
-  <div class="ds-body">
-<div class="anim" id="anim-social-graph">
+  <div class="ds-header"><span class="ds-ico">&#127959;</span>7. High-level design</div>
+  <div class="ds-body"><div class="anim" id="anim-social-graph">
   <div class="an-head">
     <div class="an-title">Degree lookup &mdash; and the high-degree member who breaks the arithmetic</div>
     <div class="an-btns">
@@ -17673,87 +18145,168 @@ by materialising anything.</p></div>
   <div class="an-cap ok-only"><strong>What is moving:</strong> the viewer&rsquo;s cached second-degree set &mdash; ~250K IDs as a compressed bitmap, a few hundred kilobytes &mdash; intersected against each target&rsquo;s ~500 first-degree connections. Third degree is 2&nbsp;+&nbsp;1, computed by <em>meeting in the middle</em> rather than by expanding three hops to 125 million members.</div>
   <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> a viewer with 30,000 connections has a second-degree neighbourhood in the tens of millions &mdash; too large to cache and constantly invalidated. Because the relation is symmetric, the fix is to <strong>expand from whichever side is smaller</strong>: compute from the target instead. Without that check, a handful of users dominate the cluster&rsquo;s load.</div>
 </div>
-<div class="flow">  search results page: viewer V, 25 targets
-      |
-      v
-  <span class="fl-key">DEGREE SERVICE</span>  (batch of 25 resolved together)
-      |
-      |  1. <span class="fl-hi">degree 1</span>: is target in V's adjacency list?
-      |     single-shard read, then a set lookup      <span class="fl-dim">&lt; 1 ms</span>
-      |
-      |  2. <span class="fl-hi">degree 2</span>: is target in V's cached 2nd-degree bitmap?
-      |     one cache fetch (~hundreds of KB), 25 lookups   <span class="fl-dim">~5 ms</span>
-      |
-      |  3. <span class="fl-key">degree 3</span>: NOT precomputed. Instead:
-      |     fetch each TARGET's 1st-degree list, and test
-      |     whether it intersects V's 2nd-degree bitmap.
-      |     <span class="fl-note">Meet in the middle: expand 2 hops from V (cached) and</span>
-      |     <span class="fl-note">1 hop from each target (small), then intersect. This turns</span>
-      |     <span class="fl-note">125M into 25 small reads plus 25 bitmap intersections.</span>
-      v
-  <span class="fl-hi">RESULT</span>  1 | 2 | 3 | out of network
+<p>Two shards' worth of data and one clever query.</p>
+<div class="flow">  <span class="fl-key">THE ARITHMETIC</span>  everything follows from this
 
-  <span class="fl-bad">HIGH-DEGREE MEMBERS</span> (30K+ connections):
-    2nd-degree set approaches tens of millions -> do not cache it.
-    Fall back to intersecting from the OTHER side, which is small.</div>
-<div class="flow-cap">Bidirectional search is the whole design: expanding two hops from the viewer and
-one hop from each target meets in the middle and never materialises the third-degree
-neighbourhood.</div></div>
+    1st degree   ~500          <span class="fl-hi">a set lookup</span>
+    2nd degree   ~250,000      <span class="fl-hi">storable: ~1 MB exact, ~300 KB as a filter</span>
+    3rd degree   ~125,000,000  <span class="fl-bad">per viewer. not storable. not cacheable.</span>
+
+
+  <span class="fl-key">MEET IN THE MIDDLE</span>
+
+    "is P within 3 hops of V?"
+
+    V --hop--&gt; --hop--&gt; <span class="fl-hi">[ V's 2nd-degree set ]</span>
+                                    |
+                                    | <span class="fl-hi">do these intersect?</span>
+                                    |
+                        <span class="fl-hi">[ P's connections ]</span> &lt;--hop-- P
+
+    250,000  vs  500     <span class="fl-note">500 set lookups. not 125 million.</span>
+
+
+  <span class="fl-key">A BATCH OF 25</span>   ~50 ms total
+
+    1. fetch V's connections           <span class="fl-dim">once</span>
+    2. fetch/build V's 2nd-degree set  <span class="fl-dim">once &mdash; this is the hoisted work</span>
+    3. for each of the 25 profiles:
+         in V's connections?        &rarr; <span class="fl-hi">1st</span>
+         in V's 2nd-degree filter?  &rarr; confirm exactly &rarr; <span class="fl-hi">2nd</span>
+         fetch P's connections,
+           intersect with V's 2nd? &rarr; <span class="fl-hi">3rd</span>
+         otherwise                  &rarr; <span class="fl-dim">out of network</span>
+
+
+  <span class="fl-bad">V HAS 30,000 CONNECTIONS</span>
+    2nd degree is now tens of millions &mdash; every assumption above fails
+    <span class="fl-note">handle explicitly: cap, or invert the query and search from P instead</span></div>
+<div class="flow-cap">Step 2 is the whole trick. It depends only on the viewer, so it is paid once per
+page rather than once per profile &mdash; which is what turns a 2 ms per-item budget from impossible
+into comfortable.</div></div>
+</div>
+<div class="design-step wflow">
+  <div class="ds-header"><span class="ds-ico">&#128260;</span>8. Workflows &mdash; what actually happens</div>
+  <div class="ds-body"><div class="wf">
+  <div class="wf-title">A search page renders 25 profiles</div>
+  <div class="wf-sub">The batch, and where the time goes.</div>
+  <ol>
+    <li>Viewer V's connection list is fetched &mdash; 500 ids, a few kilobytes. Sub-millisecond from the in-memory tier.</li>
+    <li>V's second-degree filter is fetched from cache. A few hundred kilobytes, <b>once</b> for the entire page.</li>
+    <li>Profile 1: its id is in V's connection list. <b>1st degree.</b> Done in microseconds.</li>
+    <li>Profiles 2 through 9: not 1st. Tested against the second-degree filter &mdash; each returns negative, which is definitive. <b>Out to 3rd-degree checking.</b></li>
+    <li>Profile 10: the filter says possible. An exact check against the real set confirms it. <b>2nd degree.</b></li>
+    <li>Profiles 2 through 9 now need the third-degree test: fetch each one's connection list &mdash; 500 ids &mdash; and test each against V's second-degree filter. A hit means a path of length 3 exists.</li>
+    <li>Six are 3rd degree, two are out of network. Total for the page: about 35 ms, most of it fetching the eight connection lists.</li>
+  </ol>
+  <div class="wf-out">The second-degree set was built once and used 25 times. Had each profile triggered its own traversal, the page would have taken 25&times; as long &mdash; which is the difference between a batch API and a loop over a single-item one.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">Why the third-degree test does not explode</div>
+  <div class="wf-sub">The arithmetic, run both ways.</div>
+  <ol>
+    <li>The naive question: is P in V's 125-million-member third-degree neighbourhood? Answering it directly means building that neighbourhood.</li>
+    <li>Building it would mean, for each of V's 250,000 second-degree contacts, fetching their 500 connections &mdash; <b>125 million fetches</b>. Not in 50 ms; not in 50 seconds.</li>
+    <li>The reformulation: a path V &rarr; a &rarr; b &rarr; P exists exactly when <b>b</b> is in both V's second-degree set and P's connection list.</li>
+    <li>So fetch P's 500 connections &mdash; one fetch &mdash; and test each against V's second-degree filter.</li>
+    <li>500 hash computations. Under a millisecond. No traversal from V's side at all beyond the set we already had.</li>
+    <li>A single hit proves a path exists, which is all the question asked for.</li>
+  </ol>
+  <div class="wf-out">125 million operations became 500, by asking the question from the other end. The general move &mdash; search from both endpoints and meet in the middle &mdash; works because neighbourhood size grows exponentially with hop count, so halving the depth is worth far more than halving the work.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">The viewer has 30,000 connections</div>
+  <div class="wf-sub">Where the averages stop applying.</div>
+  <ol>
+    <li>A recruiter with 30,000 connections. Their second-degree neighbourhood is roughly 30,000 &times; 500 = <b>15 million</b>, not 250,000.</li>
+    <li>The filter for that set would be megabytes, and building it means fetching 30,000 connection lists &mdash; far outside the latency budget.</li>
+    <li>Caching helps only partially: the set is large, expensive to build, and invalidated constantly because 30,000 people's connections change often.</li>
+    <li>Mitigation one &mdash; <b>invert the query</b>. Instead of building V's huge second-degree set, build <i>P's</i> and test V's 500 connections against it. P is an ordinary member, so their set is the normal 250,000.</li>
+    <li>Mitigation two &mdash; <b>cap the expansion</b>. Build the second-degree set from a bounded sample of V's connections. The answer becomes approximate, and it errs by saying "3rd" where the truth is "2nd" &mdash; the safe direction.</li>
+    <li>Mitigation three &mdash; for the most extreme accounts, degrade to a simpler answer: 1st degree exactly, and "in network" rather than a precise 2 or 3.</li>
+  </ol>
+  <div class="wf-out">Inverting the query is the elegant one and it works because the relation is symmetric: a path from V to P is a path from P to V, so you may always start from whichever end is cheaper. That is a nice property to notice out loud.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">Someone removes a connection</div>
+  <div class="wf-sub">The invalidation that must not be lazy.</div>
+  <ol>
+    <li>Priya removes her connection to Dev. The edge is deleted from both their lists immediately.</li>
+    <li>First-degree answers are now correct &mdash; they read the edge list directly.</li>
+    <li>But cached second-degree sets are wrong. Everyone connected to Priya had Dev in their second-degree set because of her, and everyone connected to Dev had Priya.</li>
+    <li>Left stale, those people see Dev as <b>2nd degree when he is not</b> &mdash; the visible failure. They click expecting a shared contact and find none.</li>
+    <li>So removal triggers eager invalidation: the cached sets of Priya, Dev, and everyone connected to either of them are dropped. Up to 1,000 entries.</li>
+    <li>Those sets are rebuilt lazily on next use, from the now-correct edge lists. A rebuild is milliseconds.</li>
+    <li>An <b>addition</b>, by contrast, invalidates nothing. The new connection shows as 1st degree immediately from the edge list, and second-degree sets pick it up whenever they next rebuild.</li>
+  </ol>
+  <div class="wf-out">Two events, two policies, chosen by which direction the error runs. It is a small amount of extra machinery and it converts the one user-visible failure mode into an invisible one.</div>
+</div></div>
 </div>
 <div class="design-step deep">
-  <div class="ds-header"><span class="ds-ico">&#128269;</span>6. Component Deep Dives</div>
-  <div class="ds-body"><p><strong>Meet-in-the-middle turns an impossible query into a cheap one.</strong> Testing
-&ldquo;is P within 3 hops of V?&rdquo; by expanding three hops from V means touching 125 million
-members. But 3 = 2 + 1, so expanding <em>two</em> hops from V &mdash; a set you already have cached
-&mdash; and <em>one</em> hop from P &mdash; a single adjacency read of about 500 entries &mdash;
-and testing whether the two sets intersect gives exactly the same answer. The work drops from
-hundreds of millions to a few hundred, and the asymmetry is deliberate: put the expensive expansion
-on the side you can cache and reuse across all 25 targets on the page.</p>
-<p><strong>Roaring bitmaps are why the second-degree set is affordable.</strong> 250,000 member IDs
-as a list of 64-bit integers is 2&nbsp;MB; as a compressed bitmap it is often a few hundred
-kilobytes, and &mdash; more importantly &mdash; intersection is a bitwise operation over compressed
-runs rather than a hash-set probe per element. That is what makes 25 intersections fit inside a
-50&nbsp;ms budget alongside everything else on the page.</p>
-<p><strong>High-degree members break the symmetry, and the fix is to flip it.</strong> A member with
-30,000 connections has a second-degree neighbourhood in the tens of millions; caching that is both
-expensive and constantly invalidated. But the relation is symmetric &mdash; if V is within 3 hops
-of P then P is within 3 hops of V &mdash; so when the viewer is a high-degree member, compute from
-the <em>target&rsquo;s</em> side instead, where the neighbourhood is ordinary. <strong>Choosing
-which end to expand from based on degree is the single most valuable optimisation here</strong>,
-and it is the same &ldquo;expand the cheaper side&rdquo; instinct as query planning in a
-database.</p>
-<p><strong>Invalidation is the expensive part of a write.</strong> When A and B connect, the
-second-degree set changes not only for A and B but for everyone connected to A or B &mdash; a
-thousand cache entries per new connection. Eagerly recomputing them is wasteful, because most will
-never be read before they change again. Instead, invalidate lazily with a version stamp: store the
-edge-set version the bitmap was built from and rebuild on read when it is stale. This trades a
-slower first read for enormously less write amplification, and it is acceptable precisely because
-the requirement allowed staleness.</p>
-<p><strong>Be honest about the error direction.</strong> A cached second-degree set that is a few
-seconds stale can produce an answer one degree too far &mdash; showing 3rd where the truth is now
-2nd. That is harmless. The reverse &mdash; claiming a closer connection than exists &mdash; would be
-a privacy problem, because degree gates what profile information is visible. So the cache must only
-ever be able to <em>miss</em> new edges, never invent them, which means additions may lag but
-removals must be applied immediately.</p></div>
-</div>
-<div class="design-step tradeoff">
-  <div class="ds-header"><span class="ds-ico">&#9878;</span>7. Trade-off Analysis</div>
-  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &#10003;</th><th>Alternative &#10007;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Degree 3</strong></td><td class='chosen'>Meet in the middle (2 from viewer + 1 from target)</td><td class='rej'>Expand 3 hops from the viewer</td><td>Three hops is ~125M members. Bidirectional search gives the identical answer for a few hundred operations.</td></tr><tr><td><strong>2nd-degree set</strong></td><td class='chosen'>Cached compressed bitmap</td><td class='rej'>Computed per request</td><td>Recomputing 250K members per query cannot meet 50 ms, and the same set is reused across all 25 targets on the page.</td></tr><tr><td><strong>High-degree members</strong></td><td class='chosen'>Expand from the smaller side</td><td class='rej'>Cache everything uniformly</td><td>A 30K-connection member has a tens-of-millions neighbourhood. Symmetry of the relation lets you choose the cheap end instead.</td></tr><tr><td><strong>Invalidation</strong></td><td class='chosen'>Lazy, version-stamped</td><td class='rej'>Eager recompute on every edge</td><td>One new connection dirties ~1,000 cached sets, most of which will never be read before changing again.</td></tr><tr><td><strong>Freshness</strong></td><td class='chosen'>Stale additions, immediate removals</td><td class='rej'>Uniform TTL</td><td>Degree gates profile visibility, so being one degree too far is harmless and being too close is a privacy incident.</td></tr></tbody></table></div></div>
-</div>
-<div class="design-step fault">
-  <div class="ds-header"><span class="ds-ico">&#128737;</span>8. Fault Tolerance</div>
-  <div class="ds-body"><div class="ft-row"><div class="ft-fail">2nd-degree cache is cold or unavailable</div><div class="ft-fix">Fall back to computing from adjacency lists for the batch, with a reduced target set and a slower response. Degrading to &ldquo;connection degree unavailable&rdquo; on a search page is acceptable; failing the page is not.</div></div><div class="ft-row"><div class="ft-fail">A viewer has an enormous connection count</div><div class="ft-fix">Detect by degree at query time and switch to expanding from the target side. Without this check, one member&rsquo;s query can consume orders of magnitude more resources than everyone else&rsquo;s combined.</div></div><div class="ft-row"><div class="ft-fail">A connection is removed</div><div class="ft-fix">Removals must invalidate immediately rather than lazily, because a stale bitmap would show a closer degree than the truth and expose profile data the viewer should no longer see.</div></div><div class="ft-row"><div class="ft-fail">Graph shard unavailable</div><div class="ft-fix">Adjacency is partitioned by member, so an outage affects a subset of members rather than everyone. Return &ldquo;unknown&rdquo; for affected targets instead of guessing a degree.</div></div><div class="ft-row"><div class="ft-fail">Cache stampede on a popular member</div><div class="ft-fix">Many viewers connected to the same hub can miss the same bitmap simultaneously after an invalidation. Coalesce the rebuild so one request computes and the rest wait. <span class="srcref">Ch 9</span></div></div></div>
-</div>
-<div class="design-step concl">
-  <div class="ds-header"><span class="ds-ico">&#127937;</span>9. Conclusion &mdash; what I would say in the last three minutes</div>
-  <div class="ds-body"><div class="concl-grid">
+  <div class="ds-header"><span class="ds-ico">&#128269;</span>9. Deep dives, and what breaks</div>
+  <div class="ds-body"><h4>Why degree 4 is not on the table</h4>
+
+<p>Worth having an answer ready, because it is the obvious follow-up.</p>
+
+<p>Fourth degree would be roughly 500 &times; 125 million &mdash; tens of billions, which is
+<em>more than the entire membership</em>. At that point almost everybody is within four hops of almost
+everybody, and the answer stops carrying information.</p>
+
+<p>That is the small-world property, and it is the real reason the product stops at three: not that four
+is expensive to compute, but that four is <strong>meaningless</strong>. A label that applies to 95% of
+the network tells the user nothing.</p>
+
+<p>Meet-in-the-middle would still work mechanically &mdash; two hops from each end &mdash; but there is
+no reason to build it.</p>
+
+<h4>Producing the path, not just the number</h4>
+
+<p>The results page needs a number. The profile page wants <em>&ldquo;connected via Priya and two
+others&rdquo;</em>, which is a different query.</p>
+
+<p>For second degree it is the intersection of two connection lists &mdash; both sorted, so it is a
+linear merge of two 500-element lists. Fast, and it yields the shared contacts directly.</p>
+
+<p>For third degree it is harder: you need an actual path, not just proof that one exists. The
+meet-in-the-middle structure gives you the midpoint <code>b</code> from the intersection test, and then
+you need one more hop back from V to find the <code>a</code> connecting them.</p>
+
+<p>There may be many such paths and the useful ones are ranked &mdash; a strong shared contact beats a
+distant one. That is a ranking problem on top of a graph problem, which is why it belongs on the profile
+page where the budget is larger and there is one target rather than 25.</p>
+
+<h4>Sharding the graph, and why it is awkward</h4>
+
+<p>Five hundred gigabytes of edges must be distributed, and graphs partition badly.</p>
+
+<p>The natural choice is by member id, so each shard holds the connection lists for its members. Fetching
+one member's connections is then a single shard hit, which is what the hot path needs.</p>
+
+<p>The awkwardness is that building a second-degree set means fetching 500 members' lists, and those 500
+are <strong>spread across every shard</strong>. It is a scatter-gather, and its latency is the slowest
+shard's &mdash; the tail-latency problem that fan-out queries always have.</p>
+
+<p>Which is precisely why second-degree sets are cached rather than computed per request. The cache is
+not an optimisation on an already-fast path; it is what keeps the scatter-gather off the request path
+entirely.</p>
+
+<p>Partitioning by community rather than by id would keep connected members together and reduce the
+fan-out, and it introduces rebalancing and hot-partition problems that are usually worse than the
+scatter. Naming that trade is better than asserting either.</p>
+
+<h4>What breaks</h4>
+
+<div class="ft-row"><div class="ft-fail">2nd-degree cache is cold or unavailable</div><div class="ft-fix">Fall back to computing from adjacency lists for the batch, with a reduced target set and a slower response. Degrading to &ldquo;connection degree unavailable&rdquo; on a search page is acceptable; failing the page is not.</div></div><div class="ft-row"><div class="ft-fail">A viewer has an enormous connection count</div><div class="ft-fix">Detect by degree at query time and switch to expanding from the target side. Without this check, one member&rsquo;s query can consume orders of magnitude more resources than everyone else&rsquo;s combined.</div></div><div class="ft-row"><div class="ft-fail">A connection is removed</div><div class="ft-fix">Removals must invalidate immediately rather than lazily, because a stale bitmap would show a closer degree than the truth and expose profile data the viewer should no longer see.</div></div><div class="ft-row"><div class="ft-fail">Graph shard unavailable</div><div class="ft-fix">Adjacency is partitioned by member, so an outage affects a subset of members rather than everyone. Return &ldquo;unknown&rdquo; for affected targets instead of guessing a degree.</div></div><div class="ft-row"><div class="ft-fail">Cache stampede on a popular member</div><div class="ft-fix">Many viewers connected to the same hub can miss the same bitmap simultaneously after an invalidation. Coalesce the rebuild so one request computes and the rest wait. <span class="srcref">Ch 9</span></div></div><div class="concl-grid">
   <div class="cc"><div class="h">The dominant constraint</div><p><strong>Third degree is 125 million members and cannot be materialised.</strong> Everything follows: cache what is affordable at two hops, and answer three hops by meeting in the middle rather than by expanding further.</p></div>
   <div class="cc first"><div class="h">What I would build first</div><p>The compressed second-degree bitmap and the bidirectional intersection. Together they turn the expensive query into a handful of set operations and let one cached set serve all 25 targets on a page.</p></div>
   <div class="cc"><div class="h">What I deliberately did not build</div><p>Returning the connecting path, and any degree beyond three. The path needs an actual traversal rather than a set intersection, and degree 4 approaches the whole graph.</p></div>
   <div class="cc risk"><div class="h">The biggest risk</div><p>High-degree members. They break the neighbourhood arithmetic the whole design rests on, and without an explicit switch to expand from the smaller side, a handful of users can dominate the cluster&rsquo;s load.</p></div>
 </div></div>
 </div>
-  
+
 <div class="followup">
   <div class="fu-title">&#128172; If you get this far, here is what they will push on</div>
   <div class="fu-sub">Follow-ups an interviewer is likely to ask once the design is on the board. Answers supplied &mdash; read the question, answer it out loud, then open it.</div>
@@ -17774,8 +18327,9 @@ removals must be applied immediately.</p></div>
     <div class="fu-a"><p>In one direction only, and the asymmetry matters. Showing 3rd where the truth is now 2nd is harmless &mdash; the data is just a little stale.</p><p>Showing 2nd where the truth is 3rd is a privacy problem, because degree gates what profile information is visible.</p><p>So the cache may only ever <em>miss</em> new edges, never invent them. Additions can lag; removals must be applied immediately.</p></div>
   </details>
 </div>
+  </div>
 </div>
-</div>
+
 <div class="design-card">
   <div class="dc-header">
     <h3 class="dc-title"><span id="design-push">Design a Central iOS Push Notification Service</span> (APNs-style: many publishers, many apps, one device)</h3>

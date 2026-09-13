@@ -10250,70 +10250,144 @@ rather than from the source database.</p>
     <h3 class="dc-title"><span id="design-drive">Design Google Drive / Dropbox</span> (Distributed File Storage & Delta Sync)</h3>
     <div class="dc-meta">Difficulty: <strong>Hard (Staff Expectation)</strong> &nbsp;&bull;&nbsp; Target: <strong>45 min</strong></div>
   </div>
-  <div class="dc-body"><div class="asked">
+  <div class="dc-body">
+<div class="asked">
   <div class="ak-q"><span class="ak-l">&#128172; The question, as asked</span><p>&ldquo;Design a file sync service like Google Drive or Dropbox. Files sync across a user&rsquo;s devices, with version history and sharing.&rdquo;</p></div>
   <div class="ak-h"><span class="ak-l">&#9889; What makes it hard</span><p>Sync is not collaborative editing, and conflating them ruins the design. The hard part is <strong>bandwidth</strong>: re-uploading a 2&nbsp;GB file after a one-line change is unacceptable, which forces content-defined chunking.</p></div>
 </div>
 <div class="design-step req">
-  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Requirements</div>
-  <div class="ds-body"><div class="clarify">
+  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Understanding the question</div>
+  <div class="ds-body"><p>The prompt: <em>&ldquo;Design a file sync service like Google Drive or Dropbox. Files
+sync across a user's devices, with version history and sharing.&rdquo;</em></p>
+
+<p>The first thing to do is rule something out, because if you get this wrong nothing after it can be
+right.</p>
+
+<p><strong>This is not collaborative editing.</strong> Two people typing in the same document at the
+same time, seeing each other's cursors, is a different system with a different data model &mdash;
+character-level operations, CRDTs or operational transformation, no concept of a file version. That
+is <span class="srcref">D20</span>.</p>
+
+<p>File sync is coarser and simpler: a file is a blob of bytes, one device edits it, and the change
+propagates to the others. Version history means whole versions, not merged edits. Saying this out
+loud in the first minute is worth a lot, because it is the fork most candidates walk past.</p>
+
+<h4>What is actually hard here</h4>
+
+<p>Bandwidth. Specifically, this scenario:</p>
+
+<div class="insight">
+  <div class="label">&#127919; The problem in one example</div>
+  <p>You have a 2 GB video project file. You change one setting and save. If syncing means uploading
+  2 GB, then a day's work is hundreds of gigabytes of upload and the product is unusable on any
+  normal connection.</p>
+  <p>So the system must be able to say: <em>only these 4 MB actually changed &mdash; send those.</em>
+  Everything interesting in this design follows from that sentence.</p>
+</div>
+
+<p>Which leads immediately to a second problem that is less obvious. To send only what changed, you
+have to break the file into pieces and compare them. But if you cut the file at fixed positions
+&mdash; every 4 MB &mdash; then inserting a single byte near the beginning shifts every subsequent
+byte, every boundary lands in a new place, and <strong>every chunk after the insertion looks
+different</strong>. You are back to uploading the whole file.</p>
+
+<p>Fixing that properly is the technical core of the design, and it is covered in step 4.</p>
+
+<h4>What they are looking for</h4>
+
+<p><strong>Do you separate metadata from bytes?</strong> They have completely different consistency
+needs, and the design falls apart if you treat them the same.</p>
+
+<p><strong>Do you notice the fixed-chunk problem?</strong> Most candidates say &ldquo;chunk the
+file&rdquo; and stop there.</p>
+
+<p><strong>Do you have a conflict story?</strong> Two devices editing offline is not an edge case; it
+is Tuesday.</p>
+<div class="clarify">
   <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
   <div class="cq-row"><div class="cq-q">Sync only, or real-time collaborative editing?</div><div class="cq-w">These are different systems. Collaborative editing needs CRDTs or OT; file sync needs chunking and version vectors. Get this wrong and everything after it is wrong.</div></div><div class="cq-row"><div class="cq-q">What is the largest file we must support?</div><div class="cq-w">Decides chunk size, resumable upload design, and whether a single file can exceed one machine.</div></div><div class="cq-row"><div class="cq-q">Must offline edits merge, or is last-writer-wins acceptable?</div><div class="cq-w">Merging offline divergence is the hardest requirement in the design, and it is often not actually needed.</div></div><div class="cq-row"><div class="cq-q">What is the sharing granularity &mdash; file, folder, or link?</div><div class="cq-w">Determines the ACL model and whether permission checks can be cached.</div></div><div class="cq-row"><div class="cq-q">Do we deduplicate across users?</div><div class="cq-w">Cross-user dedup is a large storage win and a <strong>privacy leak</strong>: it lets someone test whether a file already exists.</div></div>
   <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
 </div>
-<p><strong>Functional Requirements:</strong></p>
-<ul>
-  <li>Users can upload, download, search, and delete files/folders across devices.</li>
-  <li>Automatic real-time file synchronization across desktop, mobile, and web.</li>
-  <li>Delta sync: When a file is modified, upload only the modified chunks (diffs), not the entire file.</li>
-  <li>File versioning (roll back to previous 30 versions) and soft delete / recovery bin.</li>
-  <li>Sharing permissions (view, comment, edit) with fine-grained ACLs.</li>
-</ul>
-<p><strong>Non-Functional Requirements:</strong></p>
-<ul>
-  <li><strong>Scale:</strong> 500M registered users, 100M Daily Active Users (DAU).</li>
-  <li><strong>Storage:</strong> 100 PB active data, 100M file uploads/updates per day.</li>
-  <li><strong>Consistency:</strong> Strong consistency for file metadata and chunk indexing (no stale directory tree).</li>
-  <li><strong>Reliability:</strong> 99.999999999% (11 9's) data durability; 99.99% service availability.</li>
-</ul></div>
-</div><div class="design-step est">
-  <div class="ds-header"><span class="ds-ico">&#128202;</span>2. Capacity Estimation</div>
-  <div class="ds-body"><div class="assume">
-  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
-  <div class="as-row"><div class="as-a">Files are edited by one user at a time</div><div class="as-b">Concurrent editing of the same file needs CRDTs and is a different system.</div></div><div class="as-row"><div class="as-a">Average file is small; large files are rare</div><div class="as-b">If large files were the norm, chunk size and transfer scheduling would dominate the design.</div></div><div class="as-row"><div class="as-a">Deduplication is per account</div><div class="as-b">Cross-user dedup saves more storage and leaks the existence of files between users.</div></div>
 </div>
-<div class="ng"><div class="ng-cell"><div class="ng-val">100M DAU</div><div class="ng-desc">Active users uploading/syncing files daily</div></div><div class="ng-cell"><div class="ng-val">100M files/day</div><div class="ng-desc">Daily upload volume (~10 MB avg file size)</div></div><div class="ng-cell"><div class="ng-val">1 PB/day</div><div class="ng-desc">Daily raw incoming data ingestion</div></div><div class="ng-cell"><div class="ng-val">100 Gbps</div><div class="ng-desc">Peak network ingress bandwidth into block servers</div></div><div class="ng-cell"><div class="ng-val">4 MB Chunks</div><div class="ng-desc">Optimal content-defined chunk size with Rabin Fingerprinting</div></div><div class="ng-cell"><div class="ng-val">60% Savings</div><div class="ng-desc">Storage reduction via cross-user content hashing & deduplication</div></div></div></div>
-</div><div class="design-step api">
-  <div class="ds-header"><span class="ds-ico">&#128268;</span>3. API Design</div>
-  <div class="ds-body"><div class="api-code"><span class="cm">// 1. Initiate Resumable Chunked Upload</span>
-<span class="kw">POST</span> /api/v1/files/upload/init
-<span class="kw">Header:</span> Authorization: Bearer {token}, Idempotency-Key: {uuid}
-<span class="kw">Body:</span> {
-  "filename": "annual_report.pdf",
-  "folder_id": "f_98234",
-  "total_bytes": 41943040,
-  "chunk_hashes": ["sha256_chunk1", "sha256_chunk2", ...]
-}
-<span class="kw">Response:</span> 200 OK {
-  "upload_id": "upl_8723",
-  "missing_chunk_hashes": ["sha256_chunk2", "sha256_chunk5"], <span class="cm">// Server deduplicates existing chunks!</span>
-  "presigned_s3_urls": { "sha256_chunk2": "https://s3.../chunk2", ... }
-}
+</div>
+<div class="design-step fr">
+  <div class="ds-header"><span class="ds-ico">&#128221;</span>2. Functional requirements</div>
+  <div class="ds-body"><ul>
+  <li><strong>Upload, download, delete, search</strong> across web, desktop and mobile.</li>
+  <li><strong>Automatic sync.</strong> A change on one device appears on the others without anyone
+  pressing anything.</li>
+  <li><strong>Delta sync.</strong> Only the changed parts of a file cross the network. This is the
+  requirement doing all the work.</li>
+  <li><strong>Version history</strong> &mdash; roll back to a previous version &mdash; and a recycle
+  bin, so deletion is reversible for a while.</li>
+  <li><strong>Sharing</strong> with view / comment / edit permissions, at file or folder level.</li>
+</ul>
 
-<span class="cm">// 2. Commit File Version</span>
-<span class="kw">POST</span> /api/v1/files/upload/commit
-<span class="kw">Body:</span> {
-  "upload_id": "upl_8723",
-  "file_id": "fil_1029",
-  "version": 4,
-  "chunk_hashes": ["sha256_chunk1", "sha256_chunk2", "sha256_chunk3"]
-}
+<h4>Two things worth splitting apart</h4>
 
-<span class="cm">// 3. Real-Time Sync Event Stream (WebSocket / HTTP Long-Polling)</span>
-<span class="kw">GET</span> /api/v1/sync/events?cursor={last_sync_seq_no}</div></div>
-</div><div class="design-step schema">
-  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="cm">-- Metadata DB (CockroachDB / Spanner for global ACID consistency)</span>
+<p><strong>Metadata and file contents are different problems.</strong> The metadata &mdash; the
+folder tree, names, which chunks make up which version, who can see what &mdash; is small, highly
+structured, and needs to be <em>strongly consistent</em>. If you move a file and the tree is stale,
+the user sees their file in two places or neither, and that reads as data loss even though nothing was
+lost.</p>
+
+<p>The contents are large, immutable, and need eleven nines of durability but no transactional
+guarantees at all. A chunk is written once and never modified.</p>
+
+<p>So: metadata in a replicated relational store, contents in object storage, and the metadata holds
+the keys. Nearly every good decision in this design descends from that split.</p></div>
+</div>
+<div class="design-step nfr">
+  <div class="ds-header"><span class="ds-ico">&#9201;</span>3. Non-functional requirements</div>
+  <div class="ds-body"><div class="tw"><table class="to">
+<thead><tr><th style="width:26%">Requirement</th><th style="width:22%">Target</th><th style="width:52%">Why</th></tr></thead>
+<tbody>
+<tr><td><strong>Durability</strong></td><td class="chosen">11 nines</td><td>This is often the user's only copy. Losing a file here is unrecoverable in a way that no other failure in this design is.</td></tr>
+<tr><td><strong>Metadata consistency</strong></td><td>Strong</td><td>A stale folder tree looks exactly like data loss to a user. This is the one place where eventual consistency is not acceptable.</td></tr>
+<tr><td><strong>Sync latency</strong></td><td>Seconds</td><td>For a small change on an online device. Nobody expects instant; everybody notices minutes.</td></tr>
+<tr><td><strong>Upload volume</strong></td><td>~1 PB/day</td><td>Before deduplication. After it, substantially less &mdash; which is the entire economic argument for content-addressed chunks.</td></tr>
+<tr><td><strong>Availability</strong></td><td>99.99%</td><td>And a soft failure mode: if the service is unreachable, the desktop client should queue changes locally and sync later, not error.</td></tr>
+<tr><td><strong>Offline editing</strong></td><td>Supported</td><td>Which guarantees conflicts. The question is not whether to handle them but how.</td></tr>
+</tbody></table></div>
+
+<p>The interesting pairing is the first two rows. Durability is about the bytes; consistency is about
+the metadata. Trying to get both properties from one storage system would mean either a database
+holding petabytes of blobs or an object store pretending to be transactional. Splitting them lets
+each system do the one thing it is good at.</p></div>
+</div>
+<div class="design-step schema">
+  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Data model and API</div>
+  <div class="ds-body"><h4>First, the chunking problem &mdash; because it decides the schema</h4>
+
+<p>Recall the difficulty: cut a file every 4 MB and inserting one byte at the start shifts every
+boundary, so every chunk changes.</p>
+
+<p>The fix is to stop cutting at fixed <em>positions</em> and start cutting at positions determined by
+the <em>content itself</em>. Slide a small window over the bytes, compute a rolling hash at each
+position, and declare a boundary wherever that hash has some property &mdash; say, its low 22 bits
+are zero. Boundaries then occur roughly every 4 MB on average, but always at the same byte patterns.</p>
+
+<p>Now insert a byte near the start. The boundary positions after the insertion are decided by the
+same byte patterns as before, which have simply moved along by one. So the chunks after the
+insertion are <strong>identical to what they were</strong>. Only the one chunk containing the
+insertion changed.</p>
+
+<div class="flow">  <span class="fl-key">FIXED-SIZE CHUNKS</span>   insert 1 byte at the front
+
+    before:  [<span class="fl-hi">A</span>][<span class="fl-hi">B</span>][<span class="fl-hi">C</span>][<span class="fl-hi">D</span>][<span class="fl-hi">E</span>]
+    after:   [<span class="fl-bad">A'</span>][<span class="fl-bad">B'</span>][<span class="fl-bad">C'</span>][<span class="fl-bad">D'</span>][<span class="fl-bad">E'</span>]      <span class="fl-note">every boundary shifted &rarr; re-upload everything</span>
+
+
+  <span class="fl-key">CONTENT-DEFINED CHUNKS</span>   boundaries found by a rolling hash
+
+    before:  [<span class="fl-hi">A</span>][<span class="fl-hi">B</span>][<span class="fl-hi">C</span>][<span class="fl-hi">D</span>][<span class="fl-hi">E</span>]
+    after:   [<span class="fl-bad">A'</span>][<span class="fl-hi">B</span>][<span class="fl-hi">C</span>][<span class="fl-hi">D</span>][<span class="fl-hi">E</span>]       <span class="fl-note">one chunk changed &rarr; upload 4 MB, not 2 GB</span></div>
+
+<p>Each chunk is then named by the hash of its contents. That single choice gives you three things at
+once: deduplication is automatic (identical content produces an identical name), integrity checking
+is free (re-hash and compare), and chunks are immutable, so they can be cached anywhere forever.</p>
+
+<div class="schema-code"><span class="cm">-- Metadata DB (CockroachDB / Spanner for global ACID consistency)</span>
 <span class="kw">TABLE</span> files {
   file_id          <span class="ty">UUID</span> <span class="pk">PRIMARY KEY</span>,
   workspace_id     <span class="ty">UUID</span>,
@@ -10348,11 +10422,111 @@ rather than from the source database.</p>
   byte_size        <span class="ty">INT</span>,
   storage_path     <span class="ty">VARCHAR(512)</span>, <span class="cm">-- S3 / GCS object key</span>
   ref_count        <span class="ty">BIGINT</span>        <span class="cm">-- GC: deleted when ref_count == 0</span>
-}</div></div>
-</div><div class="design-step arch">
-  <div class="ds-header"><span class="ds-ico">&#127959;</span>5. High-Level Architecture</div>
-  <div class="ds-body">
-<div class="anim" id="anim-drive">
+}</div>
+<p>A file version, then, is just an ordered list of chunk hashes. Version history costs almost
+nothing: version 4 and version 5 of a 2 GB file share every chunk except the one that changed, so
+keeping thirty versions costs thirty lists plus the handful of chunks that actually differ.</p>
+
+<h4>The API</h4>
+<div class="api-code"><span class="cm">// 1. Initiate Resumable Chunked Upload</span>
+<span class="kw">POST</span> /api/v1/files/upload/init
+<span class="kw">Header:</span> Authorization: Bearer {token}, Idempotency-Key: {uuid}
+<span class="kw">Body:</span> {
+  "filename": "annual_report.pdf",
+  "folder_id": "f_98234",
+  "total_bytes": 41943040,
+  "chunk_hashes": ["sha256_chunk1", "sha256_chunk2", ...]
+}
+<span class="kw">Response:</span> 200 OK {
+  "upload_id": "upl_8723",
+  "missing_chunk_hashes": ["sha256_chunk2", "sha256_chunk5"], <span class="cm">// Server deduplicates existing chunks!</span>
+  "presigned_s3_urls": { "sha256_chunk2": "https://s3.../chunk2", ... }
+}
+
+<span class="cm">// 2. Commit File Version</span>
+<span class="kw">POST</span> /api/v1/files/upload/commit
+<span class="kw">Body:</span> {
+  "upload_id": "upl_8723",
+  "file_id": "fil_1029",
+  "version": 4,
+  "chunk_hashes": ["sha256_chunk1", "sha256_chunk2", "sha256_chunk3"]
+}
+
+<span class="cm">// 3. Real-Time Sync Event Stream (WebSocket / HTTP Long-Polling)</span>
+<span class="kw">GET</span> /api/v1/sync/events?cursor={last_sync_seq_no}</div>
+<p>Look at what the upload-init call does. The client sends the <em>hashes</em> of its chunks and the
+server replies with which ones it does not already have. On a file where one chunk changed, that is
+one small request and one 4 MB upload &mdash; and if someone else already uploaded an identical
+chunk, even that disappears.</p>
+
+<p>The two-phase shape matters too: chunks go to object storage first, and only then does a commit
+call write the new version into the metadata. The version becomes visible atomically, when every
+chunk it references is already durable. There is never a moment where the tree points at bytes that
+do not exist.</p></div>
+</div>
+<div class="design-step est">
+  <div class="ds-header"><span class="ds-ico">&#128202;</span>5. Capacity estimation</div>
+  <div class="ds-body"><p>The numbers, and where they come from.</p>
+<div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">Files are edited by one user at a time</div><div class="as-b">Concurrent editing of the same file needs CRDTs and is a different system.</div></div><div class="as-row"><div class="as-a">Average file is small; large files are rare</div><div class="as-b">If large files were the norm, chunk size and transfer scheduling would dominate the design.</div></div><div class="as-row"><div class="as-a">Deduplication is per account</div><div class="as-b">Cross-user dedup saves more storage and leaks the existence of files between users.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">100M DAU</div><div class="ng-desc">Active users uploading/syncing files daily</div></div><div class="ng-cell"><div class="ng-val">100M files/day</div><div class="ng-desc">Daily upload volume (~10 MB avg file size)</div></div><div class="ng-cell"><div class="ng-val">1 PB/day</div><div class="ng-desc">Daily raw incoming data ingestion</div></div><div class="ng-cell"><div class="ng-val">100 Gbps</div><div class="ng-desc">Peak network ingress bandwidth into block servers</div></div><div class="ng-cell"><div class="ng-val">4 MB Chunks</div><div class="ng-desc">Optimal content-defined chunk size with Rabin Fingerprinting</div></div><div class="ng-cell"><div class="ng-val">60% Savings</div><div class="ng-desc">Storage reduction via cross-user content hashing & deduplication</div></div></div>
+<p>A petabyte a day of raw uploads is the headline, and the useful observation is how much of it is
+not real. People share the same attachments, keep the same photos, and re-save the same documents with
+small edits. Content-addressed chunks mean each distinct chunk is stored once no matter how many
+files or users reference it, and a large fraction of that petabyte turns out to be a chunk that
+already exists.</p>
+
+<p>The chunk size is a genuine trade-off rather than a constant. Smaller chunks find more duplicates
+and transfer less on a small edit; they also multiply the number of chunk records, and the metadata
+for a large file starts to be substantial. Somewhere around a few megabytes is where the two curves
+cross for mixed real-world content.</p>
+
+<p>The metadata side is small in bytes and demanding in every other way: a few hundred bytes per
+file version, but strongly consistent, queried on every sync poll from every device. It is a
+<strong>transaction-rate problem, not a storage problem</strong>, and sizing it means counting sync
+checks, not gigabytes.</p></div>
+</div>
+<div class="design-step tradeoff">
+  <div class="ds-header"><span class="ds-ico">&#9878;</span>6. The key trade-offs</div>
+  <div class="ds-body"><p>The choices, and their costs.</p>
+<div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &check;</th><th>Alternative &cross;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Chunk Splitting</strong></td><td class='chosen'>Client-side Rabin Chunking</td><td class='rej'>Server-side Chunking</td><td>Client-side saves huge upload bandwidth (never uploads chunks already in S3) and offloads CPU hashing from server infrastructure.</td></tr><tr><td><strong>Metadata Store</strong></td><td class='chosen'>Spanner / CockroachDB (NewSQL)</td><td class='rej'>Cassandra / DynamoDB (NoSQL)</td><td>File tree operations (renaming a folder, moving 10,000 files) require atomic multi-row ACID transactions. NoSQL eventual consistency causes phantom or orphaned files.</td></tr><tr><td><strong>Sync Protocol</strong></td><td class='chosen'>Delta Sync with WebSocket notify</td><td class='rej'>Periodic Client Polling</td><td>WebSockets deliver sub-second sync latency to all connected devices without hammering servers with millions of empty poll requests.</td></tr></tbody></table></div>
+<h4>Deduplicating across users &mdash; a real privacy problem</h4>
+
+<p>Within one account, dedup is free and uncontroversial. Across all users it saves dramatically more,
+because popular files are stored once globally rather than once per person.</p>
+
+<p>It also leaks information, and the attack is simple enough to explain in a sentence. Upload a file
+and watch whether the server asks for the bytes. If it does not, someone else already has that exact
+file. That turns the service into an oracle for <em>&ldquo;does this document exist in the
+system?&rdquo;</em>, which for a leaked document, a private photo, or an internal memo is a
+meaningful disclosure.</p>
+
+<p>The mitigations all cost something. You can dedup per account only, giving up most of the saving.
+You can always request the upload and discard it server-side, keeping the storage saving while paying
+the bandwidth. Or you can accept the leak and document it. There is no free version, and being able
+to state the trade rather than picking a side is the point.</p>
+
+<h4>Conflicts: merge, or keep both</h4>
+
+<p>Two devices edit the same file offline. Both come back online. Something has to happen.</p>
+
+<p><strong>Last write wins</strong> silently destroys one person's work. For a file sync product that
+is not an acceptable default &mdash; the whole promise is that your files are safe.</p>
+
+<p><strong>Merging</strong> is impossible in general. You cannot merge two versions of a binary
+video project or a spreadsheet; the bytes have no structure the system understands.</p>
+
+<p>So the answer is to keep both: one file becomes two, the second named something like
+<em>&ldquo;report.docx (Priya's conflicted copy)&rdquo;</em>. It is inelegant, it is visible to the
+user, and it is right &mdash; it never loses data and it puts the decision with the only party who
+can make it. This is the same instinct as returning siblings in <span class="srcref">D3</span>: when
+the system cannot know the answer, surface the conflict rather than guessing.</p></div>
+</div>
+<div class="design-step arch">
+  <div class="ds-header"><span class="ds-ico">&#127959;</span>7. High-level design</div>
+  <div class="ds-body"><div class="anim" id="anim-drive">
   <div class="an-head">
     <div class="an-title">Chunked sync &mdash; and the offline edit that has no correct automatic answer</div>
     <div class="an-btns">
@@ -10392,73 +10566,153 @@ rather than from the source database.</p>
   <div class="an-cap ok-only"><strong>What is moving:</strong> only <em>changed chunks</em>. The file is split by content-defined boundaries, each chunk is named by its hash, and the client uploads just the hashes the server has not seen &mdash; which is why a one-line change to a large document costs kilobytes.</div>
   <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> both devices edit the same file while offline. Neither version descends from the other, so the version vectors are <em>concurrent</em> &mdash; there is no correct automatic merge. Last-writer-wins is simple and silently destroys somebody&rsquo;s work. <strong>The honest answer is to keep both</strong> and surface a conflicted copy, which is exactly what production file-sync products do. <span class="srcref">Ch 4</span></div>
 </div>
-<div class="dc-diagram"><svg width="680" height="230" viewBox="0 0 680 230" xmlns="http://www.w3.org/2000/svg">
-  <defs><marker id="gdarr" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
-  
-  <rect x="10" y="80" width="110" height="70" rx="8" fill="#1a237e"/>
-  <text x="65" y="106" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">Desktop / Mobile</text>
-  <text x="65" y="122" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Chunker + Rabin Hash</text>
-  <text x="65" y="134" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Local SQLite DB</text>
+<p>Two paths, kept apart on purpose.</p>
+<div class="flow">  <span class="fl-key">METADATA</span>  small, structured, strongly consistent
 
-  <line x1="120" y1="100" x2="168" y2="70" stroke="#636e72" stroke-width="1.5" marker-end="url(#gdarr)"/>
-  <line x1="120" y1="130" x2="168" y2="160" stroke="#636e72" stroke-width="1.5" marker-end="url(#gdarr)"/>
+    client --&gt; <span class="fl-hi">METADATA SERVICE</span> --&gt; replicated SQL
+                       folder tree, file versions,
+                       chunk lists, ACLs, sync cursor
 
-  <rect x="170" y="40" width="130" height="60" rx="8" fill="#0984e3"/>
-  <text x="235" y="66" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">API / Metadata Svc</text>
-  <text x="235" y="84" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Auth, ACLs, Versions</text>
 
-  <rect x="170" y="130" width="130" height="60" rx="8" fill="#00b894"/>
-  <text x="235" y="156" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">Block / Chunk Svc</text>
-  <text x="235" y="174" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Dedup + Pre-signed S3</text>
+  <span class="fl-key">CONTENT</span>  large, immutable, content-addressed
 
-  <line x1="300" y1="70" x2="348" y2="70" stroke="#636e72" stroke-width="1.5" marker-end="url(#gdarr)"/>
-  <line x1="300" y1="160" x2="348" y2="160" stroke="#636e72" stroke-width="1.5" marker-end="url(#gdarr)"/>
+    client --&gt; <span class="fl-hi">OBJECT STORAGE</span>   <span class="fl-note">via pre-signed URLs; bypasses our servers</span>
+                 chunk_hash -&gt; bytes
+                 written once, never modified
 
-  <rect x="350" y="40" width="140" height="60" rx="8" fill="#6c5ce7"/>
-  <text x="420" y="66" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">Metadata DB (Spanner)</text>
-  <text x="420" y="84" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Strict Serializability</text>
 
-  <rect x="350" y="130" width="140" height="60" rx="8" fill="#e17055"/>
-  <text x="420" y="156" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">Blob Storage (S3 / GCS)</text>
-  <text x="420" y="174" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Content-Addressed (SHA256)</text>
+  <span class="fl-key">AN UPLOAD</span>
 
-  <line x1="420" y1="100" x2="420" y2="128" stroke="#636e72" stroke-width="1.5" marker-end="url(#gdarr)"/>
+    1. client chunks the file locally, hashes each chunk
+    2. init: "here are my 500 chunk hashes"
+       server: <span class="fl-hi">"I already have 499. send me chunk #37."</span>
+    3. client PUTs chunk #37 straight to object storage
+    4. commit: "version 5 = [these 500 hashes]"
+       <span class="fl-hi">now the version becomes visible, atomically</span>
 
-  <rect x="520" y="80" width="150" height="70" rx="8" fill="#2d3436"/>
-  <text x="595" y="106" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">Notification Service</text>
-  <text x="595" y="122" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">WebSockets / Redis PubSub</text>
-  <text x="595" y="136" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Pushes sync event to devices</text>
-</svg><div class="dc-caption">Content-defined chunking (Rabin Fingerprint) splits files into 4MB deduplicated blobs stored in S3; Spanner maintains atomic metadata; WebSockets notify sync clients</div></div></div>
-</div><div class="design-step deep">
-  <div class="ds-header"><span class="ds-ico">&#128269;</span>6. Component Deep Dives</div>
-  <div class="ds-body"><p><strong>1. Content-Defined Chunking vs Fixed-Size Chunking:</strong></p>
-<p>If you split files by fixed 4MB offsets, inserting 1 byte at the start of a 100MB file shifts all subsequent offsets, changing the SHA-256 hash of every single chunk (0% deduplication). <strong>Rabin Fingerprinting / FastCDC</strong> calculates a rolling polynomial checksum over a sliding window. When the checksum's lowest 13 bits equal a constant (e.g. <code>hash & 0x1FFF == 0</code>), a chunk boundary is set. Inserting data only changes 1 or 2 chunks surrounding the insertion; all remaining chunks retain identical hashes and are deduplicated.</p>
-<p><strong>2. Conflict Resolution (Two users edit simultaneously offline):</strong></p>
-<p>Google Drive uses Optimistic Concurrency Control with version numbers. When Client A commits version 2 of <code>file_1</code>, it succeeds. When Client B later attempts to commit version 2 of <code>file_1</code>, the DB detects a version mismatch (expected v1, currently v2). The server rejects Client B's commit and creates a branch: <code>annual_report (Client B's conflicted copy 2026-09-07).pdf</code>. For collaborative text docs (Google Docs), Operational Transformation (OT) or CRDTs (Conflict-free Replicated Data Types) resolve character-level conflicts in real time.</p>
-<p><strong>3. Garbage Collection for Chunks:</strong></p>
-<p>When files/versions are permanently deleted, chunks cannot be immediately removed from S3 because other files or users might share the same content-addressed hash. Each chunk row maintains a <code>ref_count</code> in the DB. When a version is purged, decrement <code>ref_count</code>. A daily MapReduce / Spark batch sweeper queries chunks with <code>ref_count == 0</code> and deletes the underlying S3 objects.</p></div>
-</div><div class="design-step tradeoff">
-  <div class="ds-header"><span class="ds-ico">&#9878;</span>7. Trade-off Analysis</div>
-  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &check;</th><th>Alternative &cross;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Chunk Splitting</strong></td><td class='chosen'>Client-side Rabin Chunking</td><td class='rej'>Server-side Chunking</td><td>Client-side saves huge upload bandwidth (never uploads chunks already in S3) and offloads CPU hashing from server infrastructure.</td></tr><tr><td><strong>Metadata Store</strong></td><td class='chosen'>Spanner / CockroachDB (NewSQL)</td><td class='rej'>Cassandra / DynamoDB (NoSQL)</td><td>File tree operations (renaming a folder, moving 10,000 files) require atomic multi-row ACID transactions. NoSQL eventual consistency causes phantom or orphaned files.</td></tr><tr><td><strong>Sync Protocol</strong></td><td class='chosen'>Delta Sync with WebSocket notify</td><td class='rej'>Periodic Client Polling</td><td>WebSockets deliver sub-second sync latency to all connected devices without hammering servers with millions of empty poll requests.</td></tr></tbody></table></div></div>
-</div><div class="design-step fault">
-  <div class="ds-header"><span class="ds-ico">&#128737;</span>8. Fault Tolerance</div>
-  <div class="ds-body"><div class="ft-row"><div class="ft-fail">Upload Aborted Midway (Network drop)</div><div class="ft-fix">Chunk uploads are idempotent. Client queries <code>/upload/status</code> with upload_id, receives list of already-persisted chunks, and resumes only the remaining chunks without re-uploading.</div></div><div class="ft-row"><div class="ft-fail">S3 / Cloud Storage Outage</div><div class="ft-fix">Blob storage is multi-region replicated (e.g. S3 Cross-Region Replication). Read requests failover to secondary region CDN endpoint.</div></div><div class="ft-row"><div class="ft-fail">Metadata DB Primary Failure</div><div class="ft-fix">Spanner / CockroachDB uses Multi-Paxos / Raft per range. Automatic leader election completes in <2s with zero data loss.</div></div><div class="ft-row"><div class="ft-fail">Zombie / Corrupt Chunks</div><div class="ft-fix">Every downloaded chunk is verified against its expected SHA-256 hash by the client. If corrupted, client requests chunk from alternate replica.</div></div></div>
-</div><div class="vidref">
-  <div class="label">&#9654; Watch alongside this design</div>
-  <ul>
-    <li><a href="https://www.youtube.com/watch?v=EpIgvowZr00" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 3: GFS</a> <span class="vr-meta">~80 min</span> &mdash; chunked distributed file storage, which is the substrate this design sits on.</li>
-  </ul>
+
+  <span class="fl-key">NOTIFYING OTHER DEVICES</span>
+
+    laptop  &lt;-- long-poll --&gt; <span class="fl-hi">NOTIFICATION SERVICE</span>  "something changed"
+    phone   &lt;-- long-poll --&gt;         |
+                                      v
+                             client asks metadata: "what changed since cursor 8812?"
+                             <span class="fl-note">the notification carries no data, only a nudge</span></div>
+<div class="flow-cap">The notification is deliberately content-free. It says &ldquo;go ask&rdquo;, and
+the client then does a normal incremental sync. That keeps the push path trivial and means a missed
+notification costs a delay rather than a lost change &mdash; the next poll catches it.</div></div>
 </div>
-<div class="design-step concl">
-  <div class="ds-header"><span class="ds-ico">&#127937;</span>9. Conclusion &mdash; what I would say in the last three minutes</div>
-  <div class="ds-body">
-  <div class="concl-grid">
+<div class="design-step wflow">
+  <div class="ds-header"><span class="ds-ico">&#128260;</span>8. Workflows &mdash; what actually happens</div>
+  <div class="ds-body"><div class="wf">
+  <div class="wf-title">Priya changes one line in a 2 GB project file</div>
+  <div class="wf-sub">Delta sync, which is the whole reason this design exists.</div>
+  <ol>
+    <li>The desktop client notices the file changed and re-chunks it locally using the rolling hash. It gets 500 chunks and hashes each one.</li>
+    <li>It compares against the 500 hashes from the last synced version. <b>499 are identical.</b> Only chunk 37 &mdash; the one containing her edit &mdash; is new.</li>
+    <li>It calls upload-init with all 500 hashes. The server checks which it already holds and replies: <i>send me chunk 37</i>, with a pre-signed URL.</li>
+    <li>The client PUTs 4 MB directly to object storage. A few seconds on a normal connection.</li>
+    <li>It commits: version 5 is this ordered list of 500 hashes. The metadata service writes one row. <b>Now the new version exists.</b></li>
+    <li>Total uploaded: 4 MB and two small API calls, for a 2 GB file.</li>
+  </ol>
+  <div class="wf-out">Version 4 and version 5 share 499 chunks. Keeping the old version costs one extra list and one extra chunk, which is why thirty versions of history is affordable rather than thirty times the storage.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">Her phone picks up the change</div>
+  <div class="wf-sub">And downloads 4 MB, not 2 GB.</div>
+  <ol>
+    <li>The phone holds a long-poll against the notification service. The commit wakes it with a content-free nudge.</li>
+    <li>The phone asks the metadata service: <i>what has changed since my cursor?</i> It gets back: this file is now at version 5, here is the chunk list.</li>
+    <li>It diffs that list against its local version 4. One hash is unfamiliar.</li>
+    <li>It downloads that one chunk from object storage and reassembles the file locally from 499 chunks it already had plus the new one.</li>
+    <li>It verifies by re-hashing each chunk. Content addressing means integrity checking is free &mdash; a corrupted chunk simply will not hash to its own name.</li>
+    <li>Cursor advances. Done.</li>
+  </ol>
+  <div class="wf-out">Symmetry is the nice property here: the same chunk list that made the upload small makes the download small, and neither side needed a special diff format.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">Two devices edit the same file offline</div>
+  <div class="wf-sub">The conflict, handled honestly.</div>
+  <ol>
+    <li>Priya's laptop is offline on a flight. She edits the file; the client queues version 5 locally.</li>
+    <li>Meanwhile her desktop at home edits the same file and successfully commits version 5.</li>
+    <li>The laptop lands and tries to commit. It says: <i>my parent is version 4</i>. The server sees version 5 already exists with parent 4.</li>
+    <li>This is a genuine fork. Neither version descends from the other, and the server cannot merge two binary files.</li>
+    <li>So it keeps both. The laptop's work is committed as a new file: <b>report.docx (Priya's laptop conflicted copy)</b>, with its own chunk list.</li>
+    <li>Both appear in the folder on every device. Priya opens them, decides, and deletes one.</li>
+  </ol>
+  <div class="wf-out">Ugly and correct. The alternative &mdash; picking a winner by timestamp &mdash; would have silently discarded a flight's worth of work, and she would have had no way to know.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">A folder is shared with 200 people</div>
+  <div class="wf-sub">Where permission checks become a performance problem.</div>
+  <ol>
+    <li>Priya shares a folder. The permission is stored once, on the folder &mdash; not copied onto the thousands of files inside it.</li>
+    <li>Dev opens a file six levels deep. Checking access means walking up the tree to find an inherited permission, which is several metadata reads.</li>
+    <li>Doing that on every file access, for every user, would make permission checking a larger workload than the sync itself.</li>
+    <li>So the effective permission set is <b>cached per user</b>, with a short expiry.</li>
+    <li>Priya revokes Dev's access. The cache is invalidated for the affected subtree, but there is a window &mdash; measured in seconds &mdash; where a cached entry still permits access.</li>
+    <li>For anything genuinely sensitive, the revoke path invalidates immediately rather than waiting for expiry.</li>
+  </ol>
+  <div class="wf-out">A short window of stale permission is usually acceptable and must be a deliberate decision, not an accident. Any answer where the number is &ldquo;however long the cache happens to live&rdquo; is the wrong answer.</div>
+</div></div>
+</div>
+<div class="design-step deep">
+  <div class="ds-header"><span class="ds-ico">&#128269;</span>9. Deep dives, and what breaks</div>
+  <div class="ds-body"><h4>How the client detects a change at all</h4>
+
+<p>Easy to skip and genuinely load-bearing: before any of the sync machinery runs, something has to
+notice that a file changed.</p>
+
+<p>Polling the filesystem by hashing every file is out &mdash; on a folder with a hundred thousand
+files that is minutes of disk I/O per scan. So the client uses operating system change notifications,
+which tell it exactly which paths were touched.</p>
+
+<p>Those are not entirely reliable. Events get dropped under load, and they are missed entirely while
+the client is not running. So the design is <strong>events for speed, periodic full scan for
+correctness</strong>: react instantly to notifications, and reconcile properly every so often to
+catch whatever was missed. The scan compares size and modification time first and only hashes files
+where those changed, which keeps it cheap.</p>
+
+<h4>Why the commit is separate from the upload</h4>
+
+<p>It would be simpler to upload chunks and have the server figure out the version. The two-phase
+shape exists because of what must be true at the moment a version becomes visible: <strong>every
+chunk it references must already be durable.</strong></p>
+
+<p>If a version could appear while a chunk was still uploading, another device could fetch its chunk
+list and find a chunk that does not exist. That is a broken file, and worse, it is broken in the
+metadata rather than in the bytes &mdash; so it looks like corruption rather than a transient error.</p>
+
+<p>Separating them makes the visible transition a single small metadata write, which is atomic, cheap,
+and easy to reason about. A failed upload leaves orphaned chunks, and a background job collects
+chunks nothing references &mdash; the cheap failure to have.</p>
+
+<h4>The sync cursor</h4>
+
+<p>Each client keeps a position in a per-user change log, and asks &ldquo;what happened after
+this?&rdquo; rather than &ldquo;what does my folder look like?&rdquo;</p>
+
+<p>This is the same idea as the sequence number in <span class="srcref">D4</span>, and it matters for
+the same reason: the client is the source of truth about what it has seen, so the server keeps no
+per-device delivery state. A device that has been off for six months asks with an old cursor and gets
+everything since. A device that crashed mid-sync asks again from its last durable cursor and repeats
+a little work.</p>
+
+<p>The bound worth knowing: if the log is trimmed past a client's cursor, that client must fall back
+to a full listing. Rare, expensive, and the reason the log is retained generously.</p>
+
+<h4>What breaks</h4>
+
+<div class="ft-row"><div class="ft-fail">Upload Aborted Midway (Network drop)</div><div class="ft-fix">Chunk uploads are idempotent. Client queries <code>/upload/status</code> with upload_id, receives list of already-persisted chunks, and resumes only the remaining chunks without re-uploading.</div></div><div class="ft-row"><div class="ft-fail">S3 / Cloud Storage Outage</div><div class="ft-fix">Blob storage is multi-region replicated (e.g. S3 Cross-Region Replication). Read requests failover to secondary region CDN endpoint.</div></div><div class="ft-row"><div class="ft-fail">Metadata DB Primary Failure</div><div class="ft-fix">Spanner / CockroachDB uses Multi-Paxos / Raft per range. Automatic leader election completes in <2s with zero data loss.</div></div><div class="ft-row"><div class="ft-fail">Zombie / Corrupt Chunks</div><div class="ft-fix">Every downloaded chunk is verified against its expected SHA-256 hash by the client. If corrupted, client requests chunk from alternate replica.</div></div><div class="concl-grid">
     <div class="cc"><div class="h">The dominant constraint</div><p><strong>Sync is not collaborative editing.</strong> I scoped this as file sync with versioning, which makes content-defined chunking and delta transfer the core, rather than CRDTs and operational transform.</p></div>
     <div class="cc first"><div class="h">What I would build first</div><p>Rabin-fingerprint chunking plus a chunk-hash manifest. Deduplication and delta sync both fall out of it for free.</p></div>
     <div class="cc"><div class="h">What I deliberately did not build</div><p>Real-time co-editing, and cross-user deduplication. The second is a genuine storage win and a privacy leak, so I would keep dedup per-account.</p></div>
     <div class="cc risk"><div class="h">The biggest risk</div><p>Conflict handling on offline edits. Last-writer-wins is simple and silently destroys work; the honest answer is to keep both versions and tell the user.</p></div>
-  </div>
-  </div>
+  </div></div>
 </div>
 
 <div class="followup">
@@ -10481,7 +10735,7 @@ rather than from the source database.</p>
     <div class="fu-a"><p>It pulls the manifest first &mdash; the list of files and chunk hashes &mdash; which is small, then fetches chunks it lacks. Because chunks are content-addressed, they come from object storage or a CDN rather than from a service, so this is bandwidth rather than load on the metadata tier.</p><p>Prioritise by what the user is likely to open: recently modified files first, everything else in the background. Cold-syncing alphabetically is how you make a user wait an hour to see the document they just edited.</p></div>
   </details>
 </div>
-</div>
+  </div>
 </div>
 
 <div class="design-card">
@@ -10489,43 +10743,191 @@ rather than from the source database.</p>
     <h3 class="dc-title"><span id="design-uber">Design Uber / Lyft</span> (Real-Time Geospatial Indexing & Ride Matching)</h3>
     <div class="dc-meta">Difficulty: <strong>Hard (Staff Expectation)</strong> &nbsp;&bull;&nbsp; Target: <strong>45 min</strong></div>
   </div>
-  <div class="dc-body"><div class="asked">
+  <div class="dc-body">
+<div class="asked">
   <div class="ak-q"><span class="ak-l">&#128172; The question, as asked</span><p>&ldquo;Design a ride-hailing dispatch system. Riders request a ride, nearby drivers are found and one is matched, and both track the trip live.&rdquo;</p></div>
   <div class="ak-h"><span class="ak-l">&#9889; What makes it hard</span><p>Continuous <strong>geospatial writes at enormous volume</strong> &mdash; every driver reporting position every few seconds is the largest stream in the system &mdash; combined with a matching decision that must complete in seconds.</p></div>
 </div>
 <div class="design-step req">
-  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Requirements</div>
-  <div class="ds-body"><div class="clarify">
+  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Understanding the question</div>
+  <div class="ds-body"><p>The prompt: <em>&ldquo;Design a ride-hailing dispatch system. Riders request a ride,
+nearby drivers are found and one is matched, and both track the trip live.&rdquo;</em></p>
+
+<p>There are two systems hiding in that sentence, and they have opposite characteristics.</p>
+
+<p><strong>Location ingestion</strong> is a firehose. Five million drivers each reporting their
+position every four seconds is over a million writes per second, running continuously, forever. It is
+by a wide margin the largest stream in the design &mdash; larger than trips, payments, and everything
+else combined.</p>
+
+<p><strong>Matching</strong> is the opposite: comparatively rare, but it must answer in about two
+seconds, and the answer matters. Pick the wrong driver and someone waits eight minutes instead of
+three.</p>
+
+<div class="insight">
+  <div class="label">&#127919; The question to ask first</div>
+  <p>&ldquo;How often do drivers report location?&rdquo; It sounds like a detail and it is the
+  largest number in the entire design. Four seconds gives 1.25M writes/sec. Two seconds gives 2.5M.
+  Nothing else you decide moves the infrastructure bill as much.</p>
+</div>
+
+<h4>The property that makes this tractable</h4>
+
+<p>Demand is <strong>local</strong>. A rider in Berlin is never matched with a driver in Lisbon. That
+sounds trivial and it is the single most useful fact in the design, because it means the system does
+not have to be one system &mdash; it can be a few hundred nearly independent ones, partitioned by
+geography, with no cross-partition queries in the hot path.</p>
+
+<p>Once you say that, the million writes per second stop being one million-write-per-second problem
+and become a few hundred manageable ones. Same instinct as everywhere else in this guide:
+<strong>make the constraint local instead of coordinating.</strong></p>
+
+<h4>And the part that is genuinely awkward</h4>
+
+<p>&ldquo;Find drivers near this point&rdquo; is a two-dimensional query, and ordinary database
+indexes are one-dimensional. An index on latitude finds everyone at the right latitude across the
+entire planet. An index on longitude does the same the other way. Intersecting them is enormously
+wasteful for a 3 km radius.</p>
+
+<p>Fixing that &mdash; turning two dimensions into one so a normal index works &mdash; is the
+technical core, and it is covered in step 4.</p>
+
+<h4>What they are looking for</h4>
+
+<p><strong>Do you size the location stream first?</strong> It is the dominant cost and the thing most
+candidates leave until last.</p>
+
+<p><strong>Do you have a real spatial index?</strong> &ldquo;Query by lat/lng range&rdquo; is not an
+answer at this scale.</p>
+
+<p><strong>Do you handle the double-booking race?</strong> Two riders offered the same driver at the
+same instant is not hypothetical; it happens constantly at peak.</p>
+<div class="clarify">
   <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
   <div class="cq-row"><div class="cq-q">What is the matching latency budget?</div><div class="cq-w">A few seconds allows a global optimisation over a batch; sub-second forces greedy local matching and a worse allocation.</div></div><div class="cq-row"><div class="cq-q">How often do drivers report location?</div><div class="cq-w">This dominates total write volume &mdash; it is usually the largest number in the whole design.</div></div><div class="cq-row"><div class="cq-q">Is pricing dynamic?</div><div class="cq-w">Surge is a separate feedback system with its own stability problems, and it interacts with matching.</div></div><div class="cq-row"><div class="cq-q">One city or global?</div><div class="cq-w">Geo-sharding is natural here because demand is local; saying so early earns the partitioning discussion.</div></div><div class="cq-row"><div class="cq-q">Are shared or pooled rides in scope?</div><div class="cq-w">Pooling turns matching into a routing optimisation that is NP-hard. Worth scoping out explicitly.</div></div>
   <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
 </div>
-<p><strong>Functional Requirements:</strong></p>
-<ul>
-  <li>Drivers broadcast their GPS location every 4 seconds when active.</li>
-  <li>Riders view real-time moving nearby drivers on the map (within 5km radius).</li>
-  <li>Rider requests a ride; system calculates upfront fare and ETA, then matches with the optimal driver.</li>
-  <li>Driver accepts/rejects ride dispatch within 15 seconds.</li>
-  <li>Trip lifecycle: Picked up -> In-transit with real-time routing -> Dropped off -> Payment processed.</li>
-</ul>
-<p><strong>Non-Functional Requirements:</strong></p>
-<ul>
-  <li><strong>Scale:</strong> 100M active riders, 5M active drivers globally.</li>
-  <li><strong>Location Ingestion:</strong> 5M drivers &times; 1 update / 4s = 1,250,000 location writes/sec.</li>
-  <li><strong>Matching Latency:</strong> Match driver within &lt; 2 seconds from request.</li>
-  <li><strong>ETA & Map Refresh Latency:</strong> &lt; 100ms response time for nearby driver rendering.</li>
-  <li><strong>Reliability:</strong> 99.99% availability. Zero duplicate ride bookings.</li>
-</ul></div>
-</div><div class="design-step est">
-  <div class="ds-header"><span class="ds-ico">&#128202;</span>2. Capacity Estimation</div>
-  <div class="ds-body"><div class="assume">
-  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
-  <div class="as-row"><div class="as-a">Demand is local to a city</div><div class="as-b">Cross-city matching would remove geo-sharding, which is the assumption the whole partitioning rests on.</div></div><div class="as-row"><div class="as-a">Drivers report location every 4 seconds</div><div class="as-b">Halving that interval doubles the largest write stream in the system.</div></div><div class="as-row"><div class="as-a">Greedy matching is acceptable</div><div class="as-b">If allocation quality mattered more than latency, batched global optimisation would be required.</div></div>
 </div>
-<div class="ng"><div class="ng-cell"><div class="ng-val">5M Drivers</div><div class="ng-desc">Active drivers broadcasting GPS every 4 seconds</div></div><div class="ng-cell"><div class="ng-val">1.25M QPS</div><div class="ng-desc">Continuous location update ingestion rate</div></div><div class="ng-cell"><div class="ng-val">100 Bytes</div><div class="ng-desc">Payload size per GPS ping (driver_id, lat, lng, bearing, status)</div></div><div class="ng-cell"><div class="ng-val">125 MB/sec</div><div class="ng-desc">Ingress location stream network bandwidth</div></div><div class="ng-cell"><div class="ng-val">500,000</div><div class="ng-desc">Simultaneous active trips during peak hours globally</div></div><div class="ng-cell"><div class="ng-val">H3 Level 8</div><div class="ng-desc">Hexagonal spatial indexing resolution (~460m edge length)</div></div></div></div>
-</div><div class="design-step api">
-  <div class="ds-header"><span class="ds-ico">&#128268;</span>3. API Design</div>
-  <div class="ds-body"><div class="api-code"><span class="cm">// 1. Driver Location Broadcast (gRPC Bidirectional Stream)</span>
+</div>
+<div class="design-step fr">
+  <div class="ds-header"><span class="ds-ico">&#128221;</span>2. Functional requirements</div>
+  <div class="ds-body"><ul>
+  <li><strong>Drivers broadcast location</strong> every few seconds while available or on a trip.</li>
+  <li><strong>Riders see nearby drivers</strong> moving on a map, within a few kilometres.</li>
+  <li><strong>Request a ride:</strong> quote a fare and an ETA up front, then match a driver.</li>
+  <li><strong>Driver accepts or declines</strong> within a short window; declining moves on to the
+  next candidate.</li>
+  <li><strong>Trip lifecycle:</strong> matched &rarr; picked up &rarr; in transit &rarr; dropped off
+  &rarr; paid.</li>
+  <li><strong>No double booking.</strong> One driver, one trip.</li>
+</ul>
+
+<p>That last one deserves attention because it is the only strict-correctness requirement in the
+whole design. Everything else tolerates approximation &mdash; a driver's shown position can be four
+seconds stale, an ETA can be off by a minute, the nearby list can miss someone at the edge. But a
+driver assigned to two trips is a real-world failure: one rider is standing on a pavement watching a
+car that is not coming.</p>
+
+<p>Which means one small part of this system needs a genuine transactional guarantee, while the rest
+of it &mdash; including the part handling a million writes a second &mdash; does not.</p></div>
+</div>
+<div class="design-step nfr">
+  <div class="ds-header"><span class="ds-ico">&#9201;</span>3. Non-functional requirements</div>
+  <div class="ds-body"><div class="tw"><table class="to">
+<thead><tr><th style="width:26%">Requirement</th><th style="width:22%">Target</th><th style="width:52%">What it forces</th></tr></thead>
+<tbody>
+<tr><td><strong>Location writes</strong></td><td class="chosen">~1.25M/sec</td><td>The dominant number. It rules out writing each ping to a durable, indexed, replicated database.</td></tr>
+<tr><td><strong>Nearby query</strong></td><td>&lt; 100 ms</td><td>Runs on every map refresh for every rider with the app open, which is a much higher rate than ride requests.</td></tr>
+<tr><td><strong>Match latency</strong></td><td>&lt; 2 s</td><td>From request to a driver being offered the trip. This budget decides greedy versus batched matching.</td></tr>
+<tr><td><strong>Double booking</strong></td><td class="chosen">Zero</td><td>The only hard-correctness requirement here. It needs a real transaction on one row.</td></tr>
+<tr><td><strong>Location staleness</strong></td><td>Seconds is fine</td><td>A car shown four seconds behind reality is imperceptible on a map. This tolerance is what lets locations live in memory.</td></tr>
+<tr><td><strong>Availability</strong></td><td>99.99%</td><td>Per city. A failure in one region should not affect another &mdash; which geo-sharding gives you almost for free.</td></tr>
+</tbody></table></div>
+
+<h4>The row that saves the design</h4>
+
+<p>&ldquo;Location staleness: seconds is fine&rdquo; is worth stating explicitly, because it is what
+makes a million writes per second affordable.</p>
+
+<p>If every ping had to be durably stored and replicated, you would be running a very large database
+purely to record where cars were four seconds ago &mdash; data that is worthless the moment the next
+ping arrives. Because staleness is acceptable and history is not required for the live map, current
+position can live in memory with a short expiry. Losing a node loses a few seconds of positions, and
+the next round of pings repairs it completely.</p>
+
+<p>Trip history is a separate matter and is written durably. The distinction &mdash; <strong>ephemeral
+current state versus durable historical record</strong> &mdash; is one of the more transferable ideas
+in this design.</p></div>
+</div>
+<div class="design-step schema">
+  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Data model and API</div>
+  <div class="ds-body"><h4>The spatial index, which is the real content of this step</h4>
+
+<p>The problem: find all drivers within 3 km of a point, fast, from a set of five million that is
+constantly moving.</p>
+
+<p>The trick is to <strong>reduce two dimensions to one</strong>. Divide the surface of the earth into
+a fixed grid of small cells, each with an identifier. A driver's position becomes a cell id. Now
+&ldquo;drivers near here&rdquo; is &ldquo;drivers in these cells&rdquo;, which is an ordinary lookup
+on an ordinary key &mdash; no geometry at query time at all.</p>
+
+<p>The grid used here is hexagonal, and the reason is worth a sentence because it comes up. With
+square cells, the distance from a cell's centre to its edge-neighbours and to its corner-neighbours
+differ by about 40%, so &ldquo;the ring of cells around me&rdquo; is not a consistent distance in
+every direction. Hexagons have six neighbours all at the same distance, so a ring of hexagons
+approximates a circle far better. At the resolution used here each cell is a few hundred metres
+across, which is roughly the granularity of a pickup.</p>
+
+<div class="flow">  <span class="fl-key">THE QUERY</span>  "drivers within 3 km of the rider"
+
+    rider position  &rarr;  cell <span class="fl-hi">8a2a1072b59ffff</span>
+                          |
+                          v
+    take that cell + the rings of neighbours out to ~3 km
+                          |
+                          v
+    <span class="fl-hi">GET cell:8a...b59 &rarr; { d_101, d_884, d_2277 }</span>   <span class="fl-note">plain key lookup</span>
+    <span class="fl-hi">GET cell:8a...b5a &rarr; { d_443 }</span>               <span class="fl-dim">one round trip, all cells</span>
+    ...
+                          |
+                          v
+    a few hundred candidates &rarr; filter by exact distance and status</div>
+
+<p>Two dimensions became one key lookup. Exact distance is computed afterwards, on a few hundred
+candidates rather than five million.</p>
+
+<div class="schema-code"><span class="cm">-- Ephemeral Real-Time Geospatial Index (In-Memory Redis / Uber Ringpop H3)</span>
+<span class="cm">-- Redis Geospatial (GEOADD / GEORADIUS) or H3 Hexagonal Cell Sets:</span>
+<span class="kw">KEY:</span>   geo:h3:{h3_cell_index}          <span class="cm">-- e.g. geo:h3:8828308281fffff</span>
+<span class="kw">VALUE:</span> SET of {driver_id}
+
+<span class="kw">KEY:</span>   driver:{driver_id}:state
+<span class="kw">VALUE:</span> HASH {
+  "lat": 37.7749, "lng": -122.4194, "status": "AVAILABLE",
+  "h3_index": "8828308281fffff", "last_ping": 1725682910
+}
+
+<span class="cm">-- Trip State DB (CockroachDB / Cassandra for High Scale + ACID)</span>
+<span class="kw">TABLE</span> trips {
+  trip_id          <span class="ty">UUID</span> <span class="pk">PRIMARY KEY</span>,
+  rider_id         <span class="ty">UUID</span>,
+  driver_id        <span class="ty">UUID</span>,
+  status           <span class="ty">ENUM</span>(requested, matched, arrived, in_progress, completed, canceled),
+  pickup_lat       <span class="ty">DOUBLE</span>,
+  pickup_lng       <span class="ty">DOUBLE</span>,
+  dropoff_lat      <span class="ty">DOUBLE</span>,
+  dropoff_lng      <span class="ty">DOUBLE</span>,
+  fare_cents       <span class="ty">INT</span>,
+  created_at       <span class="ty">TIMESTAMP</span>,
+  updated_at       <span class="ty">TIMESTAMP</span>
+}</div>
+<p>Note the split in the storage. <strong>Live driver positions</strong> live in memory, keyed by
+cell, with a short expiry &mdash; a driver who stops pinging simply vanishes from the index, which is
+exactly the desired behaviour and needs no explicit offline event. <strong>Trips</strong> live in a
+real database, because a trip is money and must survive anything.</p>
+
+<h4>The API</h4>
+<div class="api-code"><span class="cm">// 1. Driver Location Broadcast (gRPC Bidirectional Stream)</span>
 <span class="kw">rpc</span> <span class="fn">StreamDriverLocation</span>(<span class="kw">stream</span> DriverLocationPing) <span class="kw">returns</span> (<span class="kw">stream</span> LocationAck);
 <span class="kw">message</span> DriverLocationPing {
   <span class="ty">string</span> driver_id = 1;
@@ -10554,38 +10956,76 @@ rather than from the source database.</p>
   "dropoff_lat": 37.7891, "dropoff_lng": -122.4014,
   "ride_type": "UBER_X",
   "fare_quote_id": "fq_7723"
-}</div></div>
-</div><div class="design-step schema">
-  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="cm">-- Ephemeral Real-Time Geospatial Index (In-Memory Redis / Uber Ringpop H3)</span>
-<span class="cm">-- Redis Geospatial (GEOADD / GEORADIUS) or H3 Hexagonal Cell Sets:</span>
-<span class="kw">KEY:</span>   geo:h3:{h3_cell_index}          <span class="cm">-- e.g. geo:h3:8828308281fffff</span>
-<span class="kw">VALUE:</span> SET of {driver_id}
+}</div>
+<p>Location updates go over a persistent stream rather than one HTTP request per ping. At this volume
+the per-request overhead &mdash; connection setup, headers, TLS &mdash; would dwarf the 100 bytes of
+actual payload.</p>
 
-<span class="kw">KEY:</span>   driver:{driver_id}:state
-<span class="kw">VALUE:</span> HASH {
-  "lat": 37.7749, "lng": -122.4194, "status": "AVAILABLE",
-  "h3_index": "8828308281fffff", "last_ping": 1725682910
-}
+<p>And the ride request carries an idempotency key. A rider on a flaky connection who taps twice, or
+whose client retries, must not end up with two trips and two charges.</p></div>
+</div>
+<div class="design-step est">
+  <div class="ds-header"><span class="ds-ico">&#128202;</span>5. Capacity estimation</div>
+  <div class="ds-body"><p>The numbers, and the one that dominates.</p>
+<div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">Demand is local to a city</div><div class="as-b">Cross-city matching would remove geo-sharding, which is the assumption the whole partitioning rests on.</div></div><div class="as-row"><div class="as-a">Drivers report location every 4 seconds</div><div class="as-b">Halving that interval doubles the largest write stream in the system.</div></div><div class="as-row"><div class="as-a">Greedy matching is acceptable</div><div class="as-b">If allocation quality mattered more than latency, batched global optimisation would be required.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">5M Drivers</div><div class="ng-desc">Active drivers broadcasting GPS every 4 seconds</div></div><div class="ng-cell"><div class="ng-val">1.25M QPS</div><div class="ng-desc">Continuous location update ingestion rate</div></div><div class="ng-cell"><div class="ng-val">100 Bytes</div><div class="ng-desc">Payload size per GPS ping (driver_id, lat, lng, bearing, status)</div></div><div class="ng-cell"><div class="ng-val">125 MB/sec</div><div class="ng-desc">Ingress location stream network bandwidth</div></div><div class="ng-cell"><div class="ng-val">500,000</div><div class="ng-desc">Simultaneous active trips during peak hours globally</div></div><div class="ng-cell"><div class="ng-val">H3 Level 8</div><div class="ng-desc">Hexagonal spatial indexing resolution (~460m edge length)</div></div></div>
+<p>Five million drivers pinging every four seconds is <strong>1.25 million writes per second</strong>,
+continuously. Each ping is around 100 bytes, so about 125 MB/sec of ingress &mdash; large but not
+alarming as bandwidth. It is the <em>operation rate</em> that is the problem, not the volume.</p>
 
-<span class="cm">-- Trip State DB (CockroachDB / Cassandra for High Scale + ACID)</span>
-<span class="kw">TABLE</span> trips {
-  trip_id          <span class="ty">UUID</span> <span class="pk">PRIMARY KEY</span>,
-  rider_id         <span class="ty">UUID</span>,
-  driver_id        <span class="ty">UUID</span>,
-  status           <span class="ty">ENUM</span>(requested, matched, arrived, in_progress, completed, canceled),
-  pickup_lat       <span class="ty">DOUBLE</span>,
-  pickup_lng       <span class="ty">DOUBLE</span>,
-  dropoff_lat      <span class="ty">DOUBLE</span>,
-  dropoff_lng      <span class="ty">DOUBLE</span>,
-  fare_cents       <span class="ty">INT</span>,
-  created_at       <span class="ty">TIMESTAMP</span>,
-  updated_at       <span class="ty">TIMESTAMP</span>
-}</div></div>
-</div><div class="design-step arch">
-  <div class="ds-header"><span class="ds-ico">&#127959;</span>5. High-Level Architecture</div>
-  <div class="ds-body">
-<div class="anim" id="anim-uber">
+<p>Which is why the destination matters so much. Written to a replicated database with a spatial
+index, 1.25M writes/sec is a very expensive cluster doing work that is discarded four seconds later.
+Written to an in-memory store partitioned by geography, each shard handles a city's worth &mdash;
+thousands per second, not millions &mdash; and that is unremarkable.</p>
+
+<p>The read side is easy to underestimate. Every rider with the app open refreshes the map every few
+seconds, and there are far more people looking than requesting. Nearby-driver queries therefore
+outnumber ride requests by a large factor, which is the argument for making that query a plain key
+lookup rather than anything cleverer.</p>
+
+<p>Trips are the small number: around half a million concurrent globally, with a few thousand starting
+per second at peak. That is an ordinary transactional workload, and it is the only part of the system
+that needs one.</p></div>
+</div>
+<div class="design-step tradeoff">
+  <div class="ds-header"><span class="ds-ico">&#9878;</span>6. The key trade-offs</div>
+  <div class="ds-body"><p>The choices, and their costs.</p>
+<div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &check;</th><th>Alternative &cross;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Spatial Grid</strong></td><td class='chosen'>Uber H3 Hexagonal Grid</td><td class='rej'>Quadtree / Geohash</td><td>Hexagons guarantee uniform neighbor distance in all 6 directions, drastically simplifying k-ring spatial smoothing and surge pricing calculations.</td></tr><tr><td><strong>Location Storage</strong></td><td class='chosen'>In-Memory Redis + TTL (Ephemeral)</td><td class='rej'>Persistent RDBMS / Disk DB</td><td>Driver location pings are only relevant for ~30 seconds. Persisting 1.25M writes/sec to disk is wasteful. History is downsampled and written to cold analytics via Kafka.</td></tr><tr><td><strong>Matching Architecture</strong></td><td class='chosen'>Centralized Dispatch (Batch Mini-Auction)</td><td class='rej'>Greedy First-Come-First-Serve</td><td>Batching ride requests every 2-3 seconds achieves global optimization (minimizing total wait time for all riders) rather than greedily assigning the closest car to the first request.</td></tr></tbody></table></div>
+<h4>Matching: greedy or batched</h4>
+
+<p>This is the trade-off with the most interesting consequences, and it is driven entirely by the
+latency budget.</p>
+
+<p><strong>Greedy</strong> assigns each request to the nearest suitable driver the moment it arrives.
+It is simple, fast, and locally optimal &mdash; and globally it can be poor. Rider A gets the driver
+who was slightly closer to them, and rider B, requesting a second later, gets one who is six minutes
+away, when a swap would have served both in four.</p>
+
+<p><strong>Batched</strong> waits a few seconds, collects the requests and available drivers in an
+area, and solves the assignment as an optimisation over the whole batch. Average wait times improve
+measurably. The cost is the wait itself, plus complexity, plus a much worse failure mode: if the
+batch solver is slow, <em>everybody</em> waits, whereas a slow greedy match affects one rider.</p>
+
+<p>With a two-second budget, greedy with a few local improvements is the honest answer. Stating that
+you would instrument average pickup time and revisit if the gap justified it is better than picking
+either one on aesthetics.</p>
+
+<h4>Where the driver's state lives</h4>
+
+<p>Position is ephemeral and lives in memory. But <em>availability</em> &mdash; is this driver free,
+offered a trip, or on one? &mdash; is not ephemeral, because it is what prevents double booking.</p>
+
+<p>The resolution is to keep them in different places. The spatial index is a fast, lossy, in-memory
+view used to find <em>candidates</em>. The authoritative availability state is a row in a database,
+and claiming a driver is a conditional update on that row. The index can be stale and it does not
+matter, because the index only nominates; the database decides.</p></div>
+</div>
+<div class="design-step arch">
+  <div class="ds-header"><span class="ds-ico">&#127959;</span>7. High-level design</div>
+  <div class="ds-body"><div class="anim" id="anim-uber">
   <div class="an-head">
     <div class="an-title">Geospatial matching &mdash; and the stale index that matches a driver who has gone</div>
     <div class="an-btns">
@@ -10626,83 +11066,153 @@ rather than from the source database.</p>
   <div class="an-cap ok-only"><strong>What is moving:</strong> a continuous stream of driver positions into an in-memory H3 cell index, and &mdash; occasionally &mdash; a rider request that reads one cell plus its ring and greedily matches the best nearby driver. Demand is local, so no query is ever global.</div>
   <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> the location stream is by far the largest write volume in the design, so it is what saturates first. When the index falls behind, matching still <em>works</em> &mdash; it just matches against where drivers were 40 seconds ago, producing long pickups and cancellations. Nothing errors. Watch <strong>index staleness</strong>, not just matcher latency.</div>
 </div>
-<div class="dc-diagram"><svg width="680" height="230" viewBox="0 0 680 230" xmlns="http://www.w3.org/2000/svg">
-  <defs><marker id="uarr" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
-  
-  <rect x="10" y="30" width="100" height="60" rx="7" fill="#1a237e"/>
-  <text x="60" y="56" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">Drivers (5M)</text>
-  <text x="60" y="72" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">GPS ping / 4s</text>
+<p>Two paths with very different shapes.</p>
+<div class="flow">  <span class="fl-key">THE FIREHOSE</span>  1.25M writes/sec, ephemeral
 
-  <rect x="10" y="140" width="100" height="60" rx="7" fill="#e17055"/>
-  <text x="60" y="166" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">Riders (100M)</text>
-  <text x="60" y="182" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Request & View</text>
+    driver app --persistent stream--&gt; <span class="fl-hi">LOCATION SERVICE</span>  <span class="fl-dim">geo-sharded by city</span>
+                                              |
+                                              v
+                                   <span class="fl-hi">IN-MEMORY CELL INDEX</span>
+                                   cell_id -&gt; { drivers }, TTL 10s
+                                   <span class="fl-note">no durability. the next ping repairs everything.</span>
+                                              |
+                                              +--&gt; also to a stream, for
+                                                   trip history and analytics
 
-  <line x1="110" y1="60" x2="158" y2="60" stroke="#636e72" stroke-width="1.5" marker-end="url(#uarr)"/>
-  <line x1="110" y1="170" x2="158" y2="170" stroke="#636e72" stroke-width="1.5" marker-end="url(#uarr)"/>
 
-  <rect x="160" y="30" width="130" height="60" rx="8" fill="#0984e3"/>
-  <text x="225" y="56" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">Location Ingestion</text>
-  <text x="225" y="74" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Kafka (1.25M QPS)</text>
+  <span class="fl-key">THE MATCH</span>  rare, latency-bound, must be correct
 
-  <rect x="160" y="140" width="130" height="60" rx="8" fill="#00b894"/>
-  <text x="225" y="166" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">Dispatch & Match</text>
-  <text x="225" y="184" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">DISCO / H3 Ring</text>
+    rider --&gt; request ride  <span class="fl-note">idempotency key</span>
+                 |
+                 v
+          <span class="fl-hi">MATCHING SERVICE</span>
+                 |
+                 +-- 1. rider position -&gt; cell + neighbour rings
+                 +-- 2. read those cells -&gt; ~200 candidates   <span class="fl-dim">may be stale; fine</span>
+                 +-- 3. filter: available, right vehicle type, ETA
+                 +-- 4. rank -&gt; best driver
+                 +-- 5. <span class="fl-hi">CLAIM the driver</span>  <span class="fl-note">conditional update; this is the only strict step</span>
+                        UPDATE drivers SET status='offered', trip=X
+                         WHERE id=D AND status='available'
+                        <span class="fl-bad">0 rows &rarr; someone else got them &rarr; try the next candidate</span>
+                 +-- 6. offer to the driver; 15s to accept
+                        <span class="fl-bad">declined or timed out &rarr; release the claim, next candidate</span></div>
+<div class="flow-cap">The index is allowed to be wrong; the claim is not. A stale index costs one
+wasted candidate. A missing claim costs a rider standing on a pavement.</div></div>
+</div>
+<div class="design-step wflow">
+  <div class="ds-header"><span class="ds-ico">&#128260;</span>8. Workflows &mdash; what actually happens</div>
+  <div class="ds-body"><div class="wf">
+  <div class="wf-title">Nina requests a ride in Lisbon</div>
+  <div class="wf-sub">Request to matched driver, end to end.</div>
+  <ol>
+    <li>Nina's position maps to one hexagonal cell. We take that cell plus the rings of neighbours covering about 3 km &mdash; a few dozen cells.</li>
+    <li>One batched read against the in-memory index returns everyone in those cells: <b>214 drivers</b>. This is a key lookup, not a geometric query.</li>
+    <li>We filter: available status, right vehicle type, position fresher than 10 seconds. That leaves 38.</li>
+    <li>For those 38 we compute road-network ETA &mdash; not straight-line distance, because a driver 400 m away across a river may be twelve minutes out.</li>
+    <li>Ranked by ETA with some adjustment for how long each driver has been idle. Best candidate: driver 8817, ETA 3 minutes.</li>
+    <li><b>Claim</b> driver 8817 with a conditional update: set status to offered only if it is currently available. One row updated &mdash; ours.</li>
+    <li>The offer goes to their phone. They accept within 15 seconds. The trip is created and both apps switch to tracking.</li>
+  </ol>
+  <div class="wf-out">Total elapsed: well under two seconds, and the expensive part &mdash; road-network ETA &mdash; ran on 38 drivers rather than five million, because the cell lookup did the cheap filtering first.</div>
+</div>
 
-  <line x1="290" y1="60" x2="338" y2="60" stroke="#636e72" stroke-width="1.5" marker-end="url(#uarr)"/>
-  <line x1="290" y1="170" x2="338" y2="170" stroke="#636e72" stroke-width="1.5" marker-end="url(#uarr)"/>
+<div class="wf alt">
+  <div class="wf-title">Two riders are offered the same driver in the same instant</div>
+  <div class="wf-sub">The race, and the one line that settles it.</div>
+  <ol>
+    <li>Nina and Tomás request rides two blocks apart, within milliseconds. Their requests land on different matching service instances.</li>
+    <li>Both read the cell index. Both see driver 8817 as available &mdash; the index has no idea a claim is in flight.</li>
+    <li>Both rank them first. Both attempt the claim.</li>
+    <li>Nina's instance runs the conditional update first. Status was <code>available</code>, so it becomes <code>offered</code>. <b>1 row updated.</b></li>
+    <li>Tomás's instance runs the identical statement a millisecond later. The status is no longer <code>available</code>, so the WHERE clause matches nothing. <b>0 rows updated.</b></li>
+    <li>It reads that zero as &ldquo;lost the race&rdquo;, discards 8817, and offers the next-best driver instead. Tomás never knows.</li>
+  </ol>
+  <div class="wf-out">No distributed lock, no coordination service, no consensus. The correctness lives in one conditional update on one row, which is the cheapest real guarantee available &mdash; the same move as holding a seat in <span class="srcref">D19</span> and the balance check in ch7.</div>
+</div>
 
-  <rect x="340" y="20" width="150" height="80" rx="8" fill="#6c5ce7"/>
-  <text x="415" y="48" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">H3 Geospatial Shards</text>
-  <text x="415" y="66" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">In-Memory Hex Grid Cache</text>
-  <text x="415" y="80" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Redis / Sharded Memory</text>
+<div class="wf alt">
+  <div class="wf-title">A driver goes through a tunnel mid-trip</div>
+  <div class="wf-sub">Why the design is indifferent to it.</div>
+  <ol>
+    <li>Pings stop. After 10 seconds the index entry expires and the driver disappears from nearby-driver queries.</li>
+    <li>That is correct behaviour for an on-trip driver anyway &mdash; they were not a candidate. Disappearing from the index costs nothing.</li>
+    <li>The rider's map shows the car's last known position. It stops moving, which is mildly annoying and not a failure.</li>
+    <li>The <b>trip</b> is untouched. It lives in the database with a status, and nothing about it depended on continuous location.</li>
+    <li>The driver's app queues its pings locally while offline.</li>
+    <li>Signal returns. Queued pings are sent, the index repopulates, and the map jumps forward. Within four seconds everything is current again.</li>
+  </ol>
+  <div class="wf-out">Nothing had to detect the outage or recover from it. Expiry handles disappearance and the next ping handles return &mdash; which is what you get for choosing ephemeral state with a TTL over durable state that needs reconciliation.</div>
+</div>
 
-  <rect x="340" y="130" width="150" height="80" rx="8" fill="#d63031"/>
-  <text x="415" y="158" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">Routing & ETA Engine</text>
-  <text x="415" y="176" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">OSRM / Contraction Hierarchies</text>
-  <text x="415" y="190" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Real-time road traffic graphs</text>
+<div class="wf alt">
+  <div class="wf-title">A stadium empties and 40,000 people request rides</div>
+  <div class="wf-sub">Extreme spatial concentration, which is this system's characteristic failure.</div>
+  <ol>
+    <li>All those requests map to a handful of cells. Those cells are served by one shard, and that shard is now doing all the work while its neighbours idle.</li>
+    <li>The candidate lists explode: a query that normally returns 200 drivers now returns thousands, and ranking gets slower exactly when it is busiest.</li>
+    <li>Mitigation one: <b>cap the candidate set</b>. Take the nearest few hundred and rank those. A worse match under extreme load is far better than a slow one.</li>
+    <li>Mitigation two: the 3 km radius adapts. In a dense area, search a smaller radius &mdash; there is no shortage of drivers, only a shortage of time to rank them.</li>
+    <li>Mitigation three: surge pricing, which is a load-shedding mechanism as much as a pricing one. It reduces requests and attracts drivers into the area.</li>
+    <li>The shard is still hot. Geo-sharding cannot fix a genuinely hot location, and the honest answer is that you split that cell's traffic across replicas and accept that the index is now slightly more stale.</li>
+  </ol>
+  <div class="wf-out">Worth saying plainly: geo-sharding handles <i>uneven</i> load well and <i>concentrated</i> load badly, because the hot spot is a real place and cannot be hashed away. The tools are capping work, shrinking radius and shedding demand &mdash; not better partitioning.</div>
+</div></div>
+</div>
+<div class="design-step deep">
+  <div class="ds-header"><span class="ds-ico">&#128269;</span>9. Deep dives, and what breaks</div>
+  <div class="ds-body"><h4>Why ETA is not distance</h4>
 
-  <line x1="415" y1="100" x2="415" y2="128" stroke="#636e72" stroke-width="1.5" marker-end="url(#uarr)"/>
+<p>Straight-line distance is the obvious ranking function and it is wrong often enough to be a product
+problem.</p>
 
-  <rect x="520" y="80" width="150" height="70" rx="8" fill="#2d3436"/>
-  <text x="595" y="106" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">Trip DB (CockroachDB)</text>
-  <text x="595" y="124" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">ACID state machine</text>
-  <text x="595" y="138" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Zero double-dispatch</text>
-</svg><div class="dc-caption">Location ingestion is buffered via Kafka into H3 in-memory spatial shards; Dispatch Engine computes 1-ring neighbors and queries OSRM routing engine for precise traffic ETA</div></div></div>
-</div><div class="design-step deep">
-  <div class="ds-header"><span class="ds-ico">&#128269;</span>6. Component Deep Dives</div>
-  <div class="ds-body"><p><strong>1. Spatial Indexing: Geohash vs Google S2 vs Uber H3:</strong></p>
-<ul>
-  <li><strong>Geohash (Rectangles):</strong> Encodes lat/lng into a base32 string (Z-order curve). Neighbor search has edge distortion at poles and cell boundaries vary drastically by latitude.</li>
-  <li><strong>Google S2 (Spherical Hilbert Curve):</strong> Projects Earth onto 6 cube faces subdivided with a Hilbert curve. Great 1D index representation, but square cells have different distances to edge vs corner neighbors (factor of &radic;2).</li>
-  <li><strong>Uber H3 (Hexagonal Grid - Chosen):</strong> Subdivides the sphere into regular hexagons. Hexagons have the invariant that all 6 neighboring cells are equidistant from the center. This makes radius expansion (k-ring search: Ring 1 = 6 cells, Ring 2 = 12 cells) mathematically pure with zero corner distortion.</li>
-</ul>
-<p><strong>2. The Driver Matching Algorithm (DISCO):</strong></p>
-<p>Matching cannot just pick the nearest driver by Euclidean distance (they might be across a river or on a one-way highway).
-<ol>
-  <li>Lookup Rider's H3 cell (e.g. Resolution 8, ~460m).</li>
-  <li>Fetch all <code>AVAILABLE</code> drivers in Rider's cell + <code>k-ring(1)</code> + <code>k-ring(2)</code> (total 1 + 6 + 12 = 19 hexagons).</li>
-  <li>Batch call the Routing Engine (OSRM / Contraction Hierarchies) to calculate real street driving ETA considering traffic.</li>
-  <li>Rank candidate drivers by ETA, driver acceptance rating, and supply-demand balance.</li>
-  <li>Send dispatch offer to Top 1 driver with a 15-second TTL timer in Redis. If rejected/timed out, cascade to candidate #2.</li>
-</ol></p>
-<p><strong>3. Preventing Double Booking under Concurrency:</strong></p>
-<p>When two riders request a ride simultaneously in the same street corner, both may match with Driver D. To avoid double booking: The Dispatch Service executes a conditional atomic update on the driver's state in Redis/DB: <code>UPDATE drivers SET status = 'DISPATCHED', active_trip_id = {trip_id} WHERE driver_id = {d_id} AND status = 'AVAILABLE'</code>. If 0 rows updated, driver was already claimed; engine immediately selects next candidate.</p></div>
-</div><div class="design-step tradeoff">
-  <div class="ds-header"><span class="ds-ico">&#9878;</span>7. Trade-off Analysis</div>
-  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &check;</th><th>Alternative &cross;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Spatial Grid</strong></td><td class='chosen'>Uber H3 Hexagonal Grid</td><td class='rej'>Quadtree / Geohash</td><td>Hexagons guarantee uniform neighbor distance in all 6 directions, drastically simplifying k-ring spatial smoothing and surge pricing calculations.</td></tr><tr><td><strong>Location Storage</strong></td><td class='chosen'>In-Memory Redis + TTL (Ephemeral)</td><td class='rej'>Persistent RDBMS / Disk DB</td><td>Driver location pings are only relevant for ~30 seconds. Persisting 1.25M writes/sec to disk is wasteful. History is downsampled and written to cold analytics via Kafka.</td></tr><tr><td><strong>Matching Architecture</strong></td><td class='chosen'>Centralized Dispatch (Batch Mini-Auction)</td><td class='rej'>Greedy First-Come-First-Serve</td><td>Batching ride requests every 2-3 seconds achieves global optimization (minimizing total wait time for all riders) rather than greedily assigning the closest car to the first request.</td></tr></tbody></table></div></div>
-</div><div class="design-step fault">
-  <div class="ds-header"><span class="ds-ico">&#128737;</span>8. Fault Tolerance</div>
-  <div class="ds-body"><div class="ft-row"><div class="ft-fail">Driver Loses Internet Mid-Trip</div><div class="ft-fix">Driver app buffers GPS points in local SQLite. Upon reconnection, app uploads buffered breadcrumbs to reconcile route and compute accurate fare.</div></div><div class="ft-row"><div class="ft-fail">Dispatch Service Node Crashes during 15s offer</div><div class="ft-fix">Driver offer is backed by Redis TTL key with an expiring lease. If dispatch node dies, heartbeat supervisor detects pending trip and re-dispatches to another driver.</div></div><div class="ft-row"><div class="ft-fail">Surge Traffic Spike (New Year's Eve 10x Load)</div><div class="ft-fix">Rate limit nearby driver map refreshes from 4s to 8s per rider; drop unneeded background location telemetry while preserving dispatch pipeline.</div></div><div class="ft-row"><div class="ft-fail">Redis H3 Shard Failure</div><div class="ft-fix">Redis Sentinel / Cluster promotes replica in <1s. Lost ephemeral driver pings are replenished within 4 seconds as drivers broadcast.</div></div></div>
-</div><div class="design-step concl">
-  <div class="ds-header"><span class="ds-ico">&#127937;</span>9. Conclusion &mdash; what I would say in the last three minutes</div>
-  <div class="ds-body">
-  <div class="concl-grid">
+<p>A driver 400 m away on the far side of a river, a motorway, or a one-way system can be twelve
+minutes from the pickup, while one 1.5 km away on a clear road is four. Rank by distance and you
+regularly send the wrong car.</p>
+
+<p>So ranking uses estimated travel time over the road network, which is a routing query against a
+graph with current traffic weights &mdash; far more expensive than a distance calculation. That cost
+is exactly why the cell lookup exists: it gets the candidate set down to a few dozen, and only then do
+you pay for real routing. <strong>Cheap filter first, expensive ranking second</strong>, on a set
+small enough to afford it.</p>
+
+<h4>What to do when the driver declines</h4>
+
+<p>A driver has a short window to accept. Declining or ignoring is common &mdash; they are eating,
+finishing a call, or do not like the direction.</p>
+
+<p>The claim must therefore be released on a timer, not held indefinitely. That is the same lease
+pattern as <span class="srcref">D6</span>: a claim with an expiry, so nothing is stuck if the holder
+never responds.</p>
+
+<p>The cost is the rider's clock. Three drivers each taking their full 15 seconds is 45 seconds of a
+spinner. The usual mitigation is to offer the trip to two or three drivers simultaneously and give it
+to whoever accepts first, which cuts the tail latency sharply and means sometimes telling a driver who
+accepted that the trip is gone. Which annoyance you prefer is a product decision worth naming as
+one.</p>
+
+<h4>Surge as a control loop</h4>
+
+<p>Dynamic pricing is usually presented as a revenue feature. In systems terms it is a feedback
+controller, and it has the stability problems every feedback controller has.</p>
+
+<p>High demand raises the price, which suppresses demand and attracts drivers, which lowers the price,
+which brings demand back &mdash; and if the loop reacts too fast, it oscillates. Riders see the price
+swing every thirty seconds and stop trusting it.</p>
+
+<p>The dampening is unglamorous and effective: compute over a longer window, limit how fast the
+multiplier can move, and hold a quoted price for a few minutes so a rider's number does not change
+while they decide. Naming surge as a control loop with a stability problem, rather than as a pricing
+rule, is a distinctly staff-level observation.</p>
+
+<h4>What breaks</h4>
+
+<div class="ft-row"><div class="ft-fail">Driver Loses Internet Mid-Trip</div><div class="ft-fix">Driver app buffers GPS points in local SQLite. Upon reconnection, app uploads buffered breadcrumbs to reconcile route and compute accurate fare.</div></div><div class="ft-row"><div class="ft-fail">Dispatch Service Node Crashes during 15s offer</div><div class="ft-fix">Driver offer is backed by Redis TTL key with an expiring lease. If dispatch node dies, heartbeat supervisor detects pending trip and re-dispatches to another driver.</div></div><div class="ft-row"><div class="ft-fail">Surge Traffic Spike (New Year's Eve 10x Load)</div><div class="ft-fix">Rate limit nearby driver map refreshes from 4s to 8s per rider; drop unneeded background location telemetry while preserving dispatch pipeline.</div></div><div class="ft-row"><div class="ft-fail">Redis H3 Shard Failure</div><div class="ft-fix">Redis Sentinel / Cluster promotes replica in <1s. Lost ephemeral driver pings are replenished within 4 seconds as drivers broadcast.</div></div><div class="concl-grid">
     <div class="cc"><div class="h">The dominant constraint</div><p><strong>Supply and demand are both intensely local.</strong> That is what makes geo-sharding correct here: a rider in one city never needs to be matched against a driver in another, so no query has to be global.</p></div>
     <div class="cc first"><div class="h">What I would build first</div><p>H3 hexagonal indexing over driver locations, with a greedy matcher inside a cell and its ring. It is not optimal, and it is fast enough to be right.</p></div>
     <div class="cc"><div class="h">What I deliberately did not build</div><p>Pooled rides, which turn matching into an NP-hard routing problem, and dynamic pricing, which is a separate feedback system with its own stability failures.</p></div>
     <div class="cc risk"><div class="h">The biggest risk</div><p>Location write volume. Drivers reporting every few seconds is the largest number in the design, and it is what will break first as the fleet grows.</p></div>
-  </div>
-  </div>
+  </div></div>
 </div>
 
 <div class="followup">
@@ -10725,7 +11235,7 @@ rather than from the source database.</p>
     <div class="fu-a"><p>Because optimal assignment needs a batch. To compute a globally best pairing you must hold requests for a window, then solve an assignment problem across all of them, and that window is latency the rider feels.</p><p>Greedy matches immediately and is measurably worse in aggregate &mdash; slightly longer pickups, slightly more deadheading. Batched matching over a few seconds does better on paper and adds a few seconds to every request.</p><p>Which is right depends on the market. Dense cities can afford a short batch window; thin markets cannot, because there is rarely more than one candidate anyway.</p></div>
   </details>
 </div>
-</div>
+  </div>
 </div>
 
 <div class="design-card">
@@ -10733,42 +11243,188 @@ rather than from the source database.</p>
     <h3 class="dc-title"><span id="design-crawler">Design a Distributed Web Crawler</span> & Search Indexer (Googlebot Architecture)</h3>
     <div class="dc-meta">Difficulty: <strong>Hard (Staff Expectation)</strong> &nbsp;&bull;&nbsp; Target: <strong>45 min</strong></div>
   </div>
-  <div class="dc-body"><div class="asked">
+  <div class="dc-body">
+<div class="asked">
   <div class="ak-q"><span class="ak-l">&#128172; The question, as asked</span><p>&ldquo;Design a web crawler for a search engine. It must fetch billions of pages, discover new ones, refresh what changes, and not overwhelm any site.&rdquo;</p></div>
   <div class="ak-h"><span class="ak-l">&#9889; What makes it hard</span><p><strong>Politeness is a per-host constraint</strong>, and it is what shapes the whole architecture. Get the partition key wrong and you need a distributed rate limiter you cannot afford.</p></div>
 </div>
 <div class="design-step req">
-  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Requirements</div>
-  <div class="ds-body"><div class="clarify">
+  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Understanding the question</div>
+  <div class="ds-body"><p>The prompt: <em>&ldquo;Design a web crawler for a search engine. It must fetch billions
+of pages, discover new ones, refresh what changes, and not overwhelm any site.&rdquo;</em></p>
+
+<p>The instinct is to size the fetching. Four thousand pages a second, a few hundred megabytes of
+bandwidth &mdash; that is a moderate number of machines and it is not where the design lives.</p>
+
+<p>The constraint that shapes everything is the last clause: <strong>not overwhelming any
+site</strong>.</p>
+
+<div class="insight">
+  <div class="label">&#127919; Why politeness is architectural</div>
+  <p>&ldquo;At most one request per second to any given host&rdquo; is a rate limit on a
+  <em>shared</em> resource. Ten thousand crawler machines all potentially wanting the same host means
+  they must somehow agree on who goes when.</p>
+  <p>Agreeing across ten thousand machines, thousands of times a second, is a coordination problem
+  with no cheap answer &mdash; unless you arrange things so it never arises.</p>
+</div>
+
+<p>And you can. <strong>Partition the work by host.</strong> Every URL on <code>example.com</code>
+goes to the same worker. That worker is then the only one that ever touches that host, so the rate
+limit is a local timer in its own memory &mdash; no locks, no coordination service, no shared
+counters.</p>
+
+<p>This is the single most important decision in the design, it is made before any component is
+drawn, and it is another instance of the guide's recurring move: <strong>make the constraint local
+instead of coordinating.</strong> Pick the wrong partition key &mdash; hash the URL, say &mdash; and
+you have signed up for a distributed rate limiter you cannot afford.</p>
+
+<h4>The other thing that makes this hard</h4>
+
+<p>The web is adversarial and broken, not in the sense of attackers but simply because it is enormous
+and unowned. A crawler meets:</p>
+
+<ul>
+  <li><strong>Infinite spaces.</strong> A calendar with a &ldquo;next month&rdquo; link generates
+  URLs forever. Follow it and one site consumes your entire fleet.</li>
+  <li><strong>Duplicates everywhere.</strong> The same article on five mirrors, plus the same page
+  reachable through dozens of URLs differing only by tracking parameters.</li>
+  <li><strong>Servers that hang</strong> rather than failing, holding your connections open until you
+  have no workers left.</li>
+</ul>
+
+<p>A crawler that runs for an hour is easy. One that runs for a year without getting stuck is the
+actual problem.</p>
+
+<h4>What they are looking for</h4>
+
+<p><strong>Do you partition by host, and can you say why?</strong> This is the question.</p>
+
+<p><strong>Do you have a plan for traps?</strong> Unbounded URL spaces will find you.</p>
+
+<p><strong>Do you know how big the URL set gets?</strong> Two hundred billion URLs is not a set you
+keep in memory, and &ldquo;have I seen this?&rdquo; is asked on every link extracted.</p>
+<div class="clarify">
   <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
   <div class="cq-row"><div class="cq-q">What politeness constraints must we honour?</div><div class="cq-w">This is the constraint that shapes the architecture: it forces <strong>partitioning by host</strong> so the rate limit becomes local instead of coordinated.</div></div><div class="cq-row"><div class="cq-q">Freshness or coverage &mdash; which are we optimising?</div><div class="cq-w">Recrawling news hourly and archives yearly is a scheduling policy, and you cannot maximise both under a fixed budget.</div></div><div class="cq-row"><div class="cq-q">Do we need to render JavaScript?</div><div class="cq-w">Headless rendering costs 10&ndash;100&times; more per page than fetching HTML, and changes your fleet size accordingly.</div></div><div class="cq-row"><div class="cq-q">Exact duplicates only, or near-duplicates?</div><div class="cq-w">Exact is a hash. Near-duplicate needs SimHash or MinHash and a similarity threshold someone has to choose.</div></div><div class="cq-row"><div class="cq-q">What is the crawl budget per domain?</div><div class="cq-w">Bounds both politeness and the risk of a spider trap consuming the entire fleet.</div></div>
   <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
 </div>
-<p><strong>Functional Requirements:</strong></p>
-<ul>
-  <li>Given a list of seed URLs, crawl billions of web pages across the public Internet.</li>
-  <li>Extract text content and outgoing hyperlinks to discover new URLs recursively.</li>
-  <li>Respect <code>robots.txt</code> rules and adhere to domain-level politeness (max 1 req/sec per host).</li>
-  <li>Deduplicate crawled content (avoid re-crawling identical or mirrored pages).</li>
-  <li>Store raw HTML / clean text in Document Store and update the Inverted Index for search.</li>
-</ul>
-<p><strong>Non-Functional Requirements:</strong></p>
-<ul>
-  <li><strong>Scale:</strong> Crawl 10 Billion pages per month (approx. 4,000 pages/sec continuous).</li>
-  <li><strong>Storage:</strong> 10B pages &times; 100 KB avg clean text = 1 Petabyte storage per crawl cycle.</li>
-  <li><strong>Freshness:</strong> Re-crawl dynamic sites (news) every few hours; static pages monthly.</li>
-  <li><strong>Fault Tolerance:</strong> System must run 24/7 without deadlocks, handling spider traps and crashing hosts.</li>
-</ul></div>
-</div><div class="design-step est">
-  <div class="ds-header"><span class="ds-ico">&#128202;</span>2. Capacity Estimation</div>
-  <div class="ds-body"><div class="assume">
-  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
-  <div class="as-row"><div class="as-a">Politeness is defined per host</div><div class="as-b">If it were per IP, hosts sharing an IP would need coordinated rate limiting across partitions.</div></div><div class="as-row"><div class="as-a">Most pages are static HTML</div><div class="as-b">If most required JavaScript rendering, fleet cost rises by one to two orders of magnitude.</div></div><div class="as-row"><div class="as-a">Near-duplicate detection is good enough</div><div class="as-b">Exact-duplicate-only detection would let templated content flood the index.</div></div>
 </div>
-<div class="ng"><div class="ng-cell"><div class="ng-val">10 Billion</div><div class="ng-desc">Total web pages indexed per monthly crawl cycle</div></div><div class="ng-cell"><div class="ng-val">4,000 pages/sec</div><div class="ng-desc">Average continuous crawl ingestion throughput</div></div><div class="ng-cell"><div class="ng-val">10,000 pages/sec</div><div class="ng-desc">Peak burst crawl throughput</div></div><div class="ng-cell"><div class="ng-val">400 MB/sec</div><div class="ng-desc">Continuous download network bandwidth (at 100 KB/page)</div></div><div class="ng-cell"><div class="ng-val">1 Petabyte</div><div class="ng-desc">Storage required for 10B parsed HTML documents</div></div><div class="ng-cell"><div class="ng-val">200 Billion</div><div class="ng-desc">URLs maintained in URL Frontier queue</div></div></div></div>
-</div><div class="design-step api">
-  <div class="ds-header"><span class="ds-ico">&#128268;</span>3. API Design</div>
-  <div class="ds-body"><div class="api-code"><span class="cm">// URL Frontier Internal RPC Protocol (gRPC)</span>
+</div>
+<div class="design-step fr">
+  <div class="ds-header"><span class="ds-ico">&#128221;</span>2. Functional requirements</div>
+  <div class="ds-body"><ul>
+  <li><strong>Crawl from seed URLs</strong>, discovering new pages by following links.</li>
+  <li><strong>Extract text and links</strong> from each page.</li>
+  <li><strong>Respect robots.txt</strong> and per-host rate limits.</li>
+  <li><strong>Deduplicate</strong> &mdash; both identical content and near-identical content.</li>
+  <li><strong>Recrawl on a schedule</strong> that reflects how often a page actually changes.</li>
+  <li><strong>Store the results</strong> and feed the index.</li>
+</ul>
+
+<h4>Freshness and coverage are in direct competition</h4>
+
+<p>Worth stating as a requirement rather than discovering later. With a fixed crawl budget &mdash; say
+four thousand fetches a second &mdash; every recrawl of a page you already have is a new page you did
+not fetch.</p>
+
+<p>Spend the budget on new pages and your index is broad and stale: news from last week, prices that
+changed, dead links. Spend it on recrawls and your index is current and small.</p>
+
+<p>The answer is not a compromise ratio but <strong>a per-page recrawl interval derived from observed
+change rate</strong>. A news homepage changes hourly and earns an hourly recrawl. An academic PDF
+from 2009 has never changed and earns one a year. Measuring change and letting it drive scheduling
+is what turns a fixed budget into a good index &mdash; and it is a scheduling policy, which means the
+frontier is the interesting component, not the fetchers.</p></div>
+</div>
+<div class="design-step nfr">
+  <div class="ds-header"><span class="ds-ico">&#9201;</span>3. Non-functional requirements</div>
+  <div class="ds-body"><div class="tw"><table class="to">
+<thead><tr><th style="width:26%">Requirement</th><th style="width:22%">Target</th><th style="width:52%">What it forces</th></tr></thead>
+<tbody>
+<tr><td><strong>Politeness</strong></td><td class="chosen">~1 req/sec/host</td><td>The architectural constraint. It dictates the partition key before anything else is decided.</td></tr>
+<tr><td><strong>Throughput</strong></td><td>~4,000 pages/sec</td><td>10 billion pages a month. Achieved through massive concurrency per machine, not fast individual fetches.</td></tr>
+<tr><td><strong>Frontier size</strong></td><td>~200B URLs</td><td>Far too large for memory. The &ldquo;have I seen this?&rdquo; check is therefore a real design problem.</td></tr>
+<tr><td><strong>Freshness</strong></td><td>Per-page policy</td><td>Hours for news, months for archives. A single global interval wastes most of the budget.</td></tr>
+<tr><td><strong>Liveness</strong></td><td>Runs for years</td><td>The genuinely hard one. No deadlocks, no trap consuming the fleet, no host able to stall a worker indefinitely.</td></tr>
+<tr><td><strong>Storage</strong></td><td>~1 PB per cycle</td><td>Parsed text, not raw HTML. Boilerplate stripping pays for itself several times over here.</td></tr>
+</tbody></table></div>
+
+<h4>Why 4,000 pages/sec is not a throughput problem</h4>
+
+<p>A page fetch takes maybe 500 ms, nearly all of it waiting for a remote server. Four thousand per
+second therefore means around two thousand fetches in flight at any moment &mdash; and because they
+are almost entirely idle, one machine with an event-driven fetcher can hold thousands of them.</p>
+
+<p>So the fetching fleet is modest. What is <em>not</em> modest is the bookkeeping: a frontier of two
+hundred billion URLs, a seen-set of the same size, per-host politeness state, and per-page change
+history. <strong>This is a state-management problem wearing a throughput problem's clothes.</strong></p></div>
+</div>
+<div class="design-step schema">
+  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Data model and API</div>
+  <div class="ds-body"><p>Three pieces of state, and the second one is the interesting design problem.</p>
+<div class="schema-code"><span class="cm">-- URL Frontier State (Distributed Bigtable / Cassandra)</span>
+<span class="kw">TABLE</span> url_frontier {
+  url_hash         <span class="ty">CHAR(64)</span> <span class="pk">PRIMARY KEY</span>,  <span class="cm">-- SHA-256(canonical_url)</span>
+  url              <span class="ty">TEXT</span>,
+  domain_hash      <span class="ty">CHAR(32)</span>,
+  status           <span class="ty">ENUM</span>(discovered, queued, fetching, crawled, error),
+  priority_score   <span class="ty">FLOAT</span>,                 <span class="cm">-- PageRank + Domain Authority</span>
+  last_crawled_at  <span class="ty">TIMESTAMP</span>,
+  etag             <span class="ty">VARCHAR(128)</span>,
+  content_simhash  <span class="ty">BIGINT</span>                 <span class="cm">-- 64-bit SimHash for near-duplicate detection</span>
+}
+
+<span class="cm">-- Inverted Index (Distributed Sharded Posting Lists - MapReduce / Lucene)</span>
+<span class="kw">TABLE</span> inverted_index {
+  term             <span class="ty">VARCHAR(128)</span> <span class="pk">PRIMARY KEY</span>, <span class="cm">-- e.g. "raft"</span>
+  posting_list     <span class="ty">BLOB</span>                      <span class="cm">-- Compressed list of (doc_id, term_frequency, [positions])</span>
+}
+<span class="cm">-- Example Posting List:</span>
+<span class="cm">-- "raft" -> [Doc#12: TF=5, Pos=[12,45,89]], [Doc#99: TF=2, Pos=[3,120]]</span></div>
+<h4>The frontier is not one queue</h4>
+
+<p>A single priority queue of URLs would break politeness immediately: the top hundred entries might
+all be from the same host, and a worker taking a batch would hammer it.</p>
+
+<p>So the frontier is structured in two layers. A <strong>front</strong> set of queues orders work by
+priority &mdash; how important the page is, how soon it is due for recrawl. A <strong>back</strong>
+set has <em>one queue per host</em>, and each back queue carries a timestamp saying when that host may
+next be touched.</p>
+
+<p>A worker picks the host whose next-allowed time has passed and takes one URL from that host's
+queue. Politeness is enforced by the structure itself &mdash; there is no rate limiter, because the
+data layout makes it impossible to ask twice too soon.</p>
+
+<h4>&ldquo;Have I seen this URL?&rdquo; &mdash; asked billions of times</h4>
+
+<p>Every page yields a hundred links, each needing a membership check against a set of two hundred
+billion. Even at 20 bytes a URL that set is terabytes, and it cannot be a database round trip on the
+hot path.</p>
+
+<p>The standard answer is a <strong>Bloom filter</strong> in front of it. A fixed-size bit array plus
+a few hash functions gives an approximate membership test in microseconds with no storage per
+element. Its error is one-sided in the useful direction: it can say &ldquo;probably seen&rdquo; about
+a URL it has not seen, but never &ldquo;not seen&rdquo; about one it has.</p>
+
+<p>So a negative is definitive &mdash; enqueue it. A positive is checked against the real store.
+Since the vast majority of extracted links are genuinely duplicates, almost all of the traffic is
+absorbed by the filter, and the false positives cost you a small number of pages never crawled. At
+a few billion pages, missing a handful is not a meaningful loss of coverage.</p>
+
+<h4>Near-duplicate detection</h4>
+
+<p>Exact duplicates are a content hash. Near-duplicates &mdash; the same article on five sites with
+different navigation &mdash; need a hash whose <em>output</em> is similar when the <em>input</em> is
+similar, which ordinary hashes deliberately are not.</p>
+
+<p>SimHash does this: documents differing in a few words produce fingerprints differing in a few bits,
+so &ldquo;is this nearly the same as something I have?&rdquo; becomes a bit-difference comparison
+against candidates with similar fingerprints. The threshold is a tuning decision somebody has to own,
+and it is a real one &mdash; too tight and the index fills with syndicated copies; too loose and you
+drop genuinely distinct pages that share a template.</p>
+
+<h4>The API</h4>
+<div class="api-code"><span class="cm">// URL Frontier Internal RPC Protocol (gRPC)</span>
 <span class="kw">rpc</span> <span class="fn">FetchUrlsToCrawl</span>(FetchBatchRequest) <span class="kw">returns</span> (FetchBatchResponse);
 <span class="kw">message</span> FetchBatchRequest {
   <span class="ty">string</span> crawler_worker_id = 1;
@@ -10791,31 +11447,75 @@ rather than from the source database.</p>
   <span class="ty">int32</span> limit = 2;
   <span class="ty">int32</span> offset = 3;
 }</div></div>
-</div><div class="design-step schema">
-  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="cm">-- URL Frontier State (Distributed Bigtable / Cassandra)</span>
-<span class="kw">TABLE</span> url_frontier {
-  url_hash         <span class="ty">CHAR(64)</span> <span class="pk">PRIMARY KEY</span>,  <span class="cm">-- SHA-256(canonical_url)</span>
-  url              <span class="ty">TEXT</span>,
-  domain_hash      <span class="ty">CHAR(32)</span>,
-  status           <span class="ty">ENUM</span>(discovered, queued, fetching, crawled, error),
-  priority_score   <span class="ty">FLOAT</span>,                 <span class="cm">-- PageRank + Domain Authority</span>
-  last_crawled_at  <span class="ty">TIMESTAMP</span>,
-  etag             <span class="ty">VARCHAR(128)</span>,
-  content_simhash  <span class="ty">BIGINT</span>                 <span class="cm">-- 64-bit SimHash for near-duplicate detection</span>
-}
+</div>
+<div class="design-step est">
+  <div class="ds-header"><span class="ds-ico">&#128202;</span>5. Capacity estimation</div>
+  <div class="ds-body"><p>The arithmetic, and what it says to build.</p>
+<div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">Politeness is defined per host</div><div class="as-b">If it were per IP, hosts sharing an IP would need coordinated rate limiting across partitions.</div></div><div class="as-row"><div class="as-a">Most pages are static HTML</div><div class="as-b">If most required JavaScript rendering, fleet cost rises by one to two orders of magnitude.</div></div><div class="as-row"><div class="as-a">Near-duplicate detection is good enough</div><div class="as-b">Exact-duplicate-only detection would let templated content flood the index.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">10 Billion</div><div class="ng-desc">Total web pages indexed per monthly crawl cycle</div></div><div class="ng-cell"><div class="ng-val">4,000 pages/sec</div><div class="ng-desc">Average continuous crawl ingestion throughput</div></div><div class="ng-cell"><div class="ng-val">10,000 pages/sec</div><div class="ng-desc">Peak burst crawl throughput</div></div><div class="ng-cell"><div class="ng-val">400 MB/sec</div><div class="ng-desc">Continuous download network bandwidth (at 100 KB/page)</div></div><div class="ng-cell"><div class="ng-val">1 Petabyte</div><div class="ng-desc">Storage required for 10B parsed HTML documents</div></div><div class="ng-cell"><div class="ng-val">200 Billion</div><div class="ng-desc">URLs maintained in URL Frontier queue</div></div></div>
+<p>Ten billion pages a month is roughly 4,000 per second sustained. At around 100 KB of useful text
+each that is 400 MB/sec of download &mdash; significant, and well within what a modest fleet and
+ordinary transit can do.</p>
 
-<span class="cm">-- Inverted Index (Distributed Sharded Posting Lists - MapReduce / Lucene)</span>
-<span class="kw">TABLE</span> inverted_index {
-  term             <span class="ty">VARCHAR(128)</span> <span class="pk">PRIMARY KEY</span>, <span class="cm">-- e.g. "raft"</span>
-  posting_list     <span class="ty">BLOB</span>                      <span class="cm">-- Compressed list of (doc_id, term_frequency, [positions])</span>
-}
-<span class="cm">-- Example Posting List:</span>
-<span class="cm">-- "raft" -> [Doc#12: TF=5, Pos=[12,45,89]], [Doc#99: TF=2, Pos=[3,120]]</span></div></div>
-</div><div class="design-step arch">
-  <div class="ds-header"><span class="ds-ico">&#127959;</span>5. High-Level Architecture</div>
-  <div class="ds-body">
-<div class="anim" id="anim-crawler">
+<p>The fetching fleet is small for the reason above: fetches are almost entirely waiting, so
+concurrency does the work. A few hundred machines running thousands of concurrent connections each is
+ample.</p>
+
+<p>The costs that actually dominate are elsewhere:</p>
+
+<ul>
+  <li><strong>The frontier.</strong> Two hundred billion URLs with metadata &mdash; priority, next
+  crawl time, host &mdash; is tens of terabytes of constantly-mutating state.</li>
+  <li><strong>Parsing.</strong> Extracting text and links from 4,000 pages a second is real CPU, and
+  it is the largest compute line if rendering is off the table.</li>
+  <li><strong>Rendering, if required.</strong> Running a headless browser costs one to two orders of
+  magnitude more per page than fetching HTML. This is why &ldquo;do we need JavaScript?&rdquo; is a
+  clarifying question and not a detail &mdash; the answer changes the fleet size by 10&ndash;100&times;,
+  and the usual resolution is to render selectively rather than universally.</li>
+</ul></div>
+</div>
+<div class="design-step tradeoff">
+  <div class="ds-header"><span class="ds-ico">&#9878;</span>6. The key trade-offs</div>
+  <div class="ds-body"><p>The choices, and their costs.</p>
+<div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &check;</th><th>Alternative &cross;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>URL Seen Test</strong></td><td class='chosen'>Bloom Filter + Bigtable</td><td class='rej'>RDBMS Unique Index</td><td>Bloom Filter answers 'seen' checks in 5 nanoseconds from memory, saving 4,000 expensive disk round-trips per second.</td></tr><tr><td><strong>Near-Duplicate</strong></td><td class='chosen'>64-bit SimHash (Cosine distance)</td><td class='rej'>MinHash / Jaccard similarity</td><td>SimHash produces a compact 8-byte fingerprint per document and enables bitwise Hamming distance comparisons with zero decompression.</td></tr><tr><td><strong>Crawler Storage</strong></td><td class='chosen'>SSTable / Bigtable Sparse Column</td><td class='rej'>Relational DB / Postgres</td><td>Bigtable handles massive append throughput, automatic tablet sharding across petabytes, and compresses sparse web documents efficiently.</td></tr></tbody></table></div>
+<h4>Partitioning by host, revisited &mdash; because it has a cost too</h4>
+
+<p>Hashing the URL would distribute load beautifully and make politeness a distributed coordination
+problem. Hashing the host makes politeness free and distributes load badly.</p>
+
+<p>Badly, because host sizes are wildly uneven. A large site has hundreds of millions of pages; most
+have a few dozen. The worker that owns a huge host has years of work; the worker that owns a thousand
+small ones finishes in an afternoon.</p>
+
+<p>Worse, politeness caps a single host at about one page per second, so a host with a hundred million
+pages takes over three years to crawl completely at that rate. That is not a bug to fix &mdash; it is
+arithmetic, and the honest response is that you do not crawl such sites exhaustively. You crawl what
+is important, which turns the problem back into the scheduling policy.</p>
+
+<p>Load imbalance is handled by assigning many host-queues per worker and rebalancing them, rather
+than by changing the partition key. <strong>The partition key is not negotiable; the assignment of
+partitions to workers is.</strong></p>
+
+<h4>Renders or not</h4>
+
+<p>An increasing share of the web puts its content behind JavaScript. Fetching the HTML gets you an
+empty shell.</p>
+
+<p>Rendering everything is unaffordable. Rendering nothing loses real content. The practical answer is
+a cheap classifier: fetch the HTML, and if the page looks content-free &mdash; almost no text, a
+handful of script tags &mdash; queue it for the expensive path. Most pages never go near a browser,
+and the ones that need it get it.</p>
+
+<p>The general shape is worth naming: <strong>a cheap test that decides whether to pay for the
+expensive one</strong>, which is the same structure as the Bloom filter in front of the seen-set and
+the cell lookup in front of routing in <span class="srcref">D9</span>.</p></div>
+</div>
+<div class="design-step arch">
+  <div class="ds-header"><span class="ds-ico">&#127959;</span>7. High-level design</div>
+  <div class="ds-body"><div class="anim" id="anim-crawler">
   <div class="an-head">
     <div class="an-title">Crawl loop &mdash; and the spider trap that consumes the whole fleet</div>
     <div class="an-btns">
@@ -10858,74 +11558,156 @@ rather than from the source database.</p>
   <div class="an-cap ok-only"><strong>What is moving:</strong> URLs out of per-host queues, pages back, and freshly discovered links returning to the frontier. Partitioning by <em>host</em> is the load-bearing decision: it makes the politeness delay a local constraint instead of a distributed rate limiter.</div>
   <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> a calendar page generates a link to the next month, forever. The frontier grows without bound and the fleet spends itself on one domain producing no new content. Defences: a <strong>per-domain crawl budget</strong>, a depth cap, and near-duplicate detection <em>before</em> indexing so the trap is visible as thousands of nearly identical pages rather than as growth.</div>
 </div>
-<div class="dc-diagram"><svg width="680" height="230" viewBox="0 0 680 230" xmlns="http://www.w3.org/2000/svg">
-  <defs><marker id="cwarr" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
-  
-  <rect x="10" y="70" width="120" height="80" rx="8" fill="#1a237e"/>
-  <text x="70" y="96" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">URL Frontier</text>
-  <text x="70" y="114" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Priority Queues (PageRank)</text>
-  <text x="70" y="128" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Politeness Queues (Host)</text>
+<p>A loop, with the frontier at its centre.</p>
+<div class="flow">  <span class="fl-key">THE FRONTIER</span>  two layers &mdash; priority, then politeness
 
-  <line x1="130" y1="110" x2="168" y2="110" stroke="#636e72" stroke-width="1.5" marker-end="url(#cwarr)"/>
+    <span class="fl-hi">FRONT QUEUES</span>   by priority        <span class="fl-hi">BACK QUEUES</span>   one per host
+    [ high ][ med ][ low ]      example.com  next_ok 10:00:04  [urls...]
+                                news.site    next_ok 10:00:01  [urls...]
+                                blog.co      next_ok 10:00:07  [urls...]
 
-  <rect x="170" y="70" width="110" height="80" rx="8" fill="#0984e3"/>
-  <text x="225" y="96" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">Fetcher Pool</text>
-  <text x="225" y="114" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Async DNS Resolver</text>
-  <text x="225" y="128" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">robots.txt cache</text>
+    <span class="fl-note">politeness is not enforced by a limiter. it is enforced by the shape of the data:
+    one queue per host, one timestamp, one worker owning it.</span>
 
-  <line x1="280" y1="110" x2="318" y2="110" stroke="#636e72" stroke-width="1.5" marker-end="url(#cwarr)"/>
 
-  <rect x="320" y="70" width="110" height="80" rx="8" fill="#00b894"/>
-  <text x="375" y="96" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">HTML Parser</text>
-  <text x="375" y="114" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Clean text extractor</text>
-  <text x="375" y="128" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">SimHash Dedup (64b)</text>
+  <span class="fl-key">THE LOOP</span>
 
-  <line x1="430" y1="85" x2="488" y2="55" stroke="#636e72" stroke-width="1.5" marker-end="url(#cwarr)"/>
-  <line x1="430" y1="135" x2="488" y2="165" stroke="#636e72" stroke-width="1.5" marker-end="url(#cwarr)"/>
+    worker (owns hosts H1..H5000)
+        |
+        +-- pick a host whose next_ok has passed
+        +-- take one URL
+        +-- check <span class="fl-hi">robots.txt</span>  <span class="fl-dim">cached per host</span>
+        +-- fetch  <span class="fl-note">timeout, size cap, depth cap</span>
+        |
+        +-- set next_ok = now + crawl_delay      <span class="fl-hi">politeness maintained, locally</span>
+        |
+        v
+    <span class="fl-key">PARSE</span>
+        +-- content hash --&gt; seen exactly? <span class="fl-bad">drop</span>
+        +-- SimHash ------&gt; near-duplicate? <span class="fl-bad">drop</span>
+        +-- extract text --&gt; document store --&gt; indexer
+        +-- extract links
+                |
+                v
+        for each link:  <span class="fl-hi">normalise</span>  <span class="fl-note">strip tracking params, lowercase host, resolve relative</span>
+                        <span class="fl-hi">Bloom filter</span>  seen? &rarr; drop
+                        new? &rarr; route to the worker owning that host
+                                &rarr; append to that host's back queue</div>
+<div class="flow-cap">Normalisation before the seen-check is what stops the same page being crawled
+forty times under forty URLs that differ only by tracking parameters. It is unglamorous and it is
+worth an enormous fraction of the crawl budget.</div></div>
+</div>
+<div class="design-step wflow">
+  <div class="ds-header"><span class="ds-ico">&#128260;</span>8. Workflows &mdash; what actually happens</div>
+  <div class="ds-body"><div class="wf">
+  <div class="wf-title">One page, start to finish</div>
+  <div class="wf-sub">The loop that runs four thousand times a second.</div>
+  <ol>
+    <li>Worker 12 owns about 5,000 hosts. It scans its back queues for one whose next-allowed time has passed. <code>example.com</code> is ready.</li>
+    <li>It checks its cached robots.txt for that host. The path is allowed and the declared crawl delay is 1 second.</li>
+    <li>It fetches, with a timeout, a size cap, and a redirect limit. 82 KB of HTML comes back.</li>
+    <li>It immediately sets <code>example.com</code>'s next-allowed time to now + 1 second. <b>Politeness is now maintained</b> &mdash; and it took one in-memory write, because no other worker will ever touch this host.</li>
+    <li>The page is hashed. Not a known duplicate. SimHash puts it near nothing existing. It is genuinely new content.</li>
+    <li>Text is extracted, boilerplate stripped, and the document is written to storage for the indexer.</li>
+    <li>103 links are extracted and normalised. 98 are already in the Bloom filter and dropped. The 5 survivors are routed to whichever worker owns their host and appended to that host's back queue.</li>
+  </ol>
+  <div class="wf-out">Every step is local. No lock was taken, no shared counter was read, and nothing coordinated with another machine except handing off new URLs &mdash; which is an append, not a negotiation.</div>
+</div>
 
-  <rect x="490" y="20" width="170" height="70" rx="8" fill="#6c5ce7"/>
-  <text x="575" y="46" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">URL Extractor & Filter</text>
-  <text x="575" y="64" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Bloom Filter (Seen URLs)</text>
-  <text x="575" y="76" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Loops back to URL Frontier</text>
+<div class="wf alt">
+  <div class="wf-title">The crawler falls into a calendar</div>
+  <div class="wf-sub">The trap that eats fleets.</div>
+  <ol>
+    <li>A site has an events calendar. Every month page links to the next month. There is no last page.</li>
+    <li>Each fetch yields a new URL that is genuinely new &mdash; the Bloom filter cannot help, because these are not duplicates.</li>
+    <li>Left alone, this host's back queue grows forever and the crawler keeps finding "new" pages. It will never finish and it is producing nothing of value.</li>
+    <li>Politeness bounds the damage: one request per second means the trap consumes one host's worth of budget, not the fleet's. <b>The partition key contained the blast radius without anyone designing for it.</b></li>
+    <li>The explicit defences are bounds: a maximum crawl depth from any seed, and a per-domain budget of pages per cycle. The calendar hits the budget and stops.</li>
+    <li>A pattern detector helps too: many URLs from one host, differing only in a numeric path segment, yielding near-identical SimHashes, is a strong signal to deprioritise the whole pattern.</li>
+  </ol>
+  <div class="wf-out">You cannot enumerate every trap in advance &mdash; the web will always invent a new one. What you can do is bound everything: depth, per-domain budget, queue length, page size. Unbounded anything is how a crawler dies.</div>
+</div>
 
-  <rect x="490" y="130" width="170" height="70" rx="8" fill="#e17055"/>
-  <text x="575" y="156" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">Doc Store & Inverted Index</text>
-  <text x="575" y="174" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Bigtable Storage</text>
-  <text x="575" y="186" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">MapReduce Index Builder</text>
+<div class="wf alt">
+  <div class="wf-title">A news homepage and a 2009 PDF</div>
+  <div class="wf-sub">How recrawl scheduling makes a fixed budget useful.</div>
+  <ol>
+    <li>Both pages were crawled a month ago. Both are candidates for recrawl. The budget only affords one of them right now.</li>
+    <li>The scheduler looks at observed change history. The news homepage has changed on every one of the last 40 crawls. The PDF has changed zero times in three years.</li>
+    <li>The news page's interval has been driven down to about an hour; the PDF's has been driven up to about a year.</li>
+    <li>So the news page is recrawled, and it has changed &mdash; which confirms the interval and keeps it short.</li>
+    <li>If it had come back unchanged, the interval would have been extended slightly. The schedule adapts to what the page actually does rather than what anyone assumed.</li>
+    <li>A conditional request helps further: sending the last modification time lets an unchanged page return <b>304 Not Modified</b> with no body, costing a round trip instead of 100 KB.</li>
+  </ol>
+  <div class="wf-out">The same crawl budget produces a much better index when spent adaptively. And because the signal is measured rather than configured, nobody has to maintain a list of &ldquo;sites that change often&rdquo;.</div>
+</div>
 
-  <path d="M 575 20 Q 575 5 350 5 Q 70 5 70 65" fill="none" stroke="#6c5ce7" stroke-width="1.5" stroke-dasharray="4" marker-end="url(#cwarr)"/>
-</svg><div class="dc-caption">URL Frontier uses 2-tier Priority & Politeness Queues; Bloom Filters discard already-seen URLs; Parser indexes text and loops discovered URLs back into Frontier</div></div></div>
-</div><div class="design-step deep">
-  <div class="ds-header"><span class="ds-ico">&#128269;</span>6. Component Deep Dives</div>
-  <div class="ds-body"><p><strong>1. The Mercator URL Frontier Architecture (Politeness + Priority):</strong></p>
-<p>To avoid hitting a single website (e.g. <code>wikipedia.org</code>) with 1,000 req/sec and causing a Denial of Service, the URL Frontier separates prioritization from politeness:
-<ul>
-  <li><strong>Priority Queues (F-Queues):</strong> Prioritizes URLs based on PageRank, domain authority, and freshness needs. High priority URLs are dequeued first into an intermediate router.</li>
-  <li><strong>Politeness Queues (B-Queues):</strong> Each B-Queue contains URLs exclusively from a SINGLE host domain (e.g. Host #42 = <code>nytimes.com</code>). A scheduler maintains a min-heap of <code>(next_allowed_fetch_time, B_queue_id)</code>. It only pops a queue if <code>now() &gt;= next_allowed_fetch_time</code> (enforcing 1 req/sec per host), completely preventing DoS.</li>
-</ul></p>
-<p><strong>2. URL & Content Deduplication:</strong></p>
-<ul>
-  <li><strong>URL Dedup:</strong> A cluster Bloom Filter (stored in Redis or RAM) with 200B URLs at 1% false positive rate requires only ~240 GB RAM. If Bloom filter says 'Not Found', URL is 100% new. If 'Found', check Bigtable.</li>
-  <li><strong>Near-Duplicate Content Detection (SimHash):</strong> 30% of web pages are duplicates or scrapers. Standard MD5/SHA256 changes completely on 1 character diff. <strong>SimHash</strong> projects 64-bit token hashes into a single 64-bit vector. Near-duplicate pages have a Hamming distance &le; 3 (differ by at most 3 bits out of 64), which can be queried in O(1) time using a 4-table pigeonhole index.</li>
-</ul>
-<p><strong>3. Spider Traps & Infinite Dynamic Loops:</strong></p>
-<p>Websites with infinite calendar loops (<code>/calendar?year=2027&month=13...</code>) or session IDs in URLs trap crawlers. Defenses include: Max URL length limit (e.g. 512 chars), max path depth &le; 8, URL pattern frequency monitoring per domain, and anomaly detection if a single domain yields &gt; 50,000 URLs without new unique SimHash content.</p></div>
-</div><div class="design-step tradeoff">
-  <div class="ds-header"><span class="ds-ico">&#9878;</span>7. Trade-off Analysis</div>
-  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &check;</th><th>Alternative &cross;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>URL Seen Test</strong></td><td class='chosen'>Bloom Filter + Bigtable</td><td class='rej'>RDBMS Unique Index</td><td>Bloom Filter answers 'seen' checks in 5 nanoseconds from memory, saving 4,000 expensive disk round-trips per second.</td></tr><tr><td><strong>Near-Duplicate</strong></td><td class='chosen'>64-bit SimHash (Cosine distance)</td><td class='rej'>MinHash / Jaccard similarity</td><td>SimHash produces a compact 8-byte fingerprint per document and enables bitwise Hamming distance comparisons with zero decompression.</td></tr><tr><td><strong>Crawler Storage</strong></td><td class='chosen'>SSTable / Bigtable Sparse Column</td><td class='rej'>Relational DB / Postgres</td><td>Bigtable handles massive append throughput, automatic tablet sharding across petabytes, and compresses sparse web documents efficiently.</td></tr></tbody></table></div></div>
-</div><div class="design-step fault">
-  <div class="ds-header"><span class="ds-ico">&#128737;</span>8. Fault Tolerance</div>
-  <div class="ds-body"><div class="ft-row"><div class="ft-fail">Fetcher Worker Freezes (Slow Server Response)</div><div class="ft-fix">Fetchers use non-blocking asynchronous I/O (epoll/libuv) with hard 5-second socket read timeouts and 2MB response size caps.</div></div><div class="ft-row"><div class="ft-fail">DNS Resolution Bottleneck</div><div class="ft-fix">Local custom caching DNS server with pre-fetching; eliminates 100ms DNS query delay per crawled page.</div></div><div class="ft-row"><div class="ft-fail">Frontier Master Node Failure</div><div class="ft-fix">Frontier queue state is checkpointed to RocksDB / distributed log (Kafka). Standby master restores queue pointers in <5s.</div></div><div class="ft-row"><div class="ft-fail">Malicious Spider Trap / Zip Bomb</div><div class="ft-fix">Decompression stream reader capped at 10MB; immediately aborts and blacklists the URL pattern if exceeded.</div></div></div>
-</div><div class="design-step concl">
-  <div class="ds-header"><span class="ds-ico">&#127937;</span>9. Conclusion &mdash; what I would say in the last three minutes</div>
-  <div class="ds-body">
-  <div class="concl-grid">
+<div class="wf alt">
+  <div class="wf-title">A host starts hanging on every request</div>
+  <div class="wf-sub">The failure mode that quietly drains a worker.</div>
+  <ol>
+    <li>A server stops failing and starts <i>not responding</i> &mdash; connections open, nothing is sent, they stay open.</li>
+    <li>Without a timeout, each of these permanently occupies a connection slot. A worker with 2,000 slots and one pathological host bleeds capacity until it is doing nothing.</li>
+    <li>So every fetch has a hard timeout. A hung connection is abandoned after a few seconds and the slot is recovered.</li>
+    <li>Repeated timeouts on one host trip a circuit breaker: that host is marked unhealthy, its next-allowed time is pushed far out, and its queue is set aside.</li>
+    <li>Periodically we retry it once. If it responds, the host is restored to normal scheduling.</li>
+    <li>Meanwhile nothing else on that worker was affected, because the damage was bounded to one host's queue.</li>
+  </ol>
+  <div class="wf-out">Hanging is worse than failing, because failure is fast and visible while hanging is slow and silent. Every outbound request in a system like this needs a timeout, and the absence of one is a bug even when nothing has gone wrong yet.</div>
+</div></div>
+</div>
+<div class="design-step deep">
+  <div class="ds-header"><span class="ds-ico">&#128269;</span>9. Deep dives, and what breaks</div>
+  <div class="ds-body"><h4>URL normalisation, which is worth more than it sounds</h4>
+
+<p>The same page is reachable through an enormous number of URLs: with and without <code>www</code>,
+with and without a trailing slash, with session ids, with tracking parameters, with fragments, with
+parameters in a different order.</p>
+
+<p>Without normalisation the crawler treats each as a distinct page and fetches it. On a large site
+with tracking parameters on every internal link, that is a multiplier on the entire crawl cost for
+zero additional content.</p>
+
+<p>So before the seen-check: lowercase the host, resolve relative paths, drop the fragment, sort query
+parameters, and strip known tracking parameters. It is a boring list of string operations that
+recovers a large fraction of the crawl budget, which is a good reminder that the highest-leverage work
+in a system is not always the interesting-looking part.</p>
+
+<h4>robots.txt, and the caching it needs</h4>
+
+<p>Every host's rules must be fetched and honoured, and fetching robots.txt before every page would
+double the request count &mdash; and violate politeness on its own.</p>
+
+<p>So it is cached per host with a refresh interval of hours, which is well within what site operators
+expect. The file also frequently specifies a crawl delay, which overrides the default and must be
+respected; a site asking for one request every ten seconds gets that.</p>
+
+<p>The failure cases need explicit answers. If robots.txt cannot be fetched, the polite default is to
+assume the site does not want to be crawled and back off, rather than to assume permission. If it is
+malformed, parse what you can and ignore the rest. Getting this wrong is not a performance problem,
+it is the kind of thing that gets your crawler blocked.</p>
+
+<h4>Prioritising the frontier</h4>
+
+<p>Two hundred billion known URLs and budget for ten billion a month means the ordering decides what
+your index actually contains. The frontier's priority function is, in a real sense, the product.</p>
+
+<p>The signals are unsurprising individually: inbound link count and quality, the host's historical
+content quality, depth from the seed, how long since last crawl, and observed change rate. Combining
+them is where the judgement lies, and there is no correct formula.</p>
+
+<p>What is worth saying in an interview is the framing: <strong>the crawler's quality is decided by
+its scheduling policy, not by its fetching machinery.</strong> Fetching fast is an engineering
+problem with a known answer. Choosing what to fetch is the open one.</p>
+
+<h4>What breaks</h4>
+
+<div class="ft-row"><div class="ft-fail">Fetcher Worker Freezes (Slow Server Response)</div><div class="ft-fix">Fetchers use non-blocking asynchronous I/O (epoll/libuv) with hard 5-second socket read timeouts and 2MB response size caps.</div></div><div class="ft-row"><div class="ft-fail">DNS Resolution Bottleneck</div><div class="ft-fix">Local custom caching DNS server with pre-fetching; eliminates 100ms DNS query delay per crawled page.</div></div><div class="ft-row"><div class="ft-fail">Frontier Master Node Failure</div><div class="ft-fix">Frontier queue state is checkpointed to RocksDB / distributed log (Kafka). Standby master restores queue pointers in <5s.</div></div><div class="ft-row"><div class="ft-fail">Malicious Spider Trap / Zip Bomb</div><div class="ft-fix">Decompression stream reader capped at 10MB; immediately aborts and blacklists the URL pattern if exceeded.</div></div><div class="concl-grid">
     <div class="cc"><div class="h">The dominant constraint</div><p><strong>Politeness is per host, so the partition key must be the host.</strong> Making the constraint local instead of coordinated is the entire architectural move; partition by URL and you need a distributed rate limiter you cannot afford.</p></div>
     <div class="cc first"><div class="h">What I would build first</div><p>The Mercator-style frontier with per-host queues and a politeness delay, plus SimHash near-duplicate detection before anything is indexed.</p></div>
     <div class="cc"><div class="h">What I deliberately did not build</div><p>JavaScript rendering, which costs 10 to 100 times more per page, and the ranking system, which is a different problem entirely.</p></div>
     <div class="cc risk"><div class="h">The biggest risk</div><p>Spider traps and infinite URL spaces. Without per-domain budgets and depth caps, one badly behaved site consumes the whole fleet.</p></div>
-  </div>
-  </div>
+  </div></div>
 </div>
 
 <div class="followup">
@@ -10948,9 +11730,8 @@ rather than from the source database.</p>
     <div class="fu-a"><p>It depends on how much of the web you are willing to miss, and it is a cost question rather than a technical one. Headless rendering is 10 to 100 times more expensive per page than fetching HTML.</p><p>The practical approach is tiered: fetch HTML for everything, and render only pages where it is likely to matter &mdash; sites known to be client-rendered, or pages whose HTML is suspiciously empty.</p><p>Rendering everything is how a crawler's cost goes up by two orders of magnitude for a modest gain in coverage.</p></div>
   </details>
 </div>
+  </div>
 </div>
-</div>
-
 
 <div class="design-card">
   <div class="dc-header">

@@ -40,7 +40,7 @@ distributed systems concepts from first principles.
 |---|---|
 | **File** | `index.html` — single self-contained file, ~1.5 MB |
 | **Backup** | `Distributed_Systems_Deep_Guide.backup.html` — the original before any enrichment |
-| **Content** | ~120,100 words |
+| **Content** | ~179,500 words |
 | **Deps** | None. One Google Fonts `@import`. No JS libraries. Opens offline from `file://` |
 | **Structure** | 1 `<style>` block, 5 `<script>` blocks (early state-restore in `<body>`, glossary data, glossary engine, search palette, left-nav engine, view-size engine) |
 
@@ -84,37 +84,48 @@ distributed systems concepts from first principles.
 
 ### The canonical 9-step design template
 
-**Every design in Part 2 runs steps 1&ndash;9 in order. Verify with the audit snippet below
-after touching any of them** &mdash; two designs had steps out of order and five were missing
-steps entirely before this was enforced.
+**Every design in Part 2 runs these nine steps in this order.** The order was changed on the
+reader's instruction &mdash; the old one (requirements &rarr; capacity &rarr; API &rarr; schema
+&rarr; architecture &rarr; deep dives &rarr; trade-offs &rarr; fault tolerance &rarr; conclusion)
+"read like it was machine generated", and opening on "Clarify first" never showed the reader
+the question being answered. All 26 designs were converted.
 
 | # | Class | Header | Notes |
 |---|---|---|---|
-| 0 | — | *(the prompt)* | An `.asked` block **before step 1**, outside the steps: the question as an interviewer would pose it, plus what makes it hard. A design that opens on "Clarify first" never shows the reader the question being answered |
-| 1 | `req` | Requirements | Opens with a `.clarify` block, then Functional / Non-Functional |
-| 2 | `est` | Capacity Estimation | Opens with an `.assume` block, then `.ng` number cells |
-| 3 | `api` | API Design | `.api-code` |
-| 4 | `schema` | Schema Design | `.schema-code` |
-| 5 | `arch` | High-Level Architecture | `.dc-diagram` SVG or a `.flow` |
-| 6 | `deep` | Component Deep Dives | |
-| 7 | `tradeoff` | Trade-off Analysis | `table.to` with `td.chosen` / `td.rej` |
-| 8 | `fault` | Fault Tolerance | `.ft-row` > `.ft-fail` + `.ft-fix` |
-| 9 | `concl` | Conclusion | `.concl-grid` &mdash; four cards, see the vocabulary table |
-| &mdash; | &mdash; | *(follow-ups)* | A `.followup` block **after step 9**, outside the steps: what the interviewer pushes on once the design is on the board, 4&ndash;5 per design, answers supplied |
+| 0 | &mdash; | *(the prompt)* | An `.asked` block **before step 1**, outside the steps: the question as an interviewer would pose it, plus what makes it hard |
+| 1 | `req` | Understanding the question | Plain-English framing: what is actually being asked, where the difficulty hides, what the interviewer is listening for. Ends with the `.clarify` block |
+| 2 | `fr` | Functional requirements | What it must do, and which requirement is quietly doing all the work |
+| 3 | `nfr` | Non-functional requirements | `table.to` with the target and *what it forces*, not a bare list |
+| 4 | `schema` | Data model and API | `.schema-code` then `.api-code`, with prose explaining why the model is shaped that way |
+| 5 | `est` | Capacity estimation | `.assume` block, `.ng` number cells, then the arithmetic that *decides* something |
+| 6 | `tradeoff` | The key trade-offs | `table.to` with `td.chosen` / `td.rej`, then 2&ndash;3 prose subsections on the choices that matter |
+| 7 | `arch` | High-level design | The `.anim` block, then a `.flow` + `.flow-cap` |
+| 8 | `wflow` | Workflows &mdash; what actually happens | **3&ndash;5 `.wf` blocks.** The most readable thing in a design: named people, real numbers, one happy path and several failures |
+| 9 | `deep` | Deep dives, and what breaks | Prose subsections, then the `.ft-row` fault table and the `.concl-grid` |
+| &mdash; | &mdash; | *(follow-ups)* | A `.followup` block **after step 9**, outside the steps: 4&ndash;5 interviewer pushback questions, answers supplied |
 
-**D19 is the prototype of a revised order**, requested by the reader because the old one
-read as machine-generated. It runs: *understanding the question &rarr; functional &rarr;
-non-functional &rarr; data model and API &rarr; capacity &rarr; trade-offs &rarr; high-level
-design &rarr; **workflows** &rarr; deep dives and what breaks*, using three new step classes
-(`fr`, `nfr`, `wflow`). The other 25 still use the table above. **If rolling the new order
-out, read D19 first** — the voice matters as much as the order: short sentences mixed with
-long, concrete before abstract, no bolded aphorism opening every paragraph, and named people
-with clock times rather than "exactly one writer sees one row affected".
+**Verify the order after touching any design** &mdash; two designs had steps out of order and five
+were missing steps entirely before this was enforced:
 
 ```python
-st = "".join(x[1] for x in re.findall(r'class="ds-header">\[(\w+)\] (\d)\.', design_html))
-assert st == "123456789"
+ORDER = ["req","fr","nfr","schema","est","tradeoff","arch","wflow","deep"]
+st = re.findall(r'class="design-step (\w+)"', design_html)
+assert st == ORDER
 ```
+
+**The voice matters as much as the order.** Short sentences mixed with long. Concrete before
+abstract. No bolded aphorism opening every paragraph. Named people with clock times ("Priya
+shortens a link", "Dev is in the London Underground") rather than "exactly one writer sees one
+row affected". Step 1 explains the problem to someone who has not seen it; the `.wf` blocks
+narrate rather than enumerate. **Read D1 (`design-url`) or D9 (`design-uber`) before writing a
+new one.**
+
+**The tooling that did the conversion** lives in `scratchpad/conv/` &mdash; `lib.py` has
+`card_span`, `grab` (pulls the reusable blocks out of an existing card: header, asked, clarify,
+assume, ng, schema_code, api_code, anim, tradeoff_table, ft_rows, concl, followup), `build`
+(reassembles in the new order, asserting div balance) and `replace` (asserts the old span *and*
+the whole document stay balanced). `c1.py`&ndash;`c25.py` are the per-design conversions.
+
 
 ### The 15 chapters
 
@@ -357,7 +368,7 @@ Reuse these. Do not invent new block types without a reason.
 | `.assume` | Stated assumptions **with the consequence of each being wrong**, inside step 2 | `.label`, then `.as-row` > `.as-a` (the assumption) + `.as-b` (what breaks). A bare list of numbers is not an assumptions section |
 | `.concl-grid` | Step 9 closing summary | Four `.cc` cards: dominant constraint, what I would build first (`.cc.first`), what I deliberately did not build, biggest risk (`.cc.risk`) |
 | `.followup` | **Interviewer pushback** after you present, one block per design, at the end of `.dc-body` | `.fu-title` + `.fu-sub`, then `<details class="fu">` per question: `<summary>` holds `.fu-q` (the question, italic, in quotes) + `.fu-cue`; body is `.fu-a`. **Distinct from `.clarify`** — clarify is what *you* ask at the start, this is what *they* ask at the end. Answers are always supplied, per §1 |
-| `.wf` | Workflow walkthrough — what actually happens, step by step, with real names and clock times | `.wf-title` + `.wf-sub`, then `<ol>` of steps, closing `.wf-out` (what actually happened). `.wf.alt` for the non-happy paths. **The most readable thing in a design**; the guide had nothing like it before D19 |
+| `.wf` | Workflow walkthrough — what actually happens, step by step, with real names and clock times | `.wf-title` + `.wf-sub`, then `<ol>` of steps, closing `.wf-out` (what actually happened). `.wf.alt` for the non-happy paths. **The most readable thing in a design.** Every design now has 3&ndash;5, and they are step 8. One happy path first, then the failures. End each on `.wf-out` &mdash; what actually happened and why it was the right trade |
 | `.clarify` | The clarifying questions to ask in the first five minutes, one per design, inside step 1 | `.label`, then `.cq-row` > `.cq-q` (the question) + `.cq-w` (**what the answer changes** — not what the answer is), closing `.cq-note`. The rationale column is the point: a list of questions without consequences teaches nothing |
 | `.vidref` | Video/lecture references, red left border | `.label`, then `<ul><li>` with `<a target="_blank" rel="noopener">` + `.vr-meta` runtime span + one sentence on *why that video*. Optional closing `.vr-none` for "no good video exists, read this instead" |
 
@@ -445,26 +456,31 @@ Note: the harness's `page.evaluate` runs in an **isolated world** — DOM is sha
 globals are not. `window.GLOSSARY` and `window.openGlossary` will read as `undefined` even
 though they exist. Drive the page by clicking real elements, not by calling its functions.
 
-**Baseline to regress against** (current, after the Google-question-bank work):
+**Baseline to regress against** (current, after the voice conversion of all 26 designs):
 
 ```
-totalWords 120146 · designs 26 (234 steps, all 1-9) · toolkitCards 8
-asked 26 (one prompt per design) · method 1 · dsIcons 234 (zero bracket placeholders)
-followup 26 · followupQs 108 (0 open by default) · wf 4 (D19 only, so far)
+totalWords 179518 · designs 26 (234 steps, all in the req/fr/nfr/schema/est/
+  tradeoff/arch/wflow/deep order) · toolkitCards 8
+asked 26 · clarify 26 · assume 26 · concl 26 · tradeoff 26 · dsIcons 243
+followup 26 · followupQs 108 (0 open by default)
+wf 102 (3-5 per design; was 4, D19 only, before the conversion)
 quickref 15 (every chapter) · buildup 3 · drills 24 · sidebarLinks 53
-anims 29 (215 packets, all with both captions; every design + ch4/ch7/ch10)
-animChips 29 (the Start-here jump index; regenerate it whenever an anim is added)
-all 15 chapters enriched · startcard 1
-clarify 26 · assume 26 · concl 26 · tradeoff 26 · glossaryTerms 199 · flows 45
-vidrefs 22 · externalLinks 63 (all target=_blank rel=noopener, all verified 200)
-flowsScrollingOnDesktop 0 (was 9; Fit is on by default) · gtInCtl 0
-questions-google.html: 81 questions · 58 eng · 63 cross-linked · 63 with a crux line · 0 gaps
-at 145% scale: 0 overflowing elements at 1440/430/390/360/320, navHeight unchanged
-exercises 14 · teachingQs 61 · misconceptions 21 · takeaways 14 · usecaseTables 8
-recalls 7 · glossaryTerms 199 · inlineLinks 1178 · tables 42 (all wrapped in .tw)
-gtInFlow 0 · gtInCodeOrLink 0 · brokenAnchors [] · navHeight 59 · consoleErrors 0
-tablesScrollingOnDesktop 0 · sidebarLinks 37 · paletteCorpus 237
+anims 29 (every design + ch4/ch7/ch10) · animChips 29
+srcref 167 cross-reference chips (none are links — that is the convention)
+flows 72 · tables 95 (all wrapped in .tw) · glossaryTerms 199 · gt 1628
+externalLinks 76 (all target=_blank rel=noopener)
+gtInFlow 0 · gtInCodeOrLink 0 · brokenAnchors [] · consoleErrors 0
+navHeight 59 · flowsScrollingOnDesktop 0 · tablesScrollingOnDesktop 0
+questions-google.html: 81 questions · 58 eng · 63 cross-linked · 0 gaps
 ```
+
+**Two false positives to expect in an overflow sweep**, or you will chase them twice:
+`#gl-panel`'s *descendants* (not just the panel itself) are parked off-canvas and always report
+as overflowing; and the `.fl-*` spans inside `.flow` legitimately extend past a phone viewport
+because their container scrolls. Exclude
+`#gl-panel, #gl-backdrop, #gl-hint, .flow, .tw, .codeblock, .schema-code, .api-code, svg`
+and the count is **0 at 320 / 360 / 390 / 430 / 1440**, with `scrollWidth == viewport` at each.
+
 
 *Previous baseline, for reference: totalWords 53792 · flows 34 · exercises 12 ·
 teachingQs 49 · misconceptions 16 · takeaways 11 · usecaseTables 6 · recalls 5 ·

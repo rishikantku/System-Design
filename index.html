@@ -8857,62 +8857,113 @@ one that is merely correct.</p>
     <h3 class="dc-title"><span id="design-youtube">Design YouTube (Video Upload & Streaming)</span></h3>
     <div class="dc-meta">Difficulty: <strong>Hard</strong> &nbsp;.&nbsp; Target: <strong>45 min</strong></div>
   </div>
-  <div class="dc-body"><div class="asked">
+  <div class="dc-body">
+<div class="asked">
   <div class="ak-q"><span class="ak-l">&#128172; The question, as asked</span><p>&ldquo;Design a video platform like YouTube. Users upload video; other users stream it worldwide at whatever quality their connection supports.&rdquo;</p></div>
   <div class="ak-h"><span class="ak-l">&#9889; What makes it hard</span><p>Upload and playback are <strong>two different systems</strong> that scale independently &mdash; transcoding is throughput-bound, delivery is egress-bound, and they are rarely the same order of magnitude. The transcode rendition matrix is the multiplier on your entire compute bill.</p></div>
 </div>
 <div class="design-step req">
-  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Requirements</div>
-  <div class="ds-body"><div class="clarify">
+  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Understanding the question</div>
+  <div class="ds-body"><p>The prompt: <em>&ldquo;Design a video platform like YouTube. Users upload video; other
+users stream it worldwide at whatever quality their connection supports.&rdquo;</em></p>
+
+<p>The mistake is to treat that as one system. It is two, and they have almost nothing in common.</p>
+
+<p><strong>Upload</strong> is a batch pipeline. Someone hands you a large file, you spend a lot of CPU
+turning it into many smaller files, and nobody is waiting in real time. It is measured in
+machine-hours, it can queue, and a five-minute delay is completely acceptable.</p>
+
+<p><strong>Playback</strong> is the opposite. It is latency-sensitive, enormous in volume, and mostly
+a question of moving bytes as close to the viewer as possible. There is barely any computation in it
+at all.</p>
+
+<div class="insight">
+  <div class="label">&#127919; The framing that unlocks it</div>
+  <p>Upload is <em>compute-bound</em>. Playback is <em>egress-bound</em>. They scale on different
+  axes, fail in different ways, and should be sized and operated separately. Say that in the first
+  two minutes and the rest of the design has somewhere to go.</p>
+</div>
+
+<h4>Where the money actually goes</h4>
+
+<p>Two numbers dominate the bill, and neither is storage.</p>
+
+<p><strong>Transcoding.</strong> An uploaded video is useless as-is &mdash; it is one file, in
+whatever the uploader's phone produced. To serve it to a 4K television and to someone on a train, you
+need several versions at different resolutions and bitrates. Every extra version you produce
+multiplies your CPU cost across every video ever uploaded. Going from six renditions to eight is not
+a 2-unit change; it is a 33% increase in the entire transcode fleet, forever.</p>
+
+<p><strong>Egress.</strong> The vast majority of bytes leaving this system are video segments going
+to viewers. If those come from your origin servers, you pay for the bandwidth and the viewer waits
+for a long round trip. If they come from a cache near the viewer, both problems go away. This is why
+a CDN is not an optimisation here; it is the delivery architecture.</p>
+
+<h4>What they are looking for</h4>
+
+<p><strong>Do you separate the two pipelines?</strong> Candidates who draw one box labelled
+&ldquo;video service&rdquo; have not started.</p>
+
+<p><strong>Do you know why video is chopped into segments?</strong> It is what makes adaptive quality
+possible, and it is what makes CDN caching work. One idea, two payoffs.</p>
+
+<p><strong>Do you treat uploads as unreliable?</strong> A 10 GB file over a phone connection will
+fail partway through. If that means starting again, your product is unusable.</p>
+<div class="clarify">
   <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
   <div class="cq-row"><div class="cq-q">Upload rate versus watch rate?</div><div class="cq-w">These size two completely different systems: transcoding capacity and CDN egress. They are rarely the same order of magnitude.</div></div><div class="cq-row"><div class="cq-q">Live streaming, or video-on-demand only?</div><div class="cq-w">Live removes the batch transcode window and turns this into a latency problem instead of a throughput problem.</div></div><div class="cq-row"><div class="cq-q">How many output renditions per video?</div><div class="cq-w">The transcode matrix &mdash; resolutions &times; codecs &times; bitrates &mdash; is the multiplier on your entire compute bill.</div></div><div class="cq-row"><div class="cq-q">Must view counts be real-time and exact?</div><div class="cq-w">Counting at this scale is its own distributed problem. Approximate-and-eventually-correct is dramatically cheaper.</div></div><div class="cq-row"><div class="cq-q">Is DRM or geo-restriction required?</div><div class="cq-w">Changes the delivery path and rules out simple CDN caching of a single artefact.</div></div>
   <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
 </div>
-<p><strong>Functional:</strong></p>
-<ul>
-  <li>Upload video (up to 10GB)</li>
-  <li>Transcode to multiple resolutions (360p, 720p, 1080p, 4K)</li>
-  <li>Stream video with adaptive bitrate (HLS/DASH)</li>
-  <li>Video metadata: title, description, tags, duration</li>
-  <li>Recommendations, search (stretch)</li>
-  <li>Like, comment, subscribe</li>
-</ul>
-<p><strong>Non-Functional:</strong></p>
-<ul>
-  <li>2B users, 500 hours of video uploaded every minute</li>
-  <li>Stream start latency &lt; 2s</li>
-  <li>Streaming: smooth at varying bandwidth (adaptive bitrate)</li>
-  <li>Upload to availability: &lt; 5 minutes after upload completes</li>
-  <li>Video storage: petabytes, 11-nine durability</li>
-</ul></div>
-</div><div class="design-step est">
-  <div class="ds-header"><span class="ds-ico">&#128202;</span>2. Capacity Estimation</div>
-  <div class="ds-body"><div class="assume">
-  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
-  <div class="as-row"><div class="as-a">Watch volume is orders of magnitude above upload volume</div><div class="as-b">If uploads dominated, transcode capacity rather than CDN egress would be the binding cost.</div></div><div class="as-row"><div class="as-a">Video-on-demand only</div><div class="as-b">Live removes the batch transcode window and changes this into a latency-bound design.</div></div><div class="as-row"><div class="as-a">A handful of renditions per video</div><div class="as-b">Every extra rendition multiplies the transcode bill across the entire catalogue.</div></div>
 </div>
-<div class="ng"><div class="ng-cell"><div class="ng-val">500 hrs</div><div class="ng-desc">uploaded/min</div></div><div class="ng-cell"><div class="ng-val">~8.3 GB/s</div><div class="ng-desc">upload bandwidth raw</div></div><div class="ng-cell"><div class="ng-val">~100x</div><div class="ng-desc">typical view:upload ratio</div></div><div class="ng-cell"><div class="ng-val">~50 GB/s</div><div class="ng-desc">streaming bandwidth</div></div><div class="ng-cell"><div class="ng-val">~10 PB</div><div class="ng-desc">new video storage/day</div></div><div class="ng-cell"><div class="ng-val">~4 EB</div><div class="ng-desc">stored video total</div></div></div>
-<p><strong>Transcoding:</strong> 1 hour video -> 10 quality versions -> each 10x slower than realtime for 4K -> 1 hour -> 10 hours transcode time. Parallel transcode per quality. 500 hrs/min = 5,000 transcode-hours/min needed -> ~5,000 transcode VMs needed (1 hour video processed in 1 minute each).</p></div>
-</div><div class="design-step api">
-  <div class="ds-header"><span class="ds-ico">&#128268;</span>3. API Design</div>
-  <div class="ds-body"><div class="api-code"><span class="kw">POST</span>   /v1/uploads
-  Body:     { filename, size_bytes, content_type }
-  Response: 201 { upload_id, chunk_size, upload_urls[] }
-  <span class="cm">// resumable: the client PUTs chunks directly to object storage</span>
+</div>
+<div class="design-step fr">
+  <div class="ds-header"><span class="ds-ico">&#128221;</span>2. Functional requirements</div>
+  <div class="ds-body"><ul>
+  <li><strong>Upload a video</strong>, up to around 10 GB, resumably.</li>
+  <li><strong>Transcode</strong> it into a set of renditions &mdash; 360p through 4K, in a couple of
+  codecs.</li>
+  <li><strong>Stream with adaptive quality</strong>, so the picture degrades instead of stalling when
+  the connection gets worse.</li>
+  <li><strong>Metadata</strong>: title, description, duration, channel, publish state.</li>
+  <li><strong>View counts</strong>, likes, comments, subscriptions.</li>
+  <li>Search and recommendations, which are their own systems and worth scoping out loud rather than
+  hand-waving.</li>
+</ul>
 
-<span class="kw">PUT</span>    {upload_url}/chunk/{n}       -&gt; 200 { etag }
-<span class="kw">POST</span>   /v1/uploads/{id}/complete    -&gt; 202 { video_id, state:"transcoding" }
+<p>One requirement is doing more work than it appears to. <strong>&ldquo;Adaptive quality&rdquo;</strong>
+is why every rendition is cut into short segments &mdash; a few seconds each &mdash; rather than
+stored as one long file. The player fetches segment by segment and re-picks the quality each time. A
+viewer on a train can be watching 1080p, drop to 480p when the signal degrades, and climb back up,
+all without a rebuffer, because each decision only commits four seconds.</p>
 
-<span class="kw">GET</span>    /v1/videos/{id}/manifest?profile=hls|dash
-  Response: 200 HLS/DASH manifest of the available renditions
-  <span class="cm">// the player picks a rendition per segment; the server never decides</span>
+<p>That same segmentation is what makes the CDN work: a few thousand small immutable files cache
+beautifully, where one multi-gigabyte file does not.</p></div>
+</div>
+<div class="design-step nfr">
+  <div class="ds-header"><span class="ds-ico">&#9201;</span>3. Non-functional requirements</div>
+  <div class="ds-body"><div class="tw"><table class="to">
+<thead><tr><th style="width:26%">Requirement</th><th style="width:22%">Target</th><th style="width:52%">What it drives</th></tr></thead>
+<tbody>
+<tr><td><strong>Playback start</strong></td><td class="chosen">&lt; 2 s</td><td>The number viewers actually feel. It is dominated by distance to the first segment, which is why edge caching is the design.</td></tr>
+<tr><td><strong>Rebuffer rate</strong></td><td>Near zero</td><td>A stall is far worse than lower quality. This is the requirement adaptive bitrate exists to satisfy.</td></tr>
+<tr><td><strong>Upload &rarr; watchable</strong></td><td>&lt; 5 min</td><td>Generous, and deliberately so. It is what lets transcoding be a queue rather than a synchronous path.</td></tr>
+<tr><td><strong>Egress</strong></td><td>Tens of GB/s</td><td>The dominant operating cost. Cache hit ratio at the edge is therefore a first-class metric, not an ops detail.</td></tr>
+<tr><td><strong>Durability</strong></td><td>11 nines</td><td>The uploader may have deleted their only copy. Losing it is unrecoverable in a way losing a cache entry is not.</td></tr>
+<tr><td><strong>View counts</strong></td><td>Eventually correct</td><td>Nobody can tell if a count is thirty seconds stale. Making it exact and real-time would cost more than everything else on this list.</td></tr>
+</tbody></table></div>
 
-<span class="kw">POST</span>   /v1/videos/{id}/view   -&gt; 202
-  <span class="cm">// fire-and-forget into a stream; counts are eventually correct</span></div></div>
+<p>That last row is worth arguing for explicitly, because it is a real design decision dressed up as
+a detail. Exact real-time counts mean a synchronous increment on the hottest rows in the system
+&mdash; a video with ten million concurrent viewers becomes ten million contending writes to one row.
+Accepting &ldquo;correct within a minute&rdquo; turns that into an append to a stream and a periodic
+aggregate, which is trivially scalable.</p></div>
 </div>
 <div class="design-step schema">
-  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="cm">-- Metadata in a relational store; bytes in object storage.</span>
+  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Data model and API</div>
+  <div class="ds-body"><p>The single most important decision here is what you <em>do not</em> put in the
+database: the video bytes. Metadata goes in a relational store, bytes go in object storage, and the
+database holds keys pointing at them.</p>
+<div class="schema-code"><span class="cm">-- Metadata in a relational store; bytes in object storage.</span>
 <span class="kw">TABLE</span> videos {
   video_id      <span class="ty">UUID</span>       <span class="pk">PRIMARY KEY</span>,
   channel_id    <span class="ty">UUID</span>,
@@ -8932,12 +8983,112 @@ one that is merely correct.</p>
 <span class="kw">TABLE</span> view_counts {         <span class="cm">-- eventually correct, written from a stream</span>
   video_id <span class="ty">UUID</span> <span class="pk">PRIMARY KEY</span>, count <span class="ty">BIGINT</span>, updated_at <span class="ty">TIMESTAMP</span>
 }
-<span class="cm">-- Never incremented synchronously on the playback path.</span></div></div>
+<span class="cm">-- Never incremented synchronously on the playback path.</span></div>
+<p>The <strong>renditions</strong> table is one row per output. A video is not ready when its upload
+finishes; it is ready when enough renditions exist to serve a manifest. Modelling them as separate
+rows with their own states means a 4K transcode failing does not block the video from going live in
+1080p &mdash; the manifest simply lists what exists.</p>
+
+<p>The <strong>state</strong> column on the video is a small state machine:
+<code>uploading &rarr; transcoding &rarr; ready</code>, with <code>failed</code> as a terminal. It is
+the only thing the player-facing API needs to consult before serving a manifest, and making it
+explicit avoids the classic bug where a video is discoverable before it is playable.</p>
+
+<h4>The API</h4>
+<div class="api-code"><span class="kw">POST</span>   /v1/uploads
+  Body:     { filename, size_bytes, content_type }
+  Response: 201 { upload_id, chunk_size, upload_urls[] }
+  <span class="cm">// resumable: the client PUTs chunks directly to object storage</span>
+
+<span class="kw">PUT</span>    {upload_url}/chunk/{n}       -&gt; 200 { etag }
+<span class="kw">POST</span>   /v1/uploads/{id}/complete    -&gt; 202 { video_id, state:"transcoding" }
+
+<span class="kw">GET</span>    /v1/videos/{id}/manifest?profile=hls|dash
+  Response: 200 HLS/DASH manifest of the available renditions
+  <span class="cm">// the player picks a rendition per segment; the server never decides</span>
+
+<span class="kw">POST</span>   /v1/videos/{id}/view   -&gt; 202
+  <span class="cm">// fire-and-forget into a stream; counts are eventually correct</span></div>
+<p>Three things there are load-bearing.</p>
+
+<p><strong>The client uploads chunks directly to object storage.</strong> The API hands out
+pre-signed URLs; the bytes never pass through the application tier. A service that proxied 8 GB/s of
+uploads would be a fleet of machines doing nothing but copying.</p>
+
+<p><strong>Chunked and resumable.</strong> A 10 GB upload over a home connection takes hours and will
+be interrupted. Chunks let it resume from where it stopped, and let chunks upload in parallel.</p>
+
+<p><strong>The manifest describes; it does not decide.</strong> The server returns the list of
+available renditions and their segment URLs. Which one to fetch is entirely the player's call,
+because only the player knows how fast the last segment arrived.</p></div>
+</div>
+<div class="design-step est">
+  <div class="ds-header"><span class="ds-ico">&#128202;</span>5. Capacity estimation</div>
+  <div class="ds-body"><p>The arithmetic, and what it tells you to build first.</p>
+<div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">Watch volume is orders of magnitude above upload volume</div><div class="as-b">If uploads dominated, transcode capacity rather than CDN egress would be the binding cost.</div></div><div class="as-row"><div class="as-a">Video-on-demand only</div><div class="as-b">Live removes the batch transcode window and changes this into a latency-bound design.</div></div><div class="as-row"><div class="as-a">A handful of renditions per video</div><div class="as-b">Every extra rendition multiplies the transcode bill across the entire catalogue.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">500 hrs</div><div class="ng-desc">uploaded/min</div></div><div class="ng-cell"><div class="ng-val">~8.3 GB/s</div><div class="ng-desc">upload bandwidth raw</div></div><div class="ng-cell"><div class="ng-val">~100x</div><div class="ng-desc">typical view:upload ratio</div></div><div class="ng-cell"><div class="ng-val">~50 GB/s</div><div class="ng-desc">streaming bandwidth</div></div><div class="ng-cell"><div class="ng-val">~10 PB</div><div class="ng-desc">new video storage/day</div></div><div class="ng-cell"><div class="ng-val">~4 EB</div><div class="ng-desc">stored video total</div></div></div>
+<h4>The transcode fleet, worked through</h4>
+
+<p>500 hours of video arrive every minute. Each needs several renditions, and high-resolution
+encoding runs slower than real time &mdash; call it a few times slower for 4K on a general-purpose
+core.</p>
+
+<p>Multiply it out and you need thousands of machine-hours of encoding per minute of wall-clock time,
+which means <strong>thousands of machines doing nothing but transcode</strong>. That is a bigger
+fleet than everything else in the design put together.</p>
+
+<p>Two consequences follow immediately. First, transcoding should be <strong>parallelised within a
+video</strong>, not just across videos: split the source into chunks, encode them on different
+machines, concatenate. A one-hour video then takes a minute rather than an hour, and a long upload
+does not occupy one machine for an hour. Second, this fleet is a natural fit for preemptible capacity
+&mdash; the work is retryable, nothing is waiting on it, and losing a machine mid-chunk costs you one
+chunk.</p>
+
+<h4>The egress side</h4>
+
+<p>Views outnumber uploads by roughly a hundred to one, and each view streams megabytes. Playback
+bandwidth is therefore an order of magnitude above upload bandwidth, and essentially all of it is
+repeated reads of the same popular segments.</p>
+
+<p>Which is the argument for the CDN in one line: <strong>the traffic is enormous, and almost all of
+it is duplicate.</strong> A cache hit at the edge saves both the origin bandwidth and the round trip,
+and at a 95% hit ratio the origin only ever sees 5% of the load.</p></div>
+</div>
+<div class="design-step tradeoff">
+  <div class="ds-header"><span class="ds-ico">&#9878;</span>6. The key trade-offs</div>
+  <div class="ds-body"><p>The choices, and what each one costs.</p>
+<div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Transcoding</strong></td><td class='chosen'>Async Kafka pipeline (eventual availability)</td><td class='rej'>Sync (block upload until done)</td><td>Sync transcode = wait 5-60 min for every upload. Terrible UX. Async = upload acknowledged immediately, video available in ~5 min. Acceptable.</td></tr><tr><td><strong>Streaming format</strong></td><td class='chosen'>HLS (HTTP Live Streaming)</td><td class='rej'>RTMP / WebRTC</td><td>HLS works over standard CDN HTTP. RTMP requires special servers. WebRTC good for sub-second latency (live streaming) but overkill for pre-recorded video. HLS adaptive bitrate = optimal for variable bandwidth.</td></tr><tr><td><strong>Storage</strong></td><td class='chosen'>GCS object storage</td><td class='rej'>HDFS / custom</td><td>GCS: 11-nine durability, petabyte scale, CDN integration, managed. HDFS: operational burden, no CDN, doesn't scale to exabytes easily.</td></tr></tbody></table></div>
+<h4>How many renditions &mdash; the multiplier nobody prices</h4>
+
+<p>This looks like a product question and is actually the largest line item in the compute budget.
+Every rendition is another full encode of every video.</p>
+
+<p>The naive answer is to encode everything into every rendition. The better answer is that the
+catalogue is extremely skewed: most videos get almost no views, and a small fraction get nearly all
+of them.</p>
+
+<p>So encode a safe baseline for everything on upload &mdash; enough to be watchable on a phone and a
+laptop &mdash; and generate the expensive renditions <strong>on demand, when a video first gets
+traffic</strong>, caching the result. A video that never gets watched never costs you a 4K encode.
+The first viewer of a newly popular video may briefly get a lower quality, which is a price nobody
+notices.</p>
+
+<h4>Adaptive bitrate: why the player decides</h4>
+
+<p>The server could pick a quality by looking at the request. It would be wrong constantly, because
+bandwidth on a mobile connection changes between one segment and the next, and the only entity that
+knows how fast the last segment actually arrived is the player.</p>
+
+<p>So the server publishes options and the client chooses. This is a general pattern worth naming:
+<strong>put the decision where the information is.</strong> It also happens to make the server
+stateless with respect to playback, which is what lets segments be plain cacheable files.</p></div>
 </div>
 <div class="design-step arch">
-  <div class="ds-header"><span class="ds-ico">&#127959;</span>5. High-Level Architecture</div>
-  <div class="ds-body">
-<div class="anim" id="anim-youtube">
+  <div class="ds-header"><span class="ds-ico">&#127959;</span>7. High-level design</div>
+  <div class="ds-body"><div class="anim" id="anim-youtube">
   <div class="an-head">
     <div class="an-title">Upload and transcode &mdash; and the backlog users experience as &ldquo;processing&rdquo;</div>
     <div class="an-btns">
@@ -8988,58 +9139,139 @@ one that is merely correct.</p>
   <div class="an-cap ok-only"><strong>What is moving:</strong> the client uploads chunks straight into object storage, then a transcode DAG fans each source out into a ladder of renditions, which are pushed to the CDN. Upload and transcode are deliberately decoupled: the upload succeeds long before the video is watchable.</div>
   <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> transcode is throughput-bound and uploads are bursty, so a spike fills the queue and every new video sits in <em>processing</em>. Nothing errors &mdash; which is what makes it insidious. The levers are to transcode <strong>lazily for the long tail</strong> (most uploads are never watched) and eagerly only for the low renditions, and to publish the source rendition immediately so the video is at least playable.</div>
 </div>
-<div class="dc-diagram"><svg width="680" height="260" viewBox="0 0 680 260" xmlns="http://www.w3.org/2000/svg">
-  <defs><marker id="yt1" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
-  <!-- Upload path -->
-  <text x="10" y="20" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="#636e72">UPLOAD PATH</text>
-  <rect x="10" y="28" width="60" height="32" rx="6" fill="#5c6bc0"/><text x="40" y="48" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Creator</text>
-  <line x1="70" y1="44" x2="98" y2="44" stroke="#636e72" stroke-width="1.2" marker-end="url(#yt1)"/>
-  <rect x="100" y="28" width="100" height="32" rx="6" fill="#0984e3"/><text x="150" y="48" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Upload API (resumable)</text>
-  <line x1="200" y1="44" x2="228" y2="44" stroke="#636e72" stroke-width="1.2" marker-end="url(#yt1)"/>
-  <rect x="230" y="28" width="80" height="32" rx="6" fill="#2e7d32"/><text x="270" y="48" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Raw Storage (GCS)</text>
-  <line x1="310" y1="44" x2="338" y2="44" stroke="#636e72" stroke-width="1.2" marker-end="url(#yt1)"/>
-  <rect x="340" y="28" width="70" height="32" rx="6" fill="#f39c12"/><text x="375" y="48" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Kafka</text>
-  <!-- Transcoding -->
-  <text x="10" y="100" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="#636e72">TRANSCODING (ASYNC)</text>
-  <line x1="375" y1="60" x2="375" y2="110" stroke="#f39c12" stroke-width="1.2" marker-end="url(#yt1)"/>
-  <rect x="260" y="110" width="220" height="60" rx="8" fill="#e17055"/>
-  <text x="370" y="133" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="600" fill="white">Transcoding Fleet (5,000 VMs)</text>
-  <text x="370" y="150" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="rgba(255,255,255,.8)">Workers: 360p / 720p / 1080p / 4K in parallel</text>
-  <text x="370" y="163" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="rgba(255,255,255,.8)">Generate HLS segments (.ts + .m3u8 manifest)</text>
-  <line x1="480" y1="140" x2="508" y2="100" stroke="#636e72" stroke-width="1.2" marker-end="url(#yt1)"/>
-  <rect x="510" y="75" width="110" height="50" rx="7" fill="#9c27b0"/><text x="565" y="98" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Processed Storage</text><text x="565" y="113" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">(GCS -- HLS segments)</text>
-  <!-- Streaming path -->
-  <text x="10" y="200" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="#636e72">STREAMING PATH</text>
-  <rect x="10" y="208" width="60" height="32" rx="6" fill="#5c6bc0"/><text x="40" y="228" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Viewer</text>
-  <line x1="70" y1="224" x2="98" y2="224" stroke="#636e72" stroke-width="1.2" marker-end="url(#yt1)"/>
-  <rect x="100" y="208" width="70" height="32" rx="6" fill="#f39c12"/><text x="135" y="224" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">CDN Edge</text>
-  <line x1="170" y1="224" x2="198" y2="224" stroke="#636e72" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#yt1)"/>
-  <rect x="200" y="208" width="80" height="32" rx="6" fill="#9c27b0"/><text x="240" y="228" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">GCS (origin)</text>
-  <text x="340" y="220" font-family="Inter,sans-serif" font-size="9" fill="#636e72">Client requests .m3u8 manifest -> fetches .ts segments -> auto-adjusts quality based on bandwidth</text>
-  <text x="340" y="238" font-family="Inter,sans-serif" font-size="9" fill="#636e72">CDN caches segments. ~95% of streaming served from CDN edge. GCS hit only for cache miss.</text>
-</svg><div class="dc-caption">Upload -> raw GCS -> Kafka event -> transcode fleet -> HLS segments in GCS -> CDN streams to viewers.</div></div></div>
-</div><div class="design-step deep">
-  <div class="ds-header"><span class="ds-ico">&#128269;</span>6. Component Deep Dives</div>
-  <div class="ds-body"><p><strong>Resumable Upload:</strong> Large video files (10GB) cannot be sent in one HTTP request. Use chunked upload: split into 5MB chunks, upload each with offset. Server acknowledges each chunk. On failure: resume from last acknowledged chunk. Google Cloud Storage's XML API and TUS protocol implement this pattern.</p>
-<p><strong>Adaptive Bitrate Streaming (HLS):</strong> Transcoded video is split into 2-10 second segments (.ts files). A manifest file (.m3u8) lists all segments and their quality levels. The client player requests segments and monitors download speed. If downloading 720p segments is slow (bandwidth dropped), it switches to 480p manifest automatically. This gives smooth playback without buffering.</p>
-<p><strong>Transcoding pipeline:</strong> One Kafka event per upload. Transcoding worker pool: each worker fetches the raw video from GCS, transcodes one quality level (FFmpeg), uploads HLS segments to GCS, acknowledges Kafka. Multiple workers process different quality levels in parallel. Status tracked in PostgreSQL (video_id, status: transcoding/ready, progress %).</p>
-<p><strong>CDN strategy:</strong> HLS segments are immutable (content-addressed by segment hash). Cache-Control: max-age=31536000 (1 year). CDN naturally geo-distributes popular content. New videos: cold start -- first viewers get from GCS. After 100 views: cached at every CDN edge worldwide.</p></div>
-</div><div class="design-step tradeoff">
-  <div class="ds-header"><span class="ds-ico">&#9878;</span>7. Trade-off Analysis</div>
-  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Transcoding</strong></td><td class='chosen'>Async Kafka pipeline (eventual availability)</td><td class='rej'>Sync (block upload until done)</td><td>Sync transcode = wait 5-60 min for every upload. Terrible UX. Async = upload acknowledged immediately, video available in ~5 min. Acceptable.</td></tr><tr><td><strong>Streaming format</strong></td><td class='chosen'>HLS (HTTP Live Streaming)</td><td class='rej'>RTMP / WebRTC</td><td>HLS works over standard CDN HTTP. RTMP requires special servers. WebRTC good for sub-second latency (live streaming) but overkill for pre-recorded video. HLS adaptive bitrate = optimal for variable bandwidth.</td></tr><tr><td><strong>Storage</strong></td><td class='chosen'>GCS object storage</td><td class='rej'>HDFS / custom</td><td>GCS: 11-nine durability, petabyte scale, CDN integration, managed. HDFS: operational burden, no CDN, doesn't scale to exabytes easily.</td></tr></tbody></table></div></div>
-</div><div class="design-step fault">
-  <div class="ds-header"><span class="ds-ico">&#128737;</span>8. Fault Tolerance</div>
-  <div class="ds-body"><div class="ft-row"><div class="ft-fail">Transcode worker crashes mid-job</div><div class="ft-fix">Kafka offset not committed until job complete. Worker crash -> message re-delivered -> new worker picks up from beginning (idempotent: transcode is pure function, same input = same output). Partial segments discarded.</div></div><div class="ft-row"><div class="ft-fail">GCS regional outage</div><div class="ft-fix">Multi-region GCS bucket (US + EU). If primary region down, read from secondary with minimal latency increase. Writes queued and replayed when primary recovers. CDN cache continues serving most traffic during outage.</div></div><div class="ft-row"><div class="ft-fail">CDN node failure</div><div class="ft-fix">CDN routes around failed edge nodes automatically. Traffic shifts to next-nearest edge. Brief latency increase. Popular content likely cached on multiple edges.</div></div></div>
-</div><div class="design-step concl">
-  <div class="ds-header"><span class="ds-ico">&#127937;</span>9. Conclusion &mdash; what I would say in the last three minutes</div>
-  <div class="ds-body">
-  <div class="concl-grid">
+<p>Two pipelines. Note that they only touch at object storage.</p>
+<div class="flow">  <span class="fl-key">UPLOAD</span>  compute-bound, asynchronous, nobody is waiting
+
+  client --&gt; <span class="fl-hi">chunks straight into object storage</span>  <span class="fl-note">pre-signed URLs; bypasses the app tier</span>
+                      |
+                      v  "upload complete"
+              <span class="fl-hi">TRANSCODE QUEUE</span>
+                      |
+        +-------------+-------------+-------------+
+        v             v             v             v
+     chunk 1       chunk 2       chunk 3       chunk 4     <span class="fl-dim">parallel across machines</span>
+        |             |             |             |
+        +-------------+------+------+-------------+
+                             v
+              renditions: 360p 480p 720p 1080p 4K
+              each cut into <span class="fl-hi">~4-second segments</span>
+                             |
+                             v
+                      object storage + manifest
+                      <span class="fl-hi">state = ready</span>
+
+
+  <span class="fl-key">PLAYBACK</span>  egress-bound, latency-sensitive, enormous
+
+  player --&gt; manifest  <span class="fl-note">what renditions exist, where the segments are</span>
+         |
+         +--&gt; <span class="fl-hi">CDN EDGE</span>  segment 1 @ 1080p   <span class="fl-dim">cache hit: never reaches origin</span>
+         +--&gt; <span class="fl-hi">CDN EDGE</span>  segment 2 @ 1080p
+         +--&gt; <span class="fl-bad">CDN EDGE</span>  segment 3 @ 480p    <span class="fl-note">bandwidth dropped; player stepped down</span>
+         +--&gt; <span class="fl-hi">CDN EDGE</span>  segment 4 @ 720p    <span class="fl-note">recovering</span></div>
+<div class="flow-cap">The player re-decides on every segment, so a bad four seconds costs four seconds of
+quality rather than a stall. Segments are immutable files with long cache lifetimes &mdash; the ideal
+CDN object.</div></div>
+</div>
+<div class="design-step wflow">
+  <div class="ds-header"><span class="ds-ico">&#128260;</span>8. Workflows &mdash; what actually happens</div>
+  <div class="ds-body"><div class="wf">
+  <div class="wf-title">Marco uploads a 45-minute 4K video from a caf&eacute;</div>
+  <div class="wf-sub">Upload, transcode, publish &mdash; and what happens when the wifi drops.</div>
+  <ol>
+    <li>Marco's client asks to start an upload and gets back an upload id, a chunk size, and a set of pre-signed URLs. The bytes will go <b>straight to object storage</b>, not through our servers.</li>
+    <li>It uploads chunks in parallel. Twenty minutes in, the caf&eacute; wifi dies. Four chunks were in flight and are lost.</li>
+    <li>Marco reconnects. The client asks which chunks are already stored, re-uploads only those four, and continues. <b>Nothing restarts.</b></li>
+    <li>On completion we mark the video <code>transcoding</code> and put a job on the queue. Marco's browser is free; he closes the tab.</li>
+    <li>The transcode pipeline splits the source into chunks and fans them across many machines. Each produces every rendition for its chunk.</li>
+    <li>Chunks are concatenated per rendition and cut into ~4-second segments. A manifest is written listing what exists.</li>
+    <li>Once 720p and 1080p are ready, the video flips to <code>ready</code> &mdash; roughly three minutes after upload finished. The 4K encode is still running and will be added to the manifest when it lands.</li>
+  </ol>
+  <div class="wf-out">Marco waited for the upload and nothing else. Publishing did not wait for the most expensive rendition, because the manifest describes what exists rather than what was planned.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">Aditi watches it on a train</div>
+  <div class="wf-sub">Adaptive bitrate doing its job, segment by segment.</div>
+  <ol>
+    <li>Her player fetches the manifest and sees five renditions. It starts conservatively at <b>480p</b>, because starting high and stalling is worse than starting low and climbing.</li>
+    <li>First segment arrives in 300 ms &mdash; far faster than the four seconds of playback it contains. The player has headroom, so it requests the next one at 720p.</li>
+    <li>That also arrives quickly. It steps up to 1080p and stays there while the buffer fills.</li>
+    <li>The train enters a cutting and throughput collapses. The next segment is arriving too slowly to keep up with playback.</li>
+    <li>The player drops to <b>360p</b> for the following segment. The picture gets soft; the video <b>does not stop.</b></li>
+    <li>Signal returns, the buffer refills, and within a few segments it is back at 1080p.</li>
+  </ol>
+  <div class="wf-out">Every one of those segments came from a cache near Aditi &mdash; each is an immutable file that thousands of other viewers had already requested. The origin served none of them.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">A video goes viral in twenty minutes</div>
+  <div class="wf-sub">Where the edge cache earns its keep, and where it briefly does not.</div>
+  <ol>
+    <li>Views go from a few hundred to two million. Requests land at edge caches all over the world.</li>
+    <li>The first viewer at each edge misses the cache. That segment is fetched from the origin once and stored.</li>
+    <li>Every subsequent viewer at that edge is served locally. With a hundred edges and two million viewers, the origin sees on the order of <b>hundreds</b> of requests, not millions.</li>
+    <li>The early minutes are the dangerous window: many edges missing simultaneously on the same popular segments. Request coalescing at the edge collapses concurrent misses for the same object into a single origin fetch.</li>
+    <li>View counts are appended to a stream rather than incremented in the database. A background job aggregates and updates the count every few seconds.</li>
+    <li>The counter is briefly behind reality. Nobody notices, and the alternative &mdash; two million writes to one row &mdash; would have taken the database down.</li>
+  </ol>
+  <div class="wf-out">This is the entire argument for a CDN in one scenario: the load is enormous and almost entirely duplicate, so caching turns a million-fold problem into a hundred-fold one.</div>
+</div></div>
+</div>
+<div class="design-step deep">
+  <div class="ds-header"><span class="ds-ico">&#128269;</span>9. Deep dives, and what breaks</div>
+  <div class="ds-body"><h4>What a transcode job actually does</h4>
+
+<p>Decode the source into raw frames, then re-encode those frames several times with different
+resolution and bitrate settings, then cut each output into aligned segments and write a manifest.</p>
+
+<p>Two details matter more than the rest. <strong>Segments must be aligned across renditions</strong>
+&mdash; segment 12 of the 480p stream must cover exactly the same four seconds as segment 12 of the
+1080p stream, or the player cannot switch between them cleanly. That means every segment starts on a
+keyframe, at the same timestamps in every rendition.</p>
+
+<p>And <strong>chunk-level parallelism has a seam</strong>. If you split the source and encode chunks
+independently, the joins between chunks can show artefacts unless the split points are keyframes and
+the encoder settings are identical. It is the classic parallelism trade: enormous speedup, at the
+cost of care at the boundaries.</p>
+
+<h4>Why the CDN is the architecture, not a layer</h4>
+
+<p>It is tempting to draw a CDN as a box in front of the origin. In a video system it is closer to
+the other way round: almost every byte a user receives comes from an edge, and the origin exists to
+populate edges.</p>
+
+<p>That reframing changes what you monitor. <strong>Cache hit ratio is a top-line metric</strong>,
+because a drop from 95% to 90% doubles origin egress. It also changes how you think about cache keys:
+segments are immutable and get long lifetimes, while manifests change when a rendition is added and
+get short ones.</p>
+
+<p>Popularity is extremely skewed, which works in your favour. A small set of segments accounts for
+most requests and stays resident at every edge. The long tail misses more often, but it is a small
+fraction of total traffic, so the origin load stays manageable.</p>
+
+<h4>Live streaming, if they ask</h4>
+
+<p>Worth having an answer ready, because it is the natural follow-up and it breaks the design above
+in a specific way.</p>
+
+<p>Everything here assumes you have the whole file before you start. Live has no end: segments must be
+produced continuously, a few seconds behind reality, and published as they are created. The batch
+queue becomes a streaming pipeline, the manifest becomes something that grows, and the transcode
+budget per second becomes a hard real-time constraint rather than a throughput target &mdash; falling
+behind is not slow, it is broken.</p>
+
+<p>The delivery half, happily, barely changes. Segments are still segments and the CDN still caches
+them; they just have very short lifetimes.</p>
+
+<h4>What breaks</h4>
+
+<div class="ft-row"><div class="ft-fail">Transcode worker crashes mid-job</div><div class="ft-fix">Kafka offset not committed until job complete. Worker crash -> message re-delivered -> new worker picks up from beginning (idempotent: transcode is pure function, same input = same output). Partial segments discarded.</div></div><div class="ft-row"><div class="ft-fail">GCS regional outage</div><div class="ft-fix">Multi-region GCS bucket (US + EU). If primary region down, read from secondary with minimal latency increase. Writes queued and replayed when primary recovers. CDN cache continues serving most traffic during outage.</div></div><div class="ft-row"><div class="ft-fail">CDN node failure</div><div class="ft-fix">CDN routes around failed edge nodes automatically. Traffic shifts to next-nearest edge. Brief latency increase. Popular content likely cached on multiple edges.</div></div><div class="concl-grid">
     <div class="cc"><div class="h">The dominant constraint</div><p><strong>Upload volume and watch volume are different systems.</strong> Transcoding is a throughput problem sized by uploads; delivery is an egress problem sized by watches, and they scale independently.</p></div>
     <div class="cc first"><div class="h">What I would build first</div><p>Chunked resumable upload into object storage, then an asynchronous transcode DAG. Playback can serve the original rendition until the ladder is ready.</p></div>
     <div class="cc"><div class="h">What I deliberately did not build</div><p>Live streaming, DRM and recommendations. Live in particular removes the batch transcode window and is a different design.</p></div>
     <div class="cc risk"><div class="h">The biggest risk</div><p>Transcode cost. The rendition matrix multiplies your entire compute bill, so I would transcode lazily for the long tail rather than eagerly for everything.</p></div>
-  </div>
-  </div>
+  </div></div>
 </div>
 
 <div class="followup">
@@ -9062,69 +9294,123 @@ one that is merely correct.</p>
     <div class="fu-a"><p>Almost everything. Live removes the batch transcode window: you cannot take five minutes to produce renditions when the event is happening now, so transcoding becomes a low-latency pipeline running alongside the broadcast.</p><p>Segments are produced continuously and pushed to the CDN as they are made, so the CDN caches a rolling window rather than a complete file. Latency becomes the headline metric instead of throughput.</p><p>It is a different design, and the right move in an interview is to scope it out explicitly rather than pretend the same architecture covers both.</p></div>
   </details>
 </div>
+  </div>
 </div>
-</div>
+
 <div class="design-card">
   <div class="dc-header">
     <h3 class="dc-title"><span id="design-jobs">Design a Distributed Job Scheduler</span> (like AWS Lambda / Cron)</h3>
     <div class="dc-meta">Difficulty: <strong>Medium-Hard</strong> &nbsp;.&nbsp; Target: <strong>40 min</strong></div>
   </div>
-  <div class="dc-body"><div class="asked">
+  <div class="dc-body">
+<div class="asked">
   <div class="ak-q"><span class="ak-l">&#128172; The question, as asked</span><p>&ldquo;Design a distributed job scheduler. Jobs run at a scheduled time or on a cron expression, across a fleet of workers, and must not run twice.&rdquo;</p></div>
   <div class="ak-h"><span class="ak-l">&#9889; What makes it hard</span><p>&ldquo;Must not run twice&rdquo; is <strong>not achievable as stated</strong> &mdash; you cannot have exactly-once execution across a network. The real design question is who absorbs the duplicate, and what stops a paused worker acting on an expired lease.</p></div>
 </div>
 <div class="design-step req">
-  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Requirements</div>
-  <div class="ds-body"><div class="clarify">
+  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Understanding the question</div>
+  <div class="ds-body"><p>The prompt: <em>&ldquo;Design a distributed job scheduler. Jobs run at a scheduled time
+or on a cron expression, across a fleet of workers, and must not run twice.&rdquo;</em></p>
+
+<p>There is a trap in that last clause, and finding it is most of the interview.</p>
+
+<p><strong>&ldquo;Must not run twice&rdquo; cannot be delivered as stated.</strong> Not with a better
+database, not with a cleverer lock. Here is why, concretely.</p>
+
+<div class="insight">
+  <div class="label">&#127919; The impossibility, in four lines</div>
+  <p>A worker claims job 7 and starts running it. Its process pauses &mdash; a long garbage
+  collection, a hypervisor stall, a network partition. From the outside it is indistinguishable from
+  a dead machine, so the scheduler hands job 7 to another worker. Then the first worker wakes up and
+  carries on, having no idea any time passed.</p>
+  <p>Two workers are now running job 7. Nothing was misconfigured. This is what a distributed system
+  does.</p>
+</div>
+
+<h4>So what is the real question</h4>
+
+<p>Not <em>&ldquo;how do I prevent duplicates&rdquo;</em> but <strong>&ldquo;where does the duplicate
+get absorbed, and what stops the zombie worker doing damage after its claim expired?&rdquo;</strong></p>
+
+<p>There are two honest answers and you should offer both:</p>
+
+<ul>
+  <li><strong>Make the handler idempotent.</strong> Running it twice has the same effect as running
+  it once. Cheap, robust, and it pushes the problem to people who can actually solve it, because only
+  the handler knows what its own work means.</li>
+  <li><strong>Give each claim a number that only increases, and have the downstream system reject
+  stale ones.</strong> The woken-up worker tries to write with an old number and is refused. This is
+  a fencing token, and it is the only thing that genuinely stops a zombie.</li>
+</ul>
+
+<p>What does <em>not</em> work is a lease alone. A lease says &ldquo;you have this job for 30
+seconds&rdquo;, but the paused worker cannot check its watch, and the resource it is writing to has
+no idea the lease expired.</p>
+
+<h4>What they are looking for</h4>
+
+<p><strong>Do you push back on &ldquo;exactly once&rdquo;?</strong> Politely, with the pause
+scenario. Candidates who promise it are promising something they cannot build.</p>
+
+<p><strong>Do you know how to poll a database from many workers?</strong> The naive version has every
+worker fighting for the same rows.</p>
+
+<p><strong>Do you have a plan for the backlog after an outage?</strong> The scheduler recovering is
+exactly when it is least able to cope with catch-up work.</p>
+<div class="clarify">
   <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
   <div class="cq-row"><div class="cq-q">Exactly-once, or at-least-once with idempotent handlers?</div><div class="cq-w">Exactly-once execution is not achievable across a network, so the honest question is who absorbs the duplicate &mdash; you, or the handler.</div></div><div class="cq-row"><div class="cq-q">What scheduling precision is required?</div><div class="cq-w">One second versus one minute changes the polling architecture completely, and precision is far more expensive than it sounds.</div></div><div class="cq-row"><div class="cq-q">How long can a job run?</div><div class="cq-w">Long jobs need leases and heartbeats, and a lease that expires mid-run is the classic <strong>fencing</strong> problem.</div></div><div class="cq-row"><div class="cq-q">Do jobs have dependencies on each other?</div><div class="cq-w">A DAG scheduler is a different system from a cron scheduler. This is worth scoping out loud.</div></div><div class="cq-row"><div class="cq-q">What happens to a window missed during an outage?</div><div class="cq-w">Skip, or catch up? Catch-up creates a thundering backlog exactly when the system is already unhealthy.</div></div>
   <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
 </div>
-<p><strong>Functional:</strong></p>
-<ul>
-  <li>Schedule jobs: run at specific time (one-shot) or cron expression (recurring)</li>
-  <li>Each job has a handler (function/URL to call)</li>
-  <li>Exactly-once execution: a job must not run twice at the same scheduled time</li>
-  <li>At-least-once fallback: if execution fails, retry with backoff</li>
-  <li>Job status tracking: pending/running/succeeded/failed</li>
-  <li>10M+ scheduled jobs, 100K jobs/sec at peak</li>
+</div>
+</div>
+<div class="design-step fr">
+  <div class="ds-header"><span class="ds-ico">&#128221;</span>2. Functional requirements</div>
+  <div class="ds-body"><ul>
+  <li><strong>One-shot jobs:</strong> run this at 14:30 tomorrow.</li>
+  <li><strong>Recurring jobs:</strong> a cron expression, evaluated forward to the next run.</li>
+  <li><strong>Each job names a handler</strong> &mdash; a URL to call or a function to invoke &mdash;
+  and a payload.</li>
+  <li><strong>At-least-once execution</strong>, with duplicates handled by idempotency or fencing.</li>
+  <li><strong>Retries with backoff</strong>, bounded, ending in a dead-letter state rather than
+  looping forever.</li>
+  <li><strong>Status and history:</strong> pending, running, succeeded, failed, and what happened
+  last time.</li>
+  <li><strong>Pause, resume, delete</strong> &mdash; the operational controls, which get forgotten
+  and are the first thing anyone reaches for at 3am.</li>
 </ul>
-<p><strong>Non-Functional:</strong></p>
-<ul>
-  <li>Job fires within 1 second of scheduled time</li>
-  <li>No duplicate execution (critical)</li>
-  <li>Retry on failure (configurable: max retries, backoff)</li>
-  <li>HA: 99.99% -- scheduler failure must not cause missed jobs</li>
-</ul></div>
-</div><div class="design-step est">
-  <div class="ds-header"><span class="ds-ico">&#128202;</span>2. Capacity Estimation</div>
-  <div class="ds-body"><div class="assume">
-  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
-  <div class="as-row"><div class="as-a">10M scheduled jobs, 100K fires/sec at peak</div><div class="as-b">If peak were 1M/sec the single-database claim loop breaks and the scheduler must shard by time bucket.</div></div><div class="as-row"><div class="as-a">Jobs fire within 1 second of schedule</div><div class="as-b">Relaxing to a minute allows a far simpler polling design with much lower database pressure.</div></div><div class="as-row"><div class="as-a">Handlers are idempotent</div><div class="as-b">Otherwise at-least-once delivery is unsafe and a deduplication store joins the execution path.</div></div>
-</div>
-<p><strong>Assumptions:</strong> 10M scheduled jobs, 100K job fires/sec at peak, average payload 2 KB.</p><div class="ng"><div class="ng-cell"><div class="ng-val">10M</div><div class="ng-desc">scheduled jobs</div></div><div class="ng-cell"><div class="ng-val">100K/s</div><div class="ng-desc">peak fires</div></div><div class="ng-cell"><div class="ng-val">~35K/s</div><div class="ng-desc">claim queries at batch 3</div></div><div class="ng-cell"><div class="ng-val">~20 GB</div><div class="ng-desc">job rows</div></div><div class="ng-cell"><div class="ng-val">200 MB/s</div><div class="ng-desc">payload throughput</div></div><div class="ng-cell"><div class="ng-val">&lt;1 s</div><div class="ng-desc">fire precision</div></div></div><p><strong>The number that shapes the design:</strong> at 100K fires/sec, a naive one-row-per-claim poll would be 100K transactions/sec against a single table &mdash; well past what one primary sustains. Workers therefore claim in <strong>batches</strong> and hold a lease, which cuts claim traffic by the batch factor and is why <code>SKIP LOCKED</code> matters: it lets N workers claim disjoint batches without blocking each other.</p></div>
-</div>
-<div class="design-step api">
-  <div class="ds-header"><span class="ds-ico">&#128268;</span>3. API Design</div>
-  <div class="ds-body"><div class="api-code"><span class="kw">POST</span>   /v1/jobs
-  Body:     { name, cron_expr | run_at, handler_url, payload,
-              max_retries, idempotency_key }
-  Response: 201 { job_id, next_run_at }
-  <span class="cm">// idempotency_key makes job creation safe to retry</span>
 
-<span class="kw">GET</span>    /v1/jobs/{id}      -&gt; { state, next_run_at, last_run, retry_count }
-<span class="kw">PATCH</span>  /v1/jobs/{id}      Body: { paused: true }
-<span class="kw">DELETE</span> /v1/jobs/{id}      -&gt; 204 (idempotent)
-<span class="kw">GET</span>    /v1/jobs/{id}/runs -&gt; execution history with fencing tokens
+<p>Worth scoping out loud: <strong>job dependencies are not in this.</strong> &ldquo;Run B after A
+succeeds&rdquo; is a workflow engine, which is a different system with a different data model &mdash;
+a DAG rather than a schedule. Conflating the two is a common way to end up designing neither well.</p></div>
+</div>
+<div class="design-step nfr">
+  <div class="ds-header"><span class="ds-ico">&#9201;</span>3. Non-functional requirements</div>
+  <div class="ds-body"><div class="tw"><table class="to">
+<thead><tr><th style="width:26%">Requirement</th><th style="width:22%">Target</th><th style="width:52%">What it forces</th></tr></thead>
+<tbody>
+<tr><td><strong>Firing precision</strong></td><td class="chosen">Within 1 s</td><td>The expensive one. Second-level precision means constantly polling for work that is due; minute-level would allow a much lazier design.</td></tr>
+<tr><td><strong>Throughput</strong></td><td>100K fires/sec peak</td><td>Peak, not average &mdash; and the peak is concentrated. Far more jobs are scheduled for the top of the hour than for 14:37.</td></tr>
+<tr><td><strong>Duplicate execution</strong></td><td>Rare, and harmless</td><td>Stated honestly. Not &ldquo;never&rdquo; &mdash; rare, and absorbed by idempotent handlers or fencing.</td></tr>
+<tr><td><strong>Lost execution</strong></td><td>Never</td><td>This is the one that must actually hold. A missed billing run is a real incident; a duplicated idempotent one is not.</td></tr>
+<tr><td><strong>Availability</strong></td><td>99.99%</td><td>And critically: an outage must not <em>lose</em> fires, only delay them. Time keeps passing while you are down.</td></tr>
+</tbody></table></div>
 
-<span class="cm">// Worker-facing, not public:</span>
-<span class="kw">POST</span>   /internal/claim    Body: { worker_id, lease_ms, batch }
-  Response: { jobs:[{ job_id, payload, fencing_token, lease_expires }] }
-<span class="kw">POST</span>   /internal/heartbeat  <span class="cm">// extends the lease mid-run</span></div></div>
+<h4>The peak is not uniform, and that matters</h4>
+
+<p>Humans write cron expressions, and humans like round numbers. An enormous share of scheduled jobs
+fire at <code>0 * * * *</code> &mdash; the top of every hour &mdash; and a smaller spike at midnight.</p>
+
+<p>So the 100K/sec peak is not spread across the minute; it arrives in a burst in the first second of
+the hour. Two consequences: the claim path must handle a thundering herd, and it is worth
+<strong>jittering</strong> the stored next-run time by a few seconds for jobs that do not care, which
+flattens the spike at essentially zero cost.</p></div>
 </div>
 <div class="design-step schema">
-  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="cm">-- Jobs table (PostgreSQL -- ACID needed for scheduling locks)</span>
+  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Data model and API</div>
+  <div class="ds-body"><p>One table does most of the work, and one column on it is the entire scheduling
+algorithm.</p>
+<div class="schema-code"><span class="cm">-- Jobs table (PostgreSQL -- ACID needed for scheduling locks)</span>
 <span class="kw">TABLE</span> jobs {
   job_id         <span class="ty">UUID</span>          <span class="pk">PRIMARY KEY</span>,
   name           <span class="ty">VARCHAR(255)</span>,
@@ -9140,11 +9426,125 @@ one that is merely correct.</p>
   lock_expires   <span class="ty">TIMESTAMP</span>      <span class="cm">-- fencing: lock expires if worker crashes</span>
 }
 <span class="cm">-- INDEX: (next_run_at, status) WHERE status = 'pending'</span>
-<span class="cm">-- This index allows efficient polling: 'give me pending jobs due now'</span></div></div>
-</div><div class="design-step arch">
-  <div class="ds-header"><span class="ds-ico">&#127959;</span>5. High-Level Architecture</div>
-  <div class="ds-body">
-<div class="anim" id="anim-jobs">
+<span class="cm">-- This index allows efficient polling: 'give me pending jobs due now'</span></div>
+<p>The important column is <strong><code>next_run_at</code></strong>, with an index on it. Finding
+work to do is then a single query: <em>rows where <code>next_run_at &lt;= now</code> and status is
+pending</em>. That is an index range scan over a tiny slice of a large table.</p>
+
+<p>Everything else follows. When a recurring job finishes, you evaluate its cron expression forward
+and write the next <code>next_run_at</code>. The schedule is not a separate structure; it is a column
+and an index.</p>
+
+<p>The <strong>lease</strong> columns &mdash; who holds it, until when, and the fencing token &mdash;
+are what make claiming safe. The token is a counter that increments on every claim of that job, so a
+later claim always has a strictly higher number than an earlier one. That ordering is the whole
+mechanism.</p>
+
+<h4>The claim query, which is the heart of it</h4>
+
+<div class="schema-code"><span class="kw">BEGIN</span>;
+  <span class="kw">SELECT</span> job_id, payload <span class="kw">FROM</span> jobs
+   <span class="kw">WHERE</span> next_run_at &lt;= now() <span class="kw">AND</span> status = <span class="ty">'pending'</span>
+   <span class="kw">ORDER BY</span> next_run_at
+   <span class="kw">LIMIT</span> 50
+   <span class="kw">FOR UPDATE SKIP LOCKED</span>;          <span class="cm">-- the load-bearing clause</span>
+
+  <span class="kw">UPDATE</span> jobs <span class="kw">SET</span> status = <span class="ty">'running'</span>,
+      lease_owner = :worker, lease_expires = now() + <span class="ty">'30s'</span>,
+      fence = fence + 1
+   <span class="kw">WHERE</span> job_id <span class="kw">IN</span> (...);
+<span class="kw">COMMIT</span>;</div>
+
+<p><code>SKIP LOCKED</code> is the difference between this working and not working. Without it, fifty
+workers issuing that query all try to lock the same fifty oldest rows; forty-nine of them block,
+waiting for the first to commit, and your throughput is one worker's worth no matter how many you
+add.</p>
+
+<p>With it, each worker takes rows nobody else has locked and moves on. Fifty workers claim fifty
+disjoint batches with no contention at all. It is one clause, and it converts a serialised queue into
+a parallel one.</p>
+
+<h4>The API</h4>
+<div class="api-code"><span class="kw">POST</span>   /v1/jobs
+  Body:     { name, cron_expr | run_at, handler_url, payload,
+              max_retries, idempotency_key }
+  Response: 201 { job_id, next_run_at }
+  <span class="cm">// idempotency_key makes job creation safe to retry</span>
+
+<span class="kw">GET</span>    /v1/jobs/{id}      -&gt; { state, next_run_at, last_run, retry_count }
+<span class="kw">PATCH</span>  /v1/jobs/{id}      Body: { paused: true }
+<span class="kw">DELETE</span> /v1/jobs/{id}      -&gt; 204 (idempotent)
+<span class="kw">GET</span>    /v1/jobs/{id}/runs -&gt; execution history with fencing tokens
+
+<span class="cm">// Worker-facing, not public:</span>
+<span class="kw">POST</span>   /internal/claim    Body: { worker_id, lease_ms, batch }
+  Response: { jobs:[{ job_id, payload, fencing_token, lease_expires }] }
+<span class="kw">POST</span>   /internal/heartbeat  <span class="cm">// extends the lease mid-run</span></div></div>
+</div>
+<div class="design-step est">
+  <div class="ds-header"><span class="ds-ico">&#128202;</span>5. Capacity estimation</div>
+  <div class="ds-body"><p>The numbers, and the one that shapes the claim path.</p>
+<div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">10M scheduled jobs, 100K fires/sec at peak</div><div class="as-b">If peak were 1M/sec the single-database claim loop breaks and the scheduler must shard by time bucket.</div></div><div class="as-row"><div class="as-a">Jobs fire within 1 second of schedule</div><div class="as-b">Relaxing to a minute allows a far simpler polling design with much lower database pressure.</div></div><div class="as-row"><div class="as-a">Handlers are idempotent</div><div class="as-b">Otherwise at-least-once delivery is unsafe and a deduplication store joins the execution path.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">10M</div><div class="ng-desc">scheduled jobs</div></div><div class="ng-cell"><div class="ng-val">100K/s</div><div class="ng-desc">peak fires</div></div><div class="ng-cell"><div class="ng-val">~35K/s</div><div class="ng-desc">claim queries at batch 3</div></div><div class="ng-cell"><div class="ng-val">~20 GB</div><div class="ng-desc">job rows</div></div><div class="ng-cell"><div class="ng-val">200 MB/s</div><div class="ng-desc">payload throughput</div></div><div class="ng-cell"><div class="ng-val">&lt;1 s</div><div class="ng-desc">fire precision</div></div></div>
+<p>At 100K fires per second, claiming one row per query would mean 100,000 transactions per second
+against one table &mdash; comfortably past what a single primary sustains, and all of it contending
+on the same hot index range.</p>
+
+<p>Batching is what rescues it. A worker claiming 50 jobs per query turns 100K claims/sec into
+<strong>2,000 queries/sec</strong>, which one Postgres primary handles without noticing. The batch
+size is a genuine trade: larger batches mean fewer queries but a bigger blast radius when a worker
+dies mid-batch, since all 50 of those jobs wait for the lease to expire.</p>
+
+<p>The data itself is small. Ten million job rows at a couple of kilobytes each is around 20 GB
+&mdash; it fits in memory on a normal machine. <strong>This is not a storage problem, it is a
+contention problem</strong>, and saying which one it is tells the interviewer you sized it rather
+than guessed.</p></div>
+</div>
+<div class="design-step tradeoff">
+  <div class="ds-header"><span class="ds-ico">&#9878;</span>6. The key trade-offs</div>
+  <div class="ds-body"><p>The choices, and their bills.</p>
+<div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Job claim</strong></td><td class='chosen'>SELECT FOR UPDATE SKIP LOCKED</td><td class='rej'>Distributed lock (Redis)</td><td>DB-level locking eliminates network round-trip to external lock service. SKIP LOCKED allows concurrent schedulers without contention. Simpler -- no lock service dependency.</td></tr><tr><td><strong>Exactly-once</strong></td><td class='chosen'>DB lock + idempotent handler contract</td><td class='rej'>Transactions</td><td>Full exactly-once requires handler to be idempotent (we guarantee at-most-once delivery; handler must handle retries). Telling customers: 'your handler may run twice on failure -- make it idempotent' is standard practice.</td></tr><tr><td><strong>Delivery</strong></td><td class='chosen'>Pull (DB poll every 1s)</td><td class='rej'>Push (DB triggers)</td><td>DB triggers couple scheduler to DB internals. Poll is simple, predictable, scalable. 1-second poll granularity acceptable for most cron use cases. Sub-second scheduling needs a different architecture.</td></tr></tbody></table></div>
+<h4>Push or pull</h4>
+
+<p><strong>Push:</strong> the scheduler tracks which workers exist and dispatches jobs to them. It
+gives tight control over placement, and it means the scheduler must now do health checking, load
+tracking, and retry-on-worker-death. It has become a cluster manager.</p>
+
+<p><strong>Pull:</strong> workers ask for work when they have capacity. The scheduler stops caring
+how many workers exist or whether any of them are healthy. A worker that dies simply stops asking,
+and its lease expires.</p>
+
+<p>Pull wins here, and the reason is worth generalising: <strong>it makes worker failure a non-event
+rather than something to detect.</strong> There is no health check to get wrong, because not asking
+for work is itself the signal. It also load-balances for free, since a busy worker naturally polls
+less often.</p>
+
+<h4>Catch-up or skip after an outage</h4>
+
+<p>The scheduler is down for twenty minutes. Forty thousand fires were missed. What happens when it
+comes back?</p>
+
+<p>&ldquo;Catch up&rdquo; sounds obviously right and is dangerous: a system that just recovered
+immediately gets its worst-ever burst of load, which is a very good way to knock it straight back
+over. And for many jobs the catch-up is meaningless &mdash; running twenty missed copies of
+&ldquo;refresh the cache&rdquo; is nineteen wasted runs.</p>
+
+<p>The answer is per-job policy, defaulted sensibly:</p>
+
+<ul>
+  <li><strong>Skip</strong> for idempotent refresh-style jobs. Run the current one, drop the backlog.
+  This is the right default.</li>
+  <li><strong>Catch up, rate-limited</strong> for jobs where each occurrence matters &mdash; a
+  billing run per customer per day. Replay them, but drip-fed so recovery does not become a second
+  outage.</li>
+</ul></div>
+</div>
+<div class="design-step arch">
+  <div class="ds-header"><span class="ds-ico">&#127959;</span>7. High-level design</div>
+  <div class="ds-body"><div class="anim" id="anim-jobs">
   <div class="an-head">
     <div class="an-title">Lease-based claim &mdash; and the paused worker that wakes up believing it still owns the job</div>
     <div class="an-btns">
@@ -9180,62 +9580,156 @@ one that is merely correct.</p>
   <div class="an-cap ok-only"><strong>What is moving:</strong> workers claim batches with <code>SELECT &hellip; FOR UPDATE SKIP LOCKED</code> so they never block each other, each claim carries a <strong>monotonically increasing fencing token</strong>, and the worker heartbeats to extend its lease while it runs.</div>
   <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> worker 1 hits a long GC pause. Its lease expires, the scheduler hands the job to worker 2 with a higher token, and then worker 1 <em>wakes up</em> still believing it holds the lease &mdash; it cannot tell that time passed. Without fencing both would execute. The handler rejects <strong>token 41 because it has already seen 42</strong>, which makes the stale actor harmless rather than trying to prevent it. <span class="srcref">Ch 6</span></div>
 </div>
-<div class="dc-diagram"><svg width="680" height="200" viewBox="0 0 680 200" xmlns="http://www.w3.org/2000/svg">
-  <defs><marker id="js1" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
-  <rect x="10" y="70" width="120" height="60" rx="8" fill="#1a237e"/>
-  <text x="70" y="96" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">Scheduler</text>
-  <text x="70" y="112" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">(leader-elected)</text>
-  <text x="70" y="124" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">polls DB every sec</text>
-  <line x1="130" y1="100" x2="158" y2="100" stroke="#636e72" stroke-width="1.5" marker-end="url(#js1)"/>
-  <rect x="160" y="60" width="130" height="80" rx="8" fill="#00b894"/>
-  <text x="225" y="88" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">PostgreSQL</text>
-  <text x="225" y="104" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="rgba(255,255,255,.8)">SELECT ... FOR UPDATE</text>
-  <text x="225" y="117" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="rgba(255,255,255,.8)">SKIP LOCKED</text>
-  <text x="225" y="130" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="rgba(255,255,255,.8)">(atomic claim)</text>
-  <line x1="290" y1="100" x2="318" y2="100" stroke="#636e72" stroke-width="1.5" marker-end="url(#js1)"/>
-  <rect x="320" y="60" width="80" height="80" rx="8" fill="#f39c12"/>
-  <text x="360" y="96" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="600" fill="white">Kafka</text>
-  <text x="360" y="112" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="rgba(255,255,255,.8)">job_ready</text>
-  <line x1="400" y1="100" x2="428" y2="100" stroke="#636e72" stroke-width="1.5" marker-end="url(#js1)"/>
-  <rect x="430" y="40" width="100" height="50" rx="7" fill="#5c6bc0"/>
-  <text x="480" y="63" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" font-weight="600" fill="white">Worker Pool</text>
-  <text x="480" y="78" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">(calls handler_url)</text>
-  <rect x="430" y="115" width="100" height="50" rx="7" fill="#5c6bc0"/>
-  <text x="480" y="138" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" font-weight="600" fill="white">Worker Pool</text>
-  <line x1="400" y1="95" x2="428" y2="65" stroke="#636e72" stroke-width="1.2" marker-end="url(#js1)"/>
-  <line x1="400" y1="105" x2="428" y2="140" stroke="#636e72" stroke-width="1.2" marker-end="url(#js1)"/>
-  <rect x="560" y="70" width="110" height="60" rx="7" fill="#e17055"/>
-  <text x="615" y="96" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" font-weight="600" fill="white">Handler Service</text>
-  <text x="615" y="112" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">(customer code)</text>
-  <line x1="530" y1="65" x2="558" y2="90" stroke="#636e72" stroke-width="1.2" marker-end="url(#js1)"/>
-  <line x1="530" y1="140" x2="558" y2="115" stroke="#636e72" stroke-width="1.2" marker-end="url(#js1)"/>
-  <text x="340" y="175" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#636e72">Key: SELECT FOR UPDATE SKIP LOCKED = atomic job claim, multiple schedulers safe, no double execution</text>
-  <text x="340" y="193" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#636e72">Fencing token (lock_expires): if worker crashes, lock expires, job re-scheduled</text>
-</svg><div class="dc-caption">Scheduler polls DB with SELECT FOR UPDATE SKIP LOCKED -- atomic claim prevents double execution. Workers execute via Kafka.</div></div></div>
-</div><div class="design-step deep">
-  <div class="ds-header"><span class="ds-ico">&#128269;</span>6. Component Deep Dives</div>
-  <div class="ds-body"><p><strong>The Double Execution Problem -- Most Critical:</strong> Two scheduler instances both see a job due at T=1000. Both try to execute it. The job runs twice. For a payment job, this double-charges the customer.</p>
-<p><strong>Solution: SELECT FOR UPDATE SKIP LOCKED</strong><br>
-<code>SELECT * FROM jobs WHERE next_run_at &lt;= NOW() AND status='pending' LIMIT 100 FOR UPDATE SKIP LOCKED</code><br>
-This SQL atomically locks selected rows. A second scheduler running the same query will SKIP the already-locked rows and get different jobs. Completely prevents double-execution at the DB level. No application-level coordination needed.</p>
-<p><strong>Fencing against worker crashes:</strong> After claiming a job, set lock_expires = NOW() + 5 min. Worker must heartbeat every minute. If worker crashes, lock_expires passes -> background sweeper resets status to 'pending' -> job gets re-scheduled. Lock_expires is a fencing token: the crashed worker cannot complete the job after recovery (its lock has expired).</p>
-<p><strong>Scheduler high availability:</strong> Multiple scheduler instances. Only one is active (leader election via etcd/ZooKeeper/DB advisory lock). Follower schedulers are on hot standby. Leader failure -> follower takes over in &lt;30s. With SELECT FOR UPDATE, even if two schedulers are briefly both active, no double execution.</p></div>
-</div><div class="design-step tradeoff">
-  <div class="ds-header"><span class="ds-ico">&#9878;</span>7. Trade-off Analysis</div>
-  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Job claim</strong></td><td class='chosen'>SELECT FOR UPDATE SKIP LOCKED</td><td class='rej'>Distributed lock (Redis)</td><td>DB-level locking eliminates network round-trip to external lock service. SKIP LOCKED allows concurrent schedulers without contention. Simpler -- no lock service dependency.</td></tr><tr><td><strong>Exactly-once</strong></td><td class='chosen'>DB lock + idempotent handler contract</td><td class='rej'>Transactions</td><td>Full exactly-once requires handler to be idempotent (we guarantee at-most-once delivery; handler must handle retries). Telling customers: 'your handler may run twice on failure -- make it idempotent' is standard practice.</td></tr><tr><td><strong>Delivery</strong></td><td class='chosen'>Pull (DB poll every 1s)</td><td class='rej'>Push (DB triggers)</td><td>DB triggers couple scheduler to DB internals. Poll is simple, predictable, scalable. 1-second poll granularity acceptable for most cron use cases. Sub-second scheduling needs a different architecture.</td></tr></tbody></table></div></div>
-</div><div class="design-step fault">
-  <div class="ds-header"><span class="ds-ico">&#128737;</span>8. Fault Tolerance</div>
-  <div class="ds-body"><div class="ft-row"><div class="ft-fail">Scheduler leader crashes</div><div class="ft-fix">Follower detects via etcd lease expiry (~15s). Takes over leadership. Jobs due during those 15s: lock_expires hasn't passed, so they're safe. After 15s: new leader picks up pending jobs. Max 15-second delay.</div></div><div class="ft-row"><div class="ft-fail">Worker crashes mid-execution</div><div class="ft-fix">lock_expires passes -> sweeper resets job to pending -> re-executed. Handler MUST be idempotent (most are: send email with idempotency key, write to DB with upsert). Document this contract clearly.</div></div><div class="ft-row"><div class="ft-fail">DB (PostgreSQL) failure</div><div class="ft-fix">Primary fails -> replica promoted (RDS Multi-AZ: ~30s). Schedulers lose DB connection, buffer job picks in memory (Kafka), retry DB connection. No jobs lost. Some delayed by up to ~1 min.</div></div></div>
-</div><div class="design-step concl">
-  <div class="ds-header"><span class="ds-ico">&#127937;</span>9. Conclusion &mdash; what I would say in the last three minutes</div>
-  <div class="ds-body">
-  <div class="concl-grid">
+<p>Three parts, and the database is the coordination point.</p>
+<div class="flow">  <span class="fl-key">JOBS TABLE</span>   index on next_run_at
+
+     job_id  next_run_at  status   lease_expires  fence
+     ------  -----------  -------  -------------  -----
+     7       14:30:00     pending  -              4
+     8       14:30:00     running  14:30:31       12
+     9       15:00:00     pending  -              1
+
+
+  <span class="fl-key">WORKERS</span>  pull, they are never pushed to
+
+    worker-A  ---&gt; "give me 50 due jobs"  <span class="fl-note">SELECT ... FOR UPDATE SKIP LOCKED</span>
+    worker-B  ---&gt; "give me 50 due jobs"  <span class="fl-dim">gets a disjoint 50; no blocking</span>
+    worker-C  ---&gt; "give me 50 due jobs"
+
+         each claim: status=running, lease=+30s, <span class="fl-hi">fence += 1</span>
+
+
+  <span class="fl-key">RUNNING</span>
+
+    worker invokes the handler, carrying its <span class="fl-hi">fence token</span>
+      |
+      +-- heartbeat every 10s ---&gt; extends the lease
+      |
+      +-- success ---&gt; status=succeeded, next_run_at = cron.next()
+      |
+      +-- failure ---&gt; retry_count++, next_run_at = now + backoff
+      |
+      +-- <span class="fl-bad">silence</span> ---&gt; lease expires, the row becomes claimable again
+                       <span class="fl-note">the old worker may still be alive; its fence is now stale</span>
+
+
+  <span class="fl-key">REAPER</span>  one query, on a timer
+
+    UPDATE jobs SET status='pending'
+     WHERE status='running' AND lease_expires &lt; now()</div>
+<div class="flow-cap">There is no leader election and no membership list. The database is the only shared
+state, and a worker's liveness is expressed entirely by whether its lease is still fresh.</div></div>
+</div>
+<div class="design-step wflow">
+  <div class="ds-header"><span class="ds-ico">&#128260;</span>8. Workflows &mdash; what actually happens</div>
+  <div class="ds-body"><div class="wf">
+  <div class="wf-title">An hourly report job fires normally</div>
+  <div class="wf-sub">The path everything else is a deviation from.</div>
+  <ol>
+    <li>Job 7 sits with <code>next_run_at = 14:00:00</code>, status pending. Nothing is watching it; it is just a row.</li>
+    <li>At 14:00:00, worker A's claim query finds it in the due range and locks it along with 49 others.</li>
+    <li>In the same transaction: status becomes <b>running</b>, the lease is set 30 seconds out, and the fence token goes from 4 to <b>5</b>.</li>
+    <li>Worker A calls the handler URL, passing the payload and fence token 5. The handler takes 90 seconds.</li>
+    <li>Every 10 seconds A heartbeats, pushing the lease forward. The reaper never sees it as expired.</li>
+    <li>The handler returns 200. A evaluates the cron expression, writes <code>next_run_at = 15:00:00</code>, sets status back to pending, and clears the lease.</li>
+  </ol>
+  <div class="wf-out">The heartbeat is what makes long jobs possible without long leases. A 30-second lease with heartbeats recovers from a dead worker in 30 seconds; a 2-minute lease sized for the job's runtime would take 2 minutes.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">Worker A pauses for 40 seconds and job 7 runs twice</div>
+  <div class="wf-sub">The scenario from step 1, with the fence doing its job.</div>
+  <ol>
+    <li>Worker A is holding job 7 with fence 5. Its process stalls &mdash; a long GC pause. It stops heartbeating and, critically, <b>it does not know it has stopped</b>.</li>
+    <li>At 30 seconds the lease expires. The reaper flips job 7 back to pending.</li>
+    <li>Worker B claims it, gets fence <b>6</b>, and runs the handler. The report is written, tagged with fence 6.</li>
+    <li>Worker A wakes up. As far as it is concerned no time has passed. It finishes its work and tries to write the report with fence <b>5</b>.</li>
+    <li>The storage layer sees a write with a fence lower than the 6 it has already accepted and <b>rejects it</b>.</li>
+    <li>Worker A gets an error, sees the fence rejection, and abandons the job rather than retrying.</li>
+  </ol>
+  <div class="wf-out">The job genuinely ran twice &mdash; that part was never preventable. What was preventable was the stale run's <i>effect</i>, and a monotonically increasing token is the mechanism. Note the requirement this pushes downstream: the storage layer must check the fence. A design that mints tokens nobody validates has achieved nothing.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">Midnight: 400,000 jobs are due in the same second</div>
+  <div class="wf-sub">The thundering herd that cron expressions create.</div>
+  <ol>
+    <li>Everyone writes <code>0 0 * * *</code>. At 00:00:00 the due range suddenly contains 400,000 rows.</li>
+    <li>Every worker's next claim query hits the same hot slice of the index simultaneously.</li>
+    <li><code>SKIP LOCKED</code> keeps them from blocking each other &mdash; each takes a disjoint batch &mdash; but the database is still doing 8,000 claim queries per second against one index range.</li>
+    <li>Jobs execute for several minutes, so the tail of the backlog fires late. That violates the 1-second precision target for most of those 400,000.</li>
+    <li>The fix is upstream of all this: at creation time, <b>jitter</b> the first <code>next_run_at</code> by a random offset within a window, for jobs that declare they tolerate it.</li>
+    <li>The same 400,000 jobs now spread across 60 seconds. Peak claim rate drops by more than an order of magnitude and precision holds for nearly all of them.</li>
+  </ol>
+  <div class="wf-out">The cheapest fix for a synchronised load spike is almost always to desynchronise it. It costs nothing and it prevents the problem rather than absorbing it.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">The handler is slow and the retry storm begins</div>
+  <div class="wf-sub">Why backoff has to be capped and jittered.</div>
+  <ol>
+    <li>A downstream service starts returning 500s. Ten thousand jobs fail.</li>
+    <li>Each schedules a retry. With a fixed 1-minute delay, all ten thousand retry <b>at the same moment</b> &mdash; the failure synchronised them.</li>
+    <li>That burst hits the already-struggling service and keeps it down. The retries have become the outage.</li>
+    <li>With exponential backoff the delays spread out &mdash; 1, 2, 4, 8 minutes &mdash; but they are still synchronised, just at coarser intervals.</li>
+    <li>Adding <b>jitter</b> to each delay breaks the alignment. Retries arrive as a smooth trickle instead of waves.</li>
+    <li>After the configured maximum, the job stops retrying and moves to a dead-letter state with its error recorded. It waits for a human rather than looping forever.</li>
+  </ol>
+  <div class="wf-out">Retries without backoff turn one failure into a denial-of-service you performed on yourself. The dead-letter state matters just as much: an unbounded retry hides a broken job indefinitely, and a job that needs attention should be visible, not quietly spinning.</div>
+</div></div>
+</div>
+<div class="design-step deep">
+  <div class="ds-header"><span class="ds-ico">&#128269;</span>9. Deep dives, and what breaks</div>
+  <div class="ds-body"><h4>Cron evaluation, and the two bugs everyone ships</h4>
+
+<p>Computing the next fire time from an expression looks like a parsing exercise and has two traps
+that only appear in production.</p>
+
+<p><strong>Daylight saving.</strong> A job scheduled for 02:30 local time in a zone that springs
+forward has no 02:30 on that day &mdash; and in autumn it has two. You must decide what happens, and
+the only sane answer is to <em>store the timezone with the job</em>, compute in local time, and pick
+an explicit policy for the missing and doubled hours. Storing everything in UTC and converting is the
+tempting shortcut and it silently moves people's jobs by an hour twice a year.</p>
+
+<p><strong>Computing the next time from &ldquo;now&rdquo; rather than from the scheduled time.</strong>
+If a job was due at 14:00 and actually ran at 14:03, the next run must be 15:00, not 15:03. Otherwise
+the schedule drifts forward every cycle and an hourly job slowly becomes a job that runs whenever it
+feels like it.</p>
+
+<h4>Choosing the lease duration</h4>
+
+<p>It is a direct trade between recovery time and false reclaims, and there is no universally right
+answer.</p>
+
+<p>Short leases recover from dead workers quickly, but a worker that is merely slow gets its job
+stolen &mdash; producing exactly the duplicate you have been working to make rare. Long leases avoid
+false reclaims but mean a genuinely dead worker's jobs sit idle for the full duration.</p>
+
+<p>Heartbeats resolve most of the tension. Keep the lease short &mdash; tens of seconds &mdash; and
+have the worker extend it while it is alive. Then lease duration is about <em>detecting death</em>,
+not about <em>job runtime</em>, and the two stop being coupled. A job that runs for an hour still has
+a 30-second recovery window.</p>
+
+<h4>When one database stops being enough</h4>
+
+<p>The single-table design holds to a surprisingly high load, and you should say where it stops.</p>
+
+<p>The binding constraint is claim-query throughput against one primary. Past that, shard the jobs
+table &mdash; by time bucket or by a hash of the job id &mdash; and have each worker poll a subset of
+shards. The claim logic is unchanged; there are simply several independent copies of it.</p>
+
+<p>The thing worth resisting is reaching for that early. A sharded scheduler has rebalancing, hot
+shards and cross-shard visibility problems that the single-table version simply does not have.
+<strong>Name the threshold, and say you would cross it when measured, not when imagined.</strong></p>
+
+<h4>What breaks</h4>
+
+<div class="ft-row"><div class="ft-fail">Scheduler leader crashes</div><div class="ft-fix">Follower detects via etcd lease expiry (~15s). Takes over leadership. Jobs due during those 15s: lock_expires hasn't passed, so they're safe. After 15s: new leader picks up pending jobs. Max 15-second delay.</div></div><div class="ft-row"><div class="ft-fail">Worker crashes mid-execution</div><div class="ft-fix">lock_expires passes -> sweeper resets job to pending -> re-executed. Handler MUST be idempotent (most are: send email with idempotency key, write to DB with upsert). Document this contract clearly.</div></div><div class="ft-row"><div class="ft-fail">DB (PostgreSQL) failure</div><div class="ft-fix">Primary fails -> replica promoted (RDS Multi-AZ: ~30s). Schedulers lose DB connection, buffer job picks in memory (Kafka), retry DB connection. No jobs lost. Some delayed by up to ~1 min.</div></div><div class="concl-grid">
     <div class="cc"><div class="h">The dominant constraint</div><p><strong>Nobody can promise exactly-once execution across a network.</strong> So the design provides at-least-once delivery with fencing tokens, and requires handlers to be idempotent. Saying that plainly is the honest answer.</p></div>
     <div class="cc first"><div class="h">What I would build first</div><p>The leased-claim loop: SELECT FOR UPDATE SKIP LOCKED, a lease with a heartbeat, and a fencing token so a resurrected worker cannot act on stale authority.</p></div>
     <div class="cc"><div class="h">What I deliberately did not build</div><p>DAG dependencies between jobs. That is a workflow engine, and it is a different system worth scoping out explicitly.</p></div>
     <div class="cc risk"><div class="h">The biggest risk</div><p>The catch-up stampede. After an outage, every missed window fires at once against a system that is already unhealthy; the backlog needs rate limiting, not just replay.</p></div>
-  </div>
-  </div>
+  </div></div>
 </div>
 
 <div class="followup">
@@ -9258,51 +9752,190 @@ This SQL atomically locks selected rows. A second scheduler running the same que
     <div class="fu-a"><p>Because without it, workers block on each other. Ten workers all run &ldquo;select the next pending jobs and lock them&rdquo;, and nine of them wait behind the first transaction rather than getting on with other work.</p><p><code>SKIP LOCKED</code> tells the database to ignore rows another transaction has locked and move on. So each worker picks up a disjoint batch and nobody queues.</p><p>It turns what looks like a contention problem into parallel work, using a feature the database already has, which is much better than building a distributed queue on top of it.</p></div>
   </details>
 </div>
+  </div>
 </div>
-</div>
-<!-- PART 2: FULL SYSTEM DESIGNS -->
 
 <div class="design-card">
   <div class="dc-header">
     <h3 class="dc-title"><span id="design-kafka">Design a Distributed Message Queue</span> (Apache Kafka / Google Cloud PubSub)</h3>
     <div class="dc-meta">Difficulty: <strong>Hard (Staff Expectation)</strong> &nbsp;&bull;&nbsp; Target: <strong>45 min</strong></div>
   </div>
-  <div class="dc-body"><div class="asked">
+  <div class="dc-body">
+<div class="asked">
   <div class="ak-q"><span class="ak-l">&#128172; The question, as asked</span><p>&ldquo;Design a distributed message queue like Kafka. Producers publish, multiple independent consumer groups read, and nothing may be lost.&rdquo;</p></div>
   <div class="ak-h"><span class="ak-l">&#9889; What makes it hard</span><p><strong>Ordering and throughput are in direct tension.</strong> A global order means one partition and one machine&rsquo;s worth of throughput. Everything here follows from accepting per-partition ordering instead.</p></div>
 </div>
 <div class="design-step req">
-  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Requirements</div>
-  <div class="ds-body"><div class="clarify">
+  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Understanding the question</div>
+  <div class="ds-body"><p>The prompt: <em>&ldquo;Design a distributed message queue like Kafka. Producers
+publish, multiple independent consumer groups read, and nothing may be lost.&rdquo;</em></p>
+
+<p>Start by being precise about what &ldquo;queue&rdquo; means here, because the word covers two very
+different things and the design depends entirely on which one is meant.</p>
+
+<p>A <strong>traditional queue</strong> hands each message to one consumer and deletes it. Messages
+are removed as they are processed; the queue's job is to hold work until someone takes it.</p>
+
+<p>What is being asked for is a <strong>log</strong>. Messages are appended to a file and stay there
+for a retention period whether or not anyone read them. Each consumer group tracks its own position
+in that file &mdash; a number saying &ldquo;I have processed up to here&rdquo;. Reading does not
+consume; it advances a bookmark.</p>
+
+<div class="insight">
+  <div class="label">&#127919; Why the log model matters</div>
+  <p>Because the data stays, five teams can read the same stream independently and a sixth can join
+  next month and start from the beginning. And when a consumer ships a bug, the fix is to rewind its
+  bookmark and reprocess &mdash; the data is still there. In a delete-on-read queue it is gone.</p>
+</div>
+
+<h4>The tension the whole design is built around</h4>
+
+<p>Ordering and throughput pull in opposite directions, and you cannot have both at full strength.</p>
+
+<p>To guarantee that messages come out in the order they went in, they have to be written to one
+place, in one sequence, by one machine. One machine's throughput is your ceiling &mdash; and no
+amount of hardware moves it much.</p>
+
+<p>To scale past that you need many machines appending in parallel, and the moment you have that,
+there is no single order. Two messages written to two machines at the same instant have no defensible
+&ldquo;first&rdquo;.</p>
+
+<p>The resolution is to <strong>split the topic into partitions and guarantee order only within
+each</strong>. Messages that need ordering relative to each other &mdash; all events for one user,
+say &mdash; are routed to the same partition by a key. Everything else spreads out.</p>
+
+<p>This is the same move that appears throughout the guide: <strong>make the constraint local instead
+of coordinating.</strong> You do not need global order. You need order per user, per account, per
+conversation &mdash; and that fits in one partition.</p>
+
+<h4>What they are looking for</h4>
+
+<p><strong>Do you know why it is fast?</strong> The answer is not &ldquo;it is in memory&rdquo;
+&mdash; it is on disk. Sequential disk writes plus zero-copy reads, explained below.</p>
+
+<p><strong>Do you understand what a consumer group is for?</strong> It is the mechanism for both
+parallelism and independence, and most candidates can only explain one of the two.</p>
+
+<p><strong>Can you place &ldquo;nothing may be lost&rdquo; precisely?</strong> There is a specific
+setting that decides it, and a specific cost to turning it on.</p>
+<div class="clarify">
   <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
   <div class="cq-row"><div class="cq-q">Ordering: per partition, or global?</div><div class="cq-w">Global ordering means a single partition, which caps your throughput at one machine. Almost nobody actually needs it.</div></div><div class="cq-row"><div class="cq-q">At-least-once or exactly-once delivery?</div><div class="cq-w">Exactly-once needs idempotent producers plus transactions, and costs throughput. Most consumers are cheaper to make idempotent.</div></div><div class="cq-row"><div class="cq-q">Retention: how long, and is replay required?</div><div class="cq-w">Replay turns the queue into a <strong>durable log</strong> and changes storage sizing by orders of magnitude.</div></div><div class="cq-row"><div class="cq-q">How many consumer groups, and what lag is tolerable?</div><div class="cq-w">Decides fan-out cost and whether slow consumers can be isolated from fast ones.</div></div><div class="cq-row"><div class="cq-q">What is the maximum message size?</div><div class="cq-w">Large payloads need a claim-check pattern &mdash; put the blob in object storage and send the pointer.</div></div>
   <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
 </div>
-<p><strong>Functional Requirements:</strong></p>
-<ul>
-  <li>Producers publish messages to named topics with optional partition keys.</li>
-  <li>Consumers subscribe to topics as part of Consumer Groups and consume sequentially.</li>
-  <li>Strict FIFO ordering within a single partition; total order across partitions is non-goal.</li>
-  <li>Configurable message retention (time-based e.g., 7 days, or size-based) independent of consumption status.</li>
-  <li>High throughput and low latency pub/sub delivery with replayability.</li>
-</ul>
-<p><strong>Non-Functional Requirements:</strong></p>
-<ul>
-  <li><strong>Throughput:</strong> 1,000,000 messages/sec write, 5,000,000 messages/sec read (fan-out 5x).</li>
-  <li><strong>Latency:</strong> Produce p99 &lt; 10ms, End-to-end consume latency &lt; 50ms.</li>
-  <li><strong>Durability:</strong> Zero data loss (RPO = 0) with multi-replica sync replication.</li>
-  <li><strong>High Availability:</strong> 99.99% uptime (SLA), automatic partition leader failover &lt; 5s.</li>
-</ul></div>
-</div><div class="design-step est">
-  <div class="ds-header"><span class="ds-ico">&#128202;</span>2. Capacity Estimation</div>
-  <div class="ds-body"><div class="assume">
-  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
-  <div class="as-row"><div class="as-a">Per-partition ordering is sufficient</div><div class="as-b">Global ordering means one partition and caps throughput at a single machine.</div></div><div class="as-row"><div class="as-a">Consumers can be made idempotent</div><div class="as-b">Otherwise exactly-once semantics are required, which costs meaningful throughput.</div></div><div class="as-row"><div class="as-a">Retention is measured in days, not years</div><div class="as-b">Long retention turns this into a storage design and changes the cost model entirely.</div></div>
 </div>
-<div class="ng"><div class="ng-cell"><div class="ng-val">1M msgs/sec</div><div class="ng-desc">Peak produce rate (~1 KB avg message payload)</div></div><div class="ng-cell"><div class="ng-val">1 GB/sec</div><div class="ng-desc">Network ingress bandwidth into broker cluster</div></div><div class="ng-cell"><div class="ng-val">5 GB/sec</div><div class="ng-desc">Network egress bandwidth (5x fan-out consumption)</div></div><div class="ng-cell"><div class="ng-val">86.4 TB/day</div><div class="ng-desc">Daily raw storage without replication</div></div><div class="ng-cell"><div class="ng-val">605 TB / 7 days</div><div class="ng-desc">Cluster retention with 3x replication factor</div></div><div class="ng-cell"><div class="ng-val">100 brokers</div><div class="ng-desc">Broker nodes assuming 10 Gbps NIC and NVMe storage</div></div></div></div>
-</div><div class="design-step api">
-  <div class="ds-header"><span class="ds-ico">&#128268;</span>3. API Design</div>
-  <div class="ds-body"><div class="api-code"><span class="cm">// 1. Produce Message (gRPC / TCP Streaming)</span>
+</div>
+<div class="design-step fr">
+  <div class="ds-header"><span class="ds-ico">&#128221;</span>2. Functional requirements</div>
+  <div class="ds-body"><ul>
+  <li><strong>Publish to a named topic</strong>, optionally with a key that decides the partition.</li>
+  <li><strong>Subscribe as part of a consumer group.</strong> Each partition goes to exactly one
+  member of the group, so the group's members share the work without overlapping.</li>
+  <li><strong>Strict ordering within a partition.</strong> Across partitions, explicitly not
+  guaranteed &mdash; and that is a feature, not a gap.</li>
+  <li><strong>Retention by time or size</strong>, independent of whether anyone consumed.</li>
+  <li><strong>Replay.</strong> A consumer can reset its position and reprocess from any point still
+  retained.</li>
+  <li><strong>Fan-out to independent groups.</strong> Five groups reading the same topic each get
+  every message and keep their own position.</li>
+</ul>
+
+<h4>What a consumer group actually does</h4>
+
+<p>It is worth spelling out, because it is the piece most often misdescribed.</p>
+
+<p>A topic with 12 partitions and a group of 4 consumers gives each consumer 3 partitions. Add two
+more consumers and the group rebalances to 2 each. Add more consumers than partitions and the extras
+sit idle &mdash; <strong>partition count is the hard ceiling on a group's parallelism</strong>, which
+is why it is chosen up front and painful to change.</p>
+
+<p>Meanwhile a second group reading the same topic gets its own complete copy of the assignment and
+its own offsets. The billing team and the analytics team read the same events, at different speeds,
+without knowing about each other.</p></div>
+</div>
+<div class="design-step nfr">
+  <div class="ds-header"><span class="ds-ico">&#9201;</span>3. Non-functional requirements</div>
+  <div class="ds-body"><div class="tw"><table class="to">
+<thead><tr><th style="width:26%">Requirement</th><th style="width:22%">Target</th><th style="width:52%">What it forces</th></tr></thead>
+<tbody>
+<tr><td><strong>Write throughput</strong></td><td class="chosen">1M msg/sec</td><td>About 1 GB/s of ingress. This is what rules out any design that does a random disk write or a synchronous fsync per message.</td></tr>
+<tr><td><strong>Read throughput</strong></td><td>5M msg/sec</td><td>Five consumer groups reading everything. Egress is 5&times; ingress, which is why the read path gets its own optimisation.</td></tr>
+<tr><td><strong>Produce latency</strong></td><td>p99 &lt; 10 ms</td><td>With acks from all in-sync replicas. The floor is the slowest replica's round trip.</td></tr>
+<tr><td><strong>Durability</strong></td><td>No acknowledged loss</td><td>The requirement with the clearest price tag. See below.</td></tr>
+<tr><td><strong>Leader failover</strong></td><td>&lt; 5 s</td><td>A partition without a leader accepts nothing. Detection plus election is the entire write outage for that partition.</td></tr>
+<tr><td><strong>Retention</strong></td><td>7 days</td><td>Sets the storage bill and bounds how far back a consumer can rewind.</td></tr>
+</tbody></table></div>
+
+<h4>&ldquo;Nothing may be lost&rdquo;, made specific</h4>
+
+<p>That phrase resolves to one producer setting, and knowing it is a strong signal.</p>
+
+<ul>
+  <li><strong>acks=0</strong> &mdash; fire and forget. Fastest, and a broker restart loses whatever
+  was in flight.</li>
+  <li><strong>acks=1</strong> &mdash; the leader has it. Feels safe and is not: if the leader dies
+  before the followers replicate, the message is gone and the producer was told it succeeded.</li>
+  <li><strong>acks=all</strong> &mdash; every in-sync replica has it. This is the one that satisfies
+  the requirement.</li>
+</ul>
+
+<p>The cost of <code>acks=all</code> is that produce latency becomes the slowest replica's latency, so
+one struggling follower slows every producer. Which is why the in-sync replica set is dynamic: a
+replica that falls too far behind is <em>removed</em> from the set, so it stops holding up
+acknowledgements. That in turn creates the failure mode discussed below, where the set shrinks to one
+and <code>acks=all</code> quietly stops meaning what you think it means.</p></div>
+</div>
+<div class="design-step schema">
+  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Data model and API</div>
+  <div class="ds-body"><p>There is no schema in the database sense. The storage format <em>is</em> the design,
+and it is a file.</p>
+<div class="schema-code"><span class="cm">-- Log Segment File Structure on Broker Disk</span>
+<span class="cm">-- File: /data/kafka/topics/{topic_name}-{partition_id}/{base_offset}.log</span>
+<span class="cm">-- Append-Only Binary Record Format:</span>
+[Offset: 8B][Size: 4B][CRC: 4B][Magic: 1B][Attributes: 1B][Timestamp: 8B]
+[Key_Length: 4B][Key_Bytes][Value_Length: 4B][Payload_Bytes]
+
+<span class="cm">-- Sparse Memory-Mapped Index: {base_offset}.index</span>
+<span class="cm">-- Every 4KB of log data, append entry (Relative Offset: 4B, Physical Byte Position: 4B)</span>
+[Rel_Offset: 0    -> Pos: 0]
+[Rel_Offset: 120  -> Pos: 4096]
+[Rel_Offset: 245  -> Pos: 8192]
+
+<span class="cm">-- Consumer Offset Tracking (__consumer_offsets internal compacted topic)</span>
+<span class="kw">KEY:</span>   (consumer_group_id, topic, partition_id)
+<span class="kw">VALUE:</span> (offset: int64, commit_timestamp: int64, metadata: string)</div>
+<p>Each partition is a directory of segment files. Writes append to the newest file and nothing else
+is ever modified. When a segment reaches a size or age limit it is closed and a new one starts;
+retention deletes whole closed segments rather than individual records.</p>
+
+<p>That choice &mdash; <strong>append-only, delete by whole file</strong> &mdash; is what makes the
+storage layer boring. There is no compaction of live data, no fragmentation, no rewriting. Expiring a
+day of data is an <code>unlink</code>.</p>
+
+<h4>Why this is faster than it sounds</h4>
+
+<p>&ldquo;It writes to disk&rdquo; sounds slow and is not, for two specific reasons that are worth
+naming precisely.</p>
+
+<p><strong>Sequential writes are not random writes.</strong> The cost people associate with disk is
+seek time. An append has no seek: the head is already there. Sequential throughput on modern storage
+is in the hundreds of megabytes to gigabytes per second, comparable to network bandwidth. The broker
+does not fight the disk, it uses it the one way it is fast.</p>
+
+<p><strong>The reads come from page cache.</strong> Consumers are usually near the tail, reading data
+written seconds ago &mdash; which is still in the operating system's page cache. So the common read
+never touches a physical disk at all, and the broker gets a large cache for free without managing
+one.</p>
+
+<p><strong>And the bytes are not copied.</strong> Normally sending a file over a socket copies it from
+page cache into the application, then into a socket buffer. <code>sendfile</code> tells the kernel to
+move it directly from page cache to the network card. The data never enters the broker's address
+space. At 5 GB/s of egress that is the difference between a fleet and a few machines &mdash; and it
+is only possible because the broker <em>does not need to look at the messages</em>. It ships opaque
+bytes. Any feature requiring the broker to inspect payloads would destroy this.</p>
+
+<h4>The API</h4>
+<div class="api-code"><span class="cm">// 1. Produce Message (gRPC / TCP Streaming)</span>
 <span class="kw">rpc</span> <span class="fn">Produce</span>(ProduceRequest) <span class="kw">returns</span> (ProduceResponse);
 <span class="kw">message</span> ProduceRequest {
   <span class="ty">string</span> topic = 1;
@@ -9332,28 +9965,75 @@ This SQL atomically locks selected rows. A second scheduler running the same que
   <span class="ty">string</span> topic = 2;
   <span class="ty">int32</span> partition = 3;
   <span class="ty">int64</span> committed_offset = 4;
-}</div></div>
-</div><div class="design-step schema">
-  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="cm">-- Log Segment File Structure on Broker Disk</span>
-<span class="cm">-- File: /data/kafka/topics/{topic_name}-{partition_id}/{base_offset}.log</span>
-<span class="cm">-- Append-Only Binary Record Format:</span>
-[Offset: 8B][Size: 4B][CRC: 4B][Magic: 1B][Attributes: 1B][Timestamp: 8B]
-[Key_Length: 4B][Key_Bytes][Value_Length: 4B][Payload_Bytes]
+}</div>
+<p>Note <code>max_wait_ms</code> on fetch: consumers long-poll. Rather than asking repeatedly and
+getting &ldquo;nothing yet&rdquo;, the request parks at the broker until data arrives or the timeout
+expires. Low latency when there is data, no busy-polling when there is not.</p></div>
+</div>
+<div class="design-step est">
+  <div class="ds-header"><span class="ds-ico">&#128202;</span>5. Capacity estimation</div>
+  <div class="ds-body"><p>The numbers that size the cluster.</p>
+<div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">Per-partition ordering is sufficient</div><div class="as-b">Global ordering means one partition and caps throughput at a single machine.</div></div><div class="as-row"><div class="as-a">Consumers can be made idempotent</div><div class="as-b">Otherwise exactly-once semantics are required, which costs meaningful throughput.</div></div><div class="as-row"><div class="as-a">Retention is measured in days, not years</div><div class="as-b">Long retention turns this into a storage design and changes the cost model entirely.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">1M msgs/sec</div><div class="ng-desc">Peak produce rate (~1 KB avg message payload)</div></div><div class="ng-cell"><div class="ng-val">1 GB/sec</div><div class="ng-desc">Network ingress bandwidth into broker cluster</div></div><div class="ng-cell"><div class="ng-val">5 GB/sec</div><div class="ng-desc">Network egress bandwidth (5x fan-out consumption)</div></div><div class="ng-cell"><div class="ng-val">86.4 TB/day</div><div class="ng-desc">Daily raw storage without replication</div></div><div class="ng-cell"><div class="ng-val">605 TB / 7 days</div><div class="ng-desc">Cluster retention with 3x replication factor</div></div><div class="ng-cell"><div class="ng-val">100 brokers</div><div class="ng-desc">Broker nodes assuming 10 Gbps NIC and NVMe storage</div></div></div>
+<p>A million 1 KB messages per second is 1 GB/s in. With three replicas, every message is written
+three times, so the cluster absorbs <strong>3 GB/s of writes</strong>. Five consumer groups reading
+everything is 5 GB/s out, plus replication traffic between brokers.</p>
 
-<span class="cm">-- Sparse Memory-Mapped Index: {base_offset}.index</span>
-<span class="cm">-- Every 4KB of log data, append entry (Relative Offset: 4B, Physical Byte Position: 4B)</span>
-[Rel_Offset: 0    -> Pos: 0]
-[Rel_Offset: 120  -> Pos: 4096]
-[Rel_Offset: 245  -> Pos: 8192]
+<p>On a 10 Gbps NIC &mdash; about 1.25 GB/s &mdash; the network, not the disk and not the CPU, is what
+you run out of first. That is the sizing conclusion: <strong>this is a network-bound system</strong>,
+and it is why brokers get fast NICs and why cross-rack replication placement is a real cost rather
+than a diagram detail.</p>
 
-<span class="cm">-- Consumer Offset Tracking (__consumer_offsets internal compacted topic)</span>
-<span class="kw">KEY:</span>   (consumer_group_id, topic, partition_id)
-<span class="kw">VALUE:</span> (offset: int64, commit_timestamp: int64, metadata: string)</div></div>
-</div><div class="design-step arch">
-  <div class="ds-header"><span class="ds-ico">&#127959;</span>5. High-Level Architecture</div>
-  <div class="ds-body">
-<div class="anim" id="anim-kafka">
+<p>Storage is the easy half: 86 TB a day raw, times three for replication, times seven days of
+retention lands in the high hundreds of terabytes. Spread across a hundred brokers that is a few
+terabytes each, which is unremarkable.</p></div>
+</div>
+<div class="design-step tradeoff">
+  <div class="ds-header"><span class="ds-ico">&#9878;</span>6. The key trade-offs</div>
+  <div class="ds-body"><p>The choices, and their costs.</p>
+<div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &check;</th><th>Alternative &cross;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Storage Engine</strong></td><td class='chosen'>Append-Only Segmented Log</td><td class='rej'>B-Tree / Embedded DB (RocksDB)</td><td>Log gives O(1) disk writes, sequential reads, and instant zero-copy transfer. B-Trees incur random writes, write amplification, and complex locking.</td></tr><tr><td><strong>Replication Consensus</strong></td><td class='chosen'>ISR with Quorum Controller (KRaft)</td><td class='rej'>Paxos / Raft per partition</td><td>ISR allows dynamic quorum based on live replica speed, achieving maximum write throughput. KRaft manages cluster metadata with a single Raft quorum instead of ZooKeeper.</td></tr><tr><td><strong>Consumption Model</strong></td><td class='chosen'>Pull (Long-Polling by Consumers)</td><td class='rej'>Push (Broker pushes to clients)</td><td>Pull lets consumers pace themselves according to their processing capacity (eliminating consumer overload) and simplifies batch fetching and replay.</td></tr></tbody></table></div>
+<h4>Choosing the partition count</h4>
+
+<p>This is the decision with the longest shadow, because it is set at topic creation and every option
+for changing it later is unpleasant.</p>
+
+<p><strong>Too few</strong> and you have capped consumer parallelism &mdash; adding consumers past
+the partition count does nothing, and you cannot process faster no matter how much hardware you buy.</p>
+
+<p><strong>Too many</strong> and every broker holds thousands of open files, leader elections during
+a failover take much longer because there are more partitions to reassign, and each partition's
+batching gets worse because the same traffic is split more ways.</p>
+
+<p>Increasing it later is possible but breaks the one guarantee people depend on: keys are mapped to
+partitions by <code>hash(key) % partition_count</code>, so changing the count re-maps existing keys.
+A user whose events all went to partition 3 starts going to partition 7, and their old and new events
+are now in two partitions with no ordering between them. <strong>Ordering breaks retroactively, at
+the moment you scale.</strong></p>
+
+<p>Which is why the practical advice is to over-provision partitions modestly at creation time. It is
+a rare case where guessing high is genuinely cheaper than being right later.</p>
+
+<h4>Where the offset gets committed</h4>
+
+<p>A small choice that decides your delivery semantics entirely.</p>
+
+<p><strong>Commit before processing</strong> and you get at-most-once: if the consumer dies mid-work,
+the offset already moved and the message is never reprocessed. Lost.</p>
+
+<p><strong>Commit after processing</strong> and you get at-least-once: if the consumer dies after
+doing the work but before committing, the message is redelivered and processed twice.</p>
+
+<p>Almost everyone picks the second and makes the processing idempotent, for the same reason as
+everywhere else in this guide: <strong>a duplicate is an inconvenience, a loss is a bug.</strong>
+The honest framing is that the queue cannot give you exactly-once on its own &mdash; it can give you
+at-least-once delivery, and exactly-once <em>effects</em> are something you build at the consumer.</p></div>
+</div>
+<div class="design-step arch">
+  <div class="ds-header"><span class="ds-ico">&#127959;</span>7. High-level design</div>
+  <div class="ds-body"><div class="anim" id="anim-kafka">
   <div class="an-head">
     <div class="an-title">Replication and leader election &mdash; why only the in-sync set may be elected</div>
     <div class="an-btns">
@@ -9394,71 +10074,152 @@ This SQL atomically locks selected rows. A second scheduler running the same que
   <div class="an-cap ok-only"><strong>What is moving:</strong> a record is appended to the partition leader, replicated to the followers, and acknowledged to the producer only once every replica in the <em>in-sync set</em> has written it. The lagging replica is deliberately excluded from that set &mdash; it is allowed to fall behind without slowing anybody down.</div>
   <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> the leader dies. Election must choose <strong>only from the in-sync set</strong>, because those replicas provably hold every acknowledged record. Electing the lagging replica &mdash; which some systems will do to stay available, called unclean election &mdash; means records the producer was told were durable simply vanish. That is the availability-versus-durability choice from <span class="srcref">Ch 3</span>, made concrete in one config flag.</div>
 </div>
-<div class="dc-diagram"><svg width="680" height="220" viewBox="0 0 680 220" xmlns="http://www.w3.org/2000/svg">
-  <defs><marker id="arr" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
-  
-  <rect x="10" y="75" width="110" height="70" rx="8" fill="#1a237e"/>
-  <text x="65" y="105" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" font-weight="700" fill="white">Producers</text>
-  <text x="65" y="125" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Batch + Compress</text>
+<p>Topics, partitions, replicas, groups.</p>
+<div class="flow">  <span class="fl-key">TOPIC</span> "orders"  &mdash; 4 partitions, replication factor 3
 
-  <line x1="120" y1="110" x2="168" y2="110" stroke="#636e72" stroke-width="2" marker-end="url(#arr)"/>
+  producer --&gt; <span class="fl-note">partition = hash(key) % 4</span>
+               all events for user-42 land on the same partition, always
 
-  <rect x="170" y="20" width="340" height="180" rx="10" fill="#f8f9fa" stroke="#b2bec3" stroke-width="1.5" stroke-dasharray="4"/>
-  <text x="340" y="42" text-anchor="middle" font-family="Inter,sans-serif" font-size="12" font-weight="700" fill="#2d3436">Kafka Broker Cluster (KRaft / Raft Quorum)</text>
+     P0  [ 0 ][ 1 ][ 2 ][ 3 ][ 4 ]...      <span class="fl-hi">leader: broker A</span>   followers: B, C
+     P1  [ 0 ][ 1 ][ 2 ]...                <span class="fl-hi">leader: broker B</span>   followers: C, D
+     P2  [ 0 ][ 1 ][ 2 ][ 3 ]...           <span class="fl-hi">leader: broker C</span>   followers: D, A
+     P3  [ 0 ][ 1 ]...                     <span class="fl-hi">leader: broker D</span>   followers: A, B
 
-  <rect x="190" y="60" width="140" height="60" rx="6" fill="#0984e3"/>
-  <text x="260" y="86" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">Broker 1 (Leader P0)</text>
-  <text x="260" y="104" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Sequential WAL + OS PageCache</text>
+     <span class="fl-dim">append-only. offsets never change. nothing is deleted on read.</span>
 
-  <rect x="350" y="60" width="140" height="60" rx="6" fill="#6c5ce7"/>
-  <text x="420" y="86" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">Broker 2 (Follower P0)</text>
-  <text x="420" y="104" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">In-Sync Replica (ISR)</text>
 
-  <rect x="230" y="135" width="220" height="50" rx="6" fill="#00b894"/>
-  <text x="340" y="158" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">Zero-Copy (sendfile syscall)</text>
-  <text x="340" y="174" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">PageCache direct to Network NIC Buffer</text>
+  <span class="fl-key">WRITE</span>  acks=all
 
-  <line x1="510" y1="110" x2="558" y2="110" stroke="#636e72" stroke-width="2" marker-end="url(#arr)"/>
+    producer --&gt; P0 leader --&gt; followers replicate
+                      |
+                      +-- all in-sync replicas have it --&gt; <span class="fl-hi">ack</span>
+                          <span class="fl-note">latency = the slowest in-sync replica</span>
 
-  <rect x="560" y="75" width="110" height="70" rx="8" fill="#e17055"/>
-  <text x="615" y="105" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" font-weight="700" fill="white">Consumers</text>
-  <text x="615" y="125" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">Consumer Groups</text>
-</svg><div class="dc-caption">Zero-copy pagecache pipeline: writes bypass JVM heap into OS pagecache; reads stream directly from pagecache to NIC using sendfile()</div></div></div>
-</div><div class="design-step deep">
-  <div class="ds-header"><span class="ds-ico">&#128269;</span>6. Component Deep Dives</div>
-  <div class="ds-body"><p><strong>1. Why Kafka is blistering fast (The 4 Pillars of Performance):</strong></p>
-<ul>
-  <li><strong>Sequential I/O over Random Access:</strong> Disks (both HDD and NVMe) provide orders of magnitude higher throughput for sequential append operations vs random seeks. Kafka only appends to the active segment file.</li>
-  <li><strong>PageCache Utilization:</strong> Kafka delegates caching to the Linux OS PageCache rather than maintaining an in-memory cache in the JVM heap. This avoids GC pauses, simplifies broker restarts (PageCache survives JVM restarts), and eliminates memory duplication.</li>
-  <li><strong>Zero-Copy Data Transfer (sendfile):</strong> In standard architectures, reading from disk to network requires 4 context switches and 3 data copies (Disk -> OS PageCache -> JVM Heap -> Socket Buffer -> NIC Buffer). Kafka uses <code>sendfile()</code> syscall, transferring data directly from PageCache to NIC buffer (0 CPU copies, 2 context switches).</li>
-  <li><strong>End-to-End Batching & Compression:</strong> Producers batch messages by partition and compress them (Zstandard/Snappy). Brokers store compressed batches untouched, and consumers decompress them. Network and disk bandwidth are reduced by 4x-10x.</li>
-</ul>
-<p><strong>2. In-Sync Replicas (ISR) and High Watermark (HW):</strong></p>
-<p>Each partition has 1 Leader and N Follower replicas. Followers continuously fetch messages from the leader. If a follower falls behind by more than <code>replica.lag.time.max.ms</code> (default 30s), it is dropped from the ISR. The <strong>High Watermark (HW)</strong> is the highest offset replicated to ALL nodes in the ISR. Consumers can ONLY read messages up to the HW. With <code>acks=all</code> and <code>min.insync.replicas=2</code>, no message is lost if a leader crashes.</p>
-<p><strong>3. Idempotent & Transactional Exactly-Once Semantics (EOS):</strong></p>
-<p>Each producer is assigned a 64-bit <code>ProducerId (PID)</code> by the broker coordinator. For every partition, the producer tracks a monotonically increasing <code>SequenceNumber</code>. The broker rejects any duplicate sequence number. For multi-partition atomic writes (Read-Process-Write cycle), a Two-Phase Commit Transaction Coordinator maintains a <code>__transaction_state</code> log and writes COMMIT/ABORT markers into topic partitions.</p></div>
-</div><div class="design-step tradeoff">
-  <div class="ds-header"><span class="ds-ico">&#9878;</span>7. Trade-off Analysis</div>
-  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen &check;</th><th>Alternative &cross;</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Storage Engine</strong></td><td class='chosen'>Append-Only Segmented Log</td><td class='rej'>B-Tree / Embedded DB (RocksDB)</td><td>Log gives O(1) disk writes, sequential reads, and instant zero-copy transfer. B-Trees incur random writes, write amplification, and complex locking.</td></tr><tr><td><strong>Replication Consensus</strong></td><td class='chosen'>ISR with Quorum Controller (KRaft)</td><td class='rej'>Paxos / Raft per partition</td><td>ISR allows dynamic quorum based on live replica speed, achieving maximum write throughput. KRaft manages cluster metadata with a single Raft quorum instead of ZooKeeper.</td></tr><tr><td><strong>Consumption Model</strong></td><td class='chosen'>Pull (Long-Polling by Consumers)</td><td class='rej'>Push (Broker pushes to clients)</td><td>Pull lets consumers pace themselves according to their processing capacity (eliminating consumer overload) and simplifies batch fetching and replay.</td></tr></tbody></table></div></div>
-</div><div class="design-step fault">
-  <div class="ds-header"><span class="ds-ico">&#128737;</span>8. Fault Tolerance</div>
-  <div class="ds-body"><div class="ft-row"><div class="ft-fail">Leader Broker Crashes</div><div class="ft-fix">KRaft controller detects heartbeat failure in <3s. Elects new leader from the ISR pool. No committed data is lost because ISR nodes are byte-for-byte in sync up to HW.</div></div><div class="ft-row"><div class="ft-fail">Slow / Stalled Follower</div><div class="ft-fix">Controller evicts the lagging node from ISR so it does not block produce requests when acks=all. Once caught up, it rejoins the ISR.</div></div><div class="ft-row"><div class="ft-fail">Consumer Crashes during processing</div><div class="ft-fix">Consumer group coordinator detects missed heartbeat (session.timeout.ms). Triggers Consumer Group Rebalance, reassigning crashed consumer's partitions to remaining workers from last committed offset.</div></div><div class="ft-row"><div class="ft-fail">Split Brain in Controller Quorum</div><div class="ft-fix">KRaft uses Raft majority quorum (e.g. 3 of 5 nodes). A network partition cannot elect an illegitimate leader in the minority partition.</div></div></div>
-</div><div class="vidref">
-  <div class="label">&#9654; Watch alongside this design</div>
-  <ul>
-    <li><a href="https://www.youtube.com/watch?v=iJLL-KPqBpM" target="_blank" rel="noopener">System Design Interview &mdash; Distributed Message Queue</a> <span class="vr-meta">~55 min</span> &mdash; the closest match to this design anywhere on YouTube. Watch it after reading, and note where his choices differ from these.</li>
-  </ul>
+
+  <span class="fl-key">READ</span>  two independent groups, same data
+
+    group "billing"    consumer-1: P0 P1     offsets: P0=1050 P1=880
+                       consumer-2: P2 P3
+    group "analytics"  consumer-1: P0 P1 P2 P3   offsets: P0=40  <span class="fl-bad">&larr; days behind, fine</span>
+
+    <span class="fl-dim">each group has its own offsets. a slow group slows nobody else.</span>
+
+
+  <span class="fl-key">RETENTION</span>
+
+    segments older than 7 days are <span class="fl-bad">deleted whole</span>  <span class="fl-note">unlink, not compaction</span>
+    a consumer that falls further behind than retention <span class="fl-bad">loses data</span></div>
+<div class="flow-cap">The last line is the one people miss: retention is a deadline, not a buffer. A
+consumer group lagging by more than the retention window is silently skipping messages.</div></div>
 </div>
-<div class="design-step concl">
-  <div class="ds-header"><span class="ds-ico">&#127937;</span>9. Conclusion &mdash; what I would say in the last three minutes</div>
-  <div class="ds-body">
-  <div class="concl-grid">
+<div class="design-step wflow">
+  <div class="ds-header"><span class="ds-ico">&#128260;</span>8. Workflows &mdash; what actually happens</div>
+  <div class="ds-body"><div class="wf">
+  <div class="wf-title">An order event is published and two teams read it</div>
+  <div class="wf-sub">The path that shows why the log model is worth the complexity.</div>
+  <ol>
+    <li>The checkout service publishes <code>{order: 9981, user: 42}</code> with key <b>user-42</b>. The client hashes the key, gets partition <b>P1</b>, and sends it to P1's leader, broker B.</li>
+    <li>B appends it to the open segment file. That is a sequential write &mdash; no seek, no index update, no random I/O. The offset assigned is <b>1,204</b>.</li>
+    <li>Followers C and D pull the record and append it to their own copies. Once both have it, B acknowledges the producer. Elapsed: single-digit milliseconds.</li>
+    <li>The <b>billing</b> group's consumer for P1 is at offset 1,203. Its long-poll fetch returns immediately with the new record. It charges the card, then commits offset 1,204.</li>
+    <li>The <b>analytics</b> group is 400,000 records behind because it batches into a warehouse hourly. It will reach 1,204 later. Nobody cares, and billing is unaffected.</li>
+    <li>Seven days later the segment containing offset 1,204 is deleted. Both groups are long past it.</li>
+  </ol>
+  <div class="wf-out">One write, two independent readers, no coordination between them and no copy of the data per consumer. That is what the delete-on-read queue cannot do.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">Broker B dies holding two partition leaderships</div>
+  <div class="wf-sub">Failover, and the write outage it costs.</div>
+  <ol>
+    <li>B stops heartbeating to the controller. Detection takes a few seconds &mdash; you cannot make this instant without false positives on every GC pause.</li>
+    <li>During that window, produces to P1 <b>fail</b>. There is no leader to accept them. Producers retry, which is why producer retries are not optional.</li>
+    <li>The controller picks a new leader for P1 from the <b>in-sync replicas only</b> &mdash; C or D, both of which had every acknowledged message.</li>
+    <li>C becomes leader. Metadata propagates, producers refresh and resume. Total write outage for P1: a few seconds.</li>
+    <li>Consumers assigned to P1 reconnect to C and continue from their committed offsets. They lose nothing, because C has everything that was acknowledged.</li>
+    <li>B returns later as a follower, catches up from C, and rejoins the in-sync set once it is current.</li>
+  </ol>
+  <div class="wf-out">Electing only from in-sync replicas is what makes the <code>acks=all</code> promise hold through failover. Allowing an out-of-sync replica to take over &mdash; an unclean election &mdash; restores availability faster and loses acknowledged messages. That switch exists, and turning it on means the durability requirement no longer holds.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">A consumer group falls behind and starts losing data</div>
+  <div class="wf-sub">The quietest failure in the whole system.</div>
+  <ol>
+    <li>The analytics group's processing slows &mdash; a downstream database is struggling. Lag grows from minutes to hours.</li>
+    <li>Nothing is broken. Producers are fine, brokers are fine, the other groups are fine. The only symptom is a lag number nobody has an alert on.</li>
+    <li>At six days of lag, the group is reading from segments that are one day from deletion.</li>
+    <li>Retention runs and deletes the segment the consumer was about to read. Its next fetch asks for an offset that <b>no longer exists</b>.</li>
+    <li>Depending on configuration it either errors or silently jumps to the oldest available offset &mdash; and that second option means <b>messages were skipped and nothing reported it</b>.</li>
+    <li>Recovery means reprocessing from the source, if a source still exists. The queue cannot help; the data is gone.</li>
+  </ol>
+  <div class="wf-out">Consumer lag deserves an alert with a threshold well below the retention window &mdash; a quarter of it is a reasonable starting point. It is the metric that tells you a consumer is dying hours before it dies.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">A new consumer joins and the group pauses</div>
+  <div class="wf-sub">Rebalancing, which is correct and disruptive.</div>
+  <ol>
+    <li>The billing group has 2 consumers across 4 partitions, 2 each. Traffic rises and a third consumer starts.</li>
+    <li>The group coordinator notices the membership change and triggers a rebalance.</li>
+    <li>Under the basic protocol, <b>all consumers stop and give up their partitions</b> &mdash; the stop-the-world step. Consumption halts across the entire group for as long as the rebalance takes.</li>
+    <li>Partitions are reassigned: 2, 1, 1. Each consumer resumes from the committed offset of its new partitions.</li>
+    <li>Any work done but not committed before the pause is redone. This is the at-least-once path showing up again.</li>
+    <li>A consumer that merely restarts &mdash; a deploy &mdash; triggers the same thing, which is why a rolling deploy of 10 consumers can cause 10 rebalances.</li>
+  </ol>
+  <div class="wf-out">The mitigations are worth naming: a session timeout long enough to ride out a quick restart, and incremental rebalancing that moves only the partitions that must move rather than revoking everything. Rebalance frequency is a real operational metric on busy clusters.</div>
+</div></div>
+</div>
+<div class="design-step deep">
+  <div class="ds-header"><span class="ds-ico">&#128269;</span>9. Deep dives, and what breaks</div>
+  <div class="ds-body"><h4>The in-sync replica set, and how <code>acks=all</code> quietly weakens</h4>
+
+<p>This is the subtlest failure mode in the design and a genuinely good thing to raise unprompted.</p>
+
+<p><code>acks=all</code> means &ldquo;all replicas in the in-sync set&rdquo; &mdash; and that set
+shrinks under stress. A follower that falls behind is removed so it stops delaying acknowledgements.
+Sensible in isolation.</p>
+
+<p>Now suppose both followers are struggling. Both get removed. The in-sync set is <em>just the
+leader</em>, and <code>acks=all</code> now means <code>acks=1</code>. The producer is still passing
+the same flag and still getting acknowledgements, and the durability it believes it has is gone.</p>
+
+<p>The guard is a minimum in-sync replica count: if the set drops below it, <strong>refuse
+writes</strong>. That converts a silent durability loss into a loud availability loss, which is
+almost always the right conversion &mdash; an error a producer can retry is far better than a lie it
+cannot detect.</p>
+
+<h4>Batching, which is where the throughput actually comes from</h4>
+
+<p>Sending a million individual 1 KB messages per second means a million network round trips and a
+million appends. Nothing survives that.</p>
+
+<p>So producers accumulate messages briefly &mdash; a few milliseconds or up to a batch size &mdash;
+and send them as one request. The broker appends the whole batch as a single write. Compression is
+applied per batch, and batches of similar records compress far better than records individually.</p>
+
+<p>The trade is plain: a larger batch window means better throughput and more latency, because a
+message may wait for its batch to fill. It is a slider between the two, and it is the main knob
+anyone tunes.</p>
+
+<h4>Compacted topics</h4>
+
+<p>Worth mentioning as the variant that answers a different problem. Instead of deleting by age,
+compaction keeps <strong>the most recent value for each key</strong> and discards older ones.</p>
+
+<p>The topic then becomes a changelog you can replay to reconstruct current state. A new service
+reads from the beginning and ends up with the latest value for every key, however old. That is the
+mechanism behind stream-table duality and behind rebuilding a cache or a search index from a topic
+rather than from the source database.</p>
+
+<h4>What breaks</h4>
+
+<div class="ft-row"><div class="ft-fail">Leader Broker Crashes</div><div class="ft-fix">KRaft controller detects heartbeat failure in <3s. Elects new leader from the ISR pool. No committed data is lost because ISR nodes are byte-for-byte in sync up to HW.</div></div><div class="ft-row"><div class="ft-fail">Slow / Stalled Follower</div><div class="ft-fix">Controller evicts the lagging node from ISR so it does not block produce requests when acks=all. Once caught up, it rejoins the ISR.</div></div><div class="ft-row"><div class="ft-fail">Consumer Crashes during processing</div><div class="ft-fix">Consumer group coordinator detects missed heartbeat (session.timeout.ms). Triggers Consumer Group Rebalance, reassigning crashed consumer's partitions to remaining workers from last committed offset.</div></div><div class="ft-row"><div class="ft-fail">Split Brain in Controller Quorum</div><div class="ft-fix">KRaft uses Raft majority quorum (e.g. 3 of 5 nodes). A network partition cannot elect an illegitimate leader in the minority partition.</div></div><div class="concl-grid">
     <div class="cc"><div class="h">The dominant constraint</div><p><strong>Sequential disk I/O plus the page cache is faster than most people assume.</strong> The whole design leans on it: an append-only log, zero-copy sendfile to consumers, and no per-message random access anywhere.</p></div>
     <div class="cc first"><div class="h">What I would build first</div><p>The partitioned append-only log with an ISR replication protocol. Ordering is per partition, which is the trade that makes throughput scale linearly with partitions.</p></div>
     <div class="cc"><div class="h">What I deliberately did not build</div><p>Exactly-once semantics and global ordering. Both are available and both cost throughput; most consumers are cheaper to make idempotent.</p></div>
     <div class="cc risk"><div class="h">The biggest risk</div><p>Partition count. It is effectively permanent once keys are hashed to partitions, and under-provisioning it caps your throughput in a way you cannot fix without a migration.</p></div>
-  </div>
-  </div>
+  </div></div>
 </div>
 
 <div class="followup">
@@ -9481,7 +10242,7 @@ This SQL atomically locks selected rows. A second scheduler running the same que
     <div class="fu-a"><p>Latency on every write, in exchange for durability. With <code>acks=all</code> the producer waits for every in-sync replica to have the record, so a slow replica slows every producer.</p><p>With <code>acks=1</code> only the leader confirms, which is faster and means an acknowledged record can be lost if the leader dies before replicating &mdash; exactly the failure in the Ch 4 animation.</p><p>The right setting depends on what the topic carries. Payments take the latency. Click telemetry does not need to.</p></div>
   </details>
 </div>
-</div>
+  </div>
 </div>
 
 <div class="design-card">

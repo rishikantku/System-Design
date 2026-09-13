@@ -7980,44 +7980,138 @@ service on the read path, which is a real latency cost you should name rather th
     <h3 class="dc-title"><span id="design-kv">Design a Distributed Key-Value Store</span> (like Redis / Amazon Dynamo)</h3>
     <div class="dc-meta">Difficulty: <strong>Hard</strong> &nbsp;.&nbsp; Target: <strong>45 min</strong></div>
   </div>
-  <div class="dc-body"><div class="asked">
+  <div class="dc-body">
+<div class="asked">
   <div class="ak-q"><span class="ak-l">&#128172; The question, as asked</span><p>&ldquo;Design a distributed key-value store like Dynamo. It must stay available for writes even when nodes fail or the network partitions.&rdquo;</p></div>
   <div class="ak-h"><span class="ak-l">&#9889; What makes it hard</span><p>The requirement is <strong>availability during a partition</strong>, which forces you off strong consistency by definition. Everything then becomes: how do you detect that replicas have diverged, and who resolves it?</p></div>
 </div>
 <div class="design-step req">
-  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Requirements</div>
-  <div class="ds-body"><div class="clarify">
+  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Understanding the question</div>
+  <div class="ds-body"><p>The prompt: <em>&ldquo;Design a distributed key-value store like Dynamo. It must stay
+available for writes even when nodes fail or the network partitions.&rdquo;</em></p>
+
+<p>Read that second sentence slowly, because it has already decided the design.</p>
+
+<p>&ldquo;Available for writes during a partition&rdquo; is one half of a choice you are not allowed
+to have both halves of. If two groups of nodes cannot talk to each other and both keep accepting
+writes for the same key, they will end up holding different values. There is no clever engineering
+that avoids this. It is a theorem, not a limitation.</p>
+
+<div class="insight">
+  <div class="label">&#127919; What the question is really asking</div>
+  <p>The interviewer has chosen availability for you. So the design work is not <em>&ldquo;how do I
+  keep replicas identical&rdquo;</em> &mdash; you cannot. It is <em>&ldquo;how do I notice they
+  diverged, and who decides which value wins?&rdquo;</em></p>
+</div>
+
+<h4>A concrete version of the problem</h4>
+
+<p>Alice's shopping cart is stored under one key, replicated on three nodes. A network fault splits
+the cluster. Alice adds a book on her laptop; that write lands on node A. She adds a lamp on her
+phone; that write lands on node C, which cannot see A. Both writes succeed &mdash; that is what
+&ldquo;available&rdquo; means.</p>
+
+<p>The partition heals. Node A says the cart is <code>{book}</code>. Node C says it is
+<code>{lamp}</code>. Neither is wrong, neither is newer in any meaningful sense, and if you pick one
+by wall-clock timestamp you have just silently deleted something a customer put in their cart.</p>
+
+<p>Everything in this design &mdash; version vectors, read repair, Merkle trees, sibling values
+&mdash; exists to handle that moment well.</p>
+
+<h4>What they are looking for</h4>
+
+<p><strong>Do you know you have been pushed off strong consistency?</strong> Candidates who
+sketch a quorum system and then describe reads as always returning the latest write have not
+noticed.</p>
+
+<p><strong>Do you have an answer for conflicts beyond &ldquo;last write wins&rdquo;?</strong>
+LWW is a legitimate choice, but only if you say what it costs.</p>
+
+<p><strong>Do you handle the cold data?</strong> Read repair only fixes keys somebody reads.
+A key written once and read in a year will stay diverged unless something sweeps for it.</p>
+<div class="clarify">
   <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
   <div class="cq-row"><div class="cq-q">Strong or eventual consistency?</div><div class="cq-w">The single biggest fork in the design. Strong means consensus on the write path and cross-region latency; eventual means quorums and conflict resolution.</div></div><div class="cq-row"><div class="cq-q">Point lookups only, or range scans?</div><div class="cq-w">Decides <strong>hash versus range partitioning</strong>, and range partitioning brings hot-shard problems that hashing does not.</div></div><div class="cq-row"><div class="cq-q">What is the value size distribution?</div><div class="cq-w">Multi-megabyte values need a different storage path from 200-byte ones, and change the memory overhead arithmetic entirely.</div></div><div class="cq-row"><div class="cq-q">Single region or multi-region?</div><div class="cq-w">Determines whether an acknowledged write has to cross an ocean, which is a floor on write latency you cannot engineer away.</div></div><div class="cq-row"><div class="cq-q">What must be durable when we acknowledge?</div><div class="cq-w">fsync-before-ack versus page-cache-and-hope is a correctness decision, not a tuning knob.</div></div>
   <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
 </div>
-<p><strong>Build your own distributed KV store supporting:</strong></p>
-<ul>
-  <li>get(key) -> value | null</li>
-  <li>put(key, value) -> OK</li>
-  <li>delete(key) -> OK</li>
-  <li>Tunable consistency: W=1/2/3, R=1/2/3, N=3</li>
-  <li>Horizontal scaling: add nodes without downtime</li>
-  <li>Automatic failover: if a node dies, system keeps working</li>
-</ul>
-<p><strong>Non-Functional:</strong></p>
-<ul>
-  <li>10M QPS total cluster</li>
-  <li>p99 &lt; 1ms for get, &lt; 5ms for put</li>
-  <li>Data survives N/2 node failures</li>
-  <li>Eventual consistency by default (Dynamo model)</li>
-</ul></div>
-</div><div class="design-step est">
-  <div class="ds-header"><span class="ds-ico">&#128202;</span>2. Capacity Estimation</div>
-  <div class="ds-body"><div class="assume">
-  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
-  <div class="as-row"><div class="as-a">Callers tolerate eventual consistency</div><div class="as-b">If any caller needs linearizability, quorums are not enough and the write path needs consensus, roughly tripling write latency.</div></div><div class="as-row"><div class="as-a">Access is by key, no range scans</div><div class="as-b">Range queries would force range partitioning, which reintroduces hot shards that hashing avoids.</div></div><div class="as-row"><div class="as-a">Values are small, order of kilobytes</div><div class="as-b">Multi-megabyte values need a separate blob path; storing them inline destroys the memory model.</div></div>
 </div>
-<div class="ng"><div class="ng-cell"><div class="ng-val">10M</div><div class="ng-desc">cluster QPS</div></div><div class="ng-cell"><div class="ng-val">~1 KB</div><div class="ng-desc">avg value size</div></div><div class="ng-cell"><div class="ng-val">~10 GB/s</div><div class="ng-desc">read bandwidth</div></div><div class="ng-cell"><div class="ng-val">~100 TB</div><div class="ng-desc">data total</div></div><div class="ng-cell"><div class="ng-val">3</div><div class="ng-desc">replication factor</div></div><div class="ng-cell"><div class="ng-val">~33 nodes</div><div class="ng-desc">at 300K QPS/node</div></div></div>
-<p><strong>Storage per node:</strong> 100 TB / 33 nodes = ~3 TB/node (with RF=3). Use SSDs for low latency. Hot data in RAM (OS page cache + explicit memory pool).</p></div>
-</div><div class="design-step api">
-  <div class="ds-header"><span class="ds-ico">&#128268;</span>3. API Design</div>
-  <div class="ds-body"><div class="api-code"><span class="kw">GET</span>    /v1/keys/{key}?consistency=one|quorum
+</div>
+<div class="design-step fr">
+  <div class="ds-header"><span class="ds-ico">&#128221;</span>2. Functional requirements</div>
+  <div class="ds-body"><ul>
+  <li><strong>get(key)</strong> &rarr; value, or nothing.</li>
+  <li><strong>put(key, value)</strong> &rarr; acknowledged once enough replicas have it.</li>
+  <li><strong>delete(key)</strong> &rarr; and this is harder than it looks; see below.</li>
+  <li><strong>Tunable durability per call.</strong> The caller says how many replicas must confirm
+  before we acknowledge (<code>W</code>) and how many we consult on a read (<code>R</code>).</li>
+  <li><strong>Add and remove nodes without downtime.</strong> Capacity changes should move a
+  fraction of the data, not all of it.</li>
+  <li><strong>Survive node loss automatically.</strong> No operator in the failure path.</li>
+</ul>
+
+<p>Delete deserves a sentence. You cannot actually remove the row, because a replica that was
+offline during the delete still has the old value, and when it comes back it will happily hand that
+value to the next reader &mdash; the data resurrects. So a delete writes a <strong>tombstone</strong>:
+a marker that says &ldquo;this key is gone as of this version&rdquo;, which wins over the old value
+and is itself garbage-collected much later.</p></div>
+</div>
+<div class="design-step nfr">
+  <div class="ds-header"><span class="ds-ico">&#9201;</span>3. Non-functional requirements</div>
+  <div class="ds-body"><div class="tw"><table class="to">
+<thead><tr><th style="width:26%">Requirement</th><th style="width:20%">Target</th><th style="width:54%">Why it matters here</th></tr></thead>
+<tbody>
+<tr><td><strong>Write availability</strong></td><td class="chosen">Survives a partition</td><td>Stated in the question. This is the constraint everything else bends around.</td></tr>
+<tr><td><strong>Read latency</strong></td><td>p99 &lt; 1 ms</td><td>This sits behind other services. It has to be faster than the thing calling it, or people stop using it.</td></tr>
+<tr><td><strong>Write latency</strong></td><td>p99 &lt; 5 ms</td><td>Bounded by the slowest of the <code>W</code> replicas we wait on. Raising W raises this directly.</td></tr>
+<tr><td><strong>Throughput</strong></td><td>10M ops/sec</td><td>Cluster-wide. Divided by per-node capacity, this is what sets the node count.</td></tr>
+<tr><td><strong>Durability</strong></td><td>Survives N/2 losses</td><td>Three replicas, spread across failure domains. Three copies in one rack is one copy.</td></tr>
+<tr><td><strong>Consistency</strong></td><td>Eventual, by default</td><td>Callers that need more can raise R and W. Callers that need linearizability need a different system.</td></tr>
+</tbody></table></div>
+
+<h4>The R + W &gt; N rule, and what it actually promises</h4>
+
+<p>With three replicas, if every write waits for 2 of them and every read consults 2 of them, then
+any read set and any write set must share at least one node. That shared node has the latest value.
+So the read <em>sees</em> it &mdash; provided it knows to prefer it, which is what versions are
+for.</p>
+
+<p>It is a pigeonhole argument, not a consistency protocol, and the distinction matters. It says the
+new value is <em>present in what you fetched</em>. It does not say the replicas agree, it does not
+survive a sloppy quorum, and it says nothing about two writes that happened concurrently.</p></div>
+</div>
+<div class="design-step schema">
+  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Data model and API</div>
+  <div class="ds-body"><p>There are two very different kinds of state here: the data, and the map that says
+where data lives.</p>
+<div class="schema-code"><span class="cm">-- On each node (RocksDB or custom LSM-tree store)</span>
+<span class="kw">KEY</span>  -> { value: bytes, version: VectorClock | Timestamp, tombstone: bool }
+
+<span class="cm">-- Metadata (gossip-distributed to all nodes)</span>
+<span class="kw">RING</span>  ->  sorted([(hash_position, node_id, address)])
+<span class="kw">NODE_STATUS</span>  ->  { node_id: { status, last_heartbeat, token_count } }
+
+<span class="cm">-- Hint store (per node, for hinted handoff)</span>
+<span class="kw">HINTS</span>  ->  { target_node: [(key, value, timestamp)] }</span></div>
+<p>The ring is the interesting one. Rather than a coordinator that assigns keys to nodes, every node
+holds the same small map of token positions, kept in sync by gossip. Any node can therefore route any
+request, and there is no lookup service to be a single point of failure.</p>
+
+<p>The <strong>version</strong> field on each value is what makes conflict detection possible. A
+plain timestamp gives you last-write-wins. A version vector &mdash; a small map of
+<code>node &rarr; counter</code> &mdash; lets you tell apart two genuinely different cases:</p>
+
+<ul>
+  <li><strong>One version descends from the other.</strong> Alice read the cart, added a book, wrote
+  it back. The new version knows about the old one. Keep the new one; this is not a conflict.</li>
+  <li><strong>Neither descends from the other.</strong> Alice's laptop and phone wrote without
+  seeing each other. This is a real conflict and something has to decide.</li>
+</ul>
+
+<p>A timestamp cannot distinguish those. That is the whole argument for version vectors, and also
+the whole cost: they are bigger, they need pruning, and the client has to carry one around.</p>
+
+<h4>The API</h4>
+<div class="api-code"><span class="kw">GET</span>    /v1/keys/{key}?consistency=one|quorum
   Response: 200 { value, version_vector, coordinator }
             <span class="num">404</span> not found
   <span class="cm">// may return SIBLINGS when concurrent writes diverged --</span>
@@ -8031,23 +8125,54 @@ service on the read path, which is a real latency cost you should name rather th
 <span class="kw">DELETE</span> /v1/keys/{key}   <span class="cm">// writes a TOMBSTONE, not a removal --</span>
                         <span class="cm">// deleting outright lets a stale replica resurrect it</span>
 
-<span class="cm">// Admin: GET /v1/ring -- the token map, polled by smart clients</span></div></div>
+<span class="cm">// Admin: GET /v1/ring -- the token map, polled by smart clients</span></div>
+<p>Two things there are not decoration. The <code>context</code> on a write is the version the
+client last read &mdash; it is how the server knows whether this write descends from what it has.
+And a read can return <strong>siblings</strong>: more than one value, because the store genuinely
+does not know which is right. Handing that to the caller feels like a cop-out and is in fact the
+honest answer, because only the caller knows that two carts should be merged by union.</p></div>
 </div>
-<div class="design-step schema">
-  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="cm">-- On each node (RocksDB or custom LSM-tree store)</span>
-<span class="kw">KEY</span>  -> { value: bytes, version: VectorClock | Timestamp, tombstone: bool }
+<div class="design-step est">
+  <div class="ds-header"><span class="ds-ico">&#128202;</span>5. Capacity estimation</div>
+  <div class="ds-body"><p>The arithmetic that sets the cluster size.</p>
+<div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">Callers tolerate eventual consistency</div><div class="as-b">If any caller needs linearizability, quorums are not enough and the write path needs consensus, roughly tripling write latency.</div></div><div class="as-row"><div class="as-a">Access is by key, no range scans</div><div class="as-b">Range queries would force range partitioning, which reintroduces hot shards that hashing avoids.</div></div><div class="as-row"><div class="as-a">Values are small, order of kilobytes</div><div class="as-b">Multi-megabyte values need a separate blob path; storing them inline destroys the memory model.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">10M</div><div class="ng-desc">cluster QPS</div></div><div class="ng-cell"><div class="ng-val">~1 KB</div><div class="ng-desc">avg value size</div></div><div class="ng-cell"><div class="ng-val">~10 GB/s</div><div class="ng-desc">read bandwidth</div></div><div class="ng-cell"><div class="ng-val">~100 TB</div><div class="ng-desc">data total</div></div><div class="ng-cell"><div class="ng-val">3</div><div class="ng-desc">replication factor</div></div><div class="ng-cell"><div class="ng-val">~33 nodes</div><div class="ng-desc">at 300K QPS/node</div></div></div>
+<p>Read the chain: 100 TB of data, times 3 for replication, is 300 TB to place. At roughly 3 TB per
+node that is about a hundred nodes on storage grounds. Ten million operations per second across
+those nodes is around 300K per node, which an SSD-backed store with a hot set in page cache can
+serve. The two numbers land in the same place, which is the sign of a balanced cluster.</p>
 
-<span class="cm">-- Metadata (gossip-distributed to all nodes)</span>
-<span class="kw">RING</span>  ->  sorted([(hash_position, node_id, address)])
-<span class="kw">NODE_STATUS</span>  ->  { node_id: { status, last_heartbeat, token_count } }
+<p>If they had not, that would itself be the finding: storage-bound means you buy disk and waste CPU;
+throughput-bound means you buy nodes and waste disk. Saying which one you are is worth more than the
+node count.</p></div>
+</div>
+<div class="design-step tradeoff">
+  <div class="ds-header"><span class="ds-ico">&#9878;</span>6. The key trade-offs</div>
+  <div class="ds-body"><p>The choices, and their bills.</p>
+<div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Consistency model</strong></td><td class='chosen'>Tunable quorum (R+W>N=strong, else eventual)</td><td class='rej'>Always strong</td><td>Tunable gives flexibility: low-latency apps use W=1,R=1; financial use W=3,R=2. One size doesn't fit all.</td></tr><tr><td><strong>Conflict resolution</strong></td><td class='chosen'>LWW (default) + vector clocks (opt-in)</td><td class='rej'>Reject conflicts (require re-read)</td><td>Rejecting conflicts kills availability. LWW is simple. Vector clocks enable app-level merge for complex data types.</td></tr><tr><td><strong>Partitioning</strong></td><td class='chosen'>Consistent hashing + vnodes</td><td class='rej'>Range partitioning</td><td>Consistent hashing: smooth rebalancing. Vnodes: even distribution. Range: good for scans but creates hot partitions for sequential writes.</td></tr></tbody></table></div>
+<h4>The one worth dwelling on: how conflicts get resolved</h4>
 
-<span class="cm">-- Hint store (per node, for hinted handoff)</span>
-<span class="kw">HINTS</span>  ->  { target_node: [(key, value, timestamp)] }</span></div></div>
-</div><div class="design-step arch">
-  <div class="ds-header"><span class="ds-ico">&#127959;</span>5. High-Level Architecture</div>
-  <div class="ds-body">
-<div class="anim" id="anim-kv">
+<p><strong>Last-write-wins</strong> is one timestamp per value, trivial to implement, and silently
+loses data. When Alice's laptop and phone both wrote, LWW picks whichever had the later clock
+reading &mdash; and clocks on different machines disagree by milliseconds, so &ldquo;later&rdquo; may
+not mean later at all. The lamp vanishes and nobody gets an error. Cassandra ships this as its
+default and it is fine for values that are <em>replaced</em> rather than <em>edited</em>: a cached
+render, a session blob, a last-known-location.</p>
+
+<p><strong>Version vectors plus sibling values</strong> never lose a write, because the store refuses
+to choose and hands both back. Alice's client merges the carts by union and writes the result. The
+cost is real: bigger metadata, a client that must understand merging, and a failure mode where
+siblings accumulate if nobody ever reads and resolves them.</p>
+
+<p>The rule of thumb worth stating out loud: <strong>if losing a concurrent write is invisible to a
+user, use LWW; if it is a missing item in their cart, do not.</strong></p></div>
+</div>
+<div class="design-step arch">
+  <div class="ds-header"><span class="ds-ico">&#127959;</span>7. High-level design</div>
+  <div class="ds-body"><div class="anim" id="anim-kv">
   <div class="an-head">
     <div class="an-title">Quorum write &mdash; and the sloppy quorum that trades consistency for uptime</div>
     <div class="an-btns">
@@ -8086,63 +8211,156 @@ service on the read path, which is a real latency cost you should name rather th
   <div class="an-cap ok-only"><strong>What is moving:</strong> the write goes to any node, which forwards it to all replicas and acknowledges as soon as <strong>W&nbsp;=&nbsp;2</strong> of them confirm. With R&nbsp;+&nbsp;W&nbsp;&gt;&nbsp;N, any later read of 2 replicas is guaranteed to overlap this write.</div>
   <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> replica 3 is unreachable. A <em>sloppy</em> quorum accepts the write anyway and parks a <strong>hint</strong> on a healthy node to be handed off later &mdash; so the system stays available, but the R&nbsp;+&nbsp;W&nbsp;&gt;&nbsp;N overlap guarantee no longer holds and a read can miss this value. Availability was bought with consistency, exactly as <span class="srcref">Ch 3</span> says it must be.</div>
 </div>
-<div class="dc-diagram"><svg width="680" height="260" viewBox="0 0 680 260" xmlns="http://www.w3.org/2000/svg">
-  <defs><marker id="kv1" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
-  <!-- Client -->
-  <rect x="10" y="110" width="70" height="40" rx="7" fill="#5c6bc0"/><text x="45" y="134" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Client</text>
-  <line x1="80" y1="130" x2="108" y2="130" stroke="#636e72" stroke-width="1.5" marker-end="url(#kv1)"/>
-  <!-- Coordinator -->
-  <rect x="110" y="100" width="120" height="60" rx="8" fill="#1a237e"/>
-  <text x="170" y="125" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="white">Coordinator</text>
-  <text x="170" y="140" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="rgba(255,255,255,.8)">(any node can be)</text>
-  <text x="170" y="153" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="rgba(255,255,255,.8)">routes to nodes</text>
-  <!-- Ring -->
-  <ellipse cx="430" cy="130" rx="200" ry="100" fill="none" stroke="#c5cae9" stroke-width="2" stroke-dasharray="6,3"/>
-  <!-- Nodes on ring -->
-  <circle cx="430" cy="30" r="25" fill="#5c6bc0"/><text x="430" y="34" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" font-weight="700" fill="white">Node A</text>
-  <circle cx="600" cy="90" r="25" fill="#5c6bc0"/><text x="600" y="94" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" font-weight="700" fill="white">Node B</text>
-  <circle cx="610" cy="180" r="25" fill="#5c6bc0"/><text x="610" y="184" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" font-weight="700" fill="white">Node C</text>
-  <circle cx="430" cy="230" r="25" fill="#5c6bc0"/><text x="430" y="234" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" font-weight="700" fill="white">Node D</text>
-  <circle cx="265" cy="180" r="25" fill="#9e9e9e"/><text x="265" y="178" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" font-weight="700" fill="white">Node E</text><text x="265" y="192" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.7)">(down)</text>
-  <circle cx="270" cy="90" r="25" fill="#5c6bc0"/><text x="270" y="94" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" font-weight="700" fill="white">Node F</text>
-  <!-- Coordinator to ring -->
-  <line x1="230" y1="118" x2="258" y2="75" stroke="#5c6bc0" stroke-width="1.5" marker-end="url(#kv1)"/>
-  <text x="220" y="90" font-family="Inter,sans-serif" font-size="8" fill="#5c6bc0">put: W=2</text>
-  <text x="220" y="103" font-family="Inter,sans-serif" font-size="8" fill="#5c6bc0">write to F+A</text>
-  <text x="420" y="130" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#636e72">Consistent Hash Ring</text>
-  <text x="420" y="145" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#636e72">key -> next N clockwise nodes</text>
-</svg><div class="dc-caption">Consistent hash ring. Coordinator routes to N clockwise nodes. W=2 writes acknowledged = quorum satisfied.</div></div></div>
-</div><div class="design-step deep">
-  <div class="ds-header"><span class="ds-ico">&#128269;</span>6. Component Deep Dives</div>
-  <div class="ds-body"><p><strong>Consistent Hashing:</strong> key -> SHA256 -> position on ring -> next 3 clockwise nodes are the replicas. Adding/removing a node: only adjacent keys migrate.</p>
-<p><strong>Write path:</strong> Client -> any node (coordinator). Coordinator hashes key -> finds 3 replica nodes. Sends write to all 3 in parallel. Waits for W=2 ACKs. Returns success to client. 3rd replica catches up asynchronously.</p>
-<p><strong>Read path:</strong> Coordinator sends read to R=2 closest nodes. Takes latest by timestamp/vector clock. If versions differ -> read-repair: coordinator writes latest back to stale node.</p>
-<p><strong>Conflict resolution:</strong> Last-Write-Wins (LWW) by default (timestamp). For shopping cart use case: vector clocks + application-level merge (union of items). Cassandra uses LWW by default; DynamoDB's original design used vector clocks.</p>
-<p><strong>Anti-entropy:</strong> Background process (per node pair) compares Merkle trees. Find differing subtrees -> sync only different parts. Ensures all replicas converge even for cold keys that never get read-repaired.</p>
-<p><strong>Hinted handoff:</strong> If Node E is down during a write, coordinator stores the write with a 'hint: this belongs to E' on another node. When E recovers, the hint is delivered. Prevents permanent data loss from temporary failures.</p></div>
-</div><div class="design-step tradeoff">
-  <div class="ds-header"><span class="ds-ico">&#9878;</span>7. Trade-off Analysis</div>
-  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Consistency model</strong></td><td class='chosen'>Tunable quorum (R+W>N=strong, else eventual)</td><td class='rej'>Always strong</td><td>Tunable gives flexibility: low-latency apps use W=1,R=1; financial use W=3,R=2. One size doesn't fit all.</td></tr><tr><td><strong>Conflict resolution</strong></td><td class='chosen'>LWW (default) + vector clocks (opt-in)</td><td class='rej'>Reject conflicts (require re-read)</td><td>Rejecting conflicts kills availability. LWW is simple. Vector clocks enable app-level merge for complex data types.</td></tr><tr><td><strong>Partitioning</strong></td><td class='chosen'>Consistent hashing + vnodes</td><td class='rej'>Range partitioning</td><td>Consistent hashing: smooth rebalancing. Vnodes: even distribution. Range: good for scans but creates hot partitions for sequential writes.</td></tr></tbody></table></div></div>
-</div><div class="design-step fault">
-  <div class="ds-header"><span class="ds-ico">&#128737;</span>8. Fault Tolerance</div>
-  <div class="ds-body"><div class="ft-row"><div class="ft-fail">Node failure (permanent)</div><div class="ft-fix">Detect via gossip heartbeat timeout (phi = 8 threshold). Remove from ring. Adjacent nodes inherit its key range. Replica count temporarily drops to 2; auto-repair brings it back to 3 via anti-entropy within minutes.</div></div><div class="ft-row"><div class="ft-fail">Network partition (split-ring)</div><div class="ft-fix">Both halves continue serving with their available replicas. Writes with W=2 succeed on majority side, fail on minority (if only 1 replica there). On heal: anti-entropy detects divergence, repairs. LWW resolves conflicts.</div></div><div class="ft-row"><div class="ft-fail">Hot key (one key getting 1M QPS)</div><div class="ft-fix">Detect via coordinator: if key appears in >10% of requests -> replicate to local cache. Or: key sharding -- append suffix (0-9), fan-out writes to 10 keys, fan-in reads with merge.</div></div></div>
-</div><div class="vidref">
-  <div class="label">&#9654; Watch alongside this design</div>
-  <ul>
-    <li><a href="https://www.youtube.com/watch?v=EpIgvowZr00" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 3: GFS</a> <span class="vr-meta">~80 min</span> &mdash; the storage paper every Google interviewer assumes exists.</li>
-    <li><a href="https://www.youtube.com/watch?v=IXHzbCuADt0" target="_blank" rel="noopener">MIT 6.824 &mdash; Lecture 9: More Replication, CRAQ</a> <span class="vr-meta">~80 min</span> &mdash; chain replication as an alternative to the quorum design used here.</li>
-  </ul>
+<p>The shape of it.</p>
+<div class="flow">  <span class="fl-key">THE RING</span>   every node knows it; gossip keeps it current
+
+        key &rarr; hash &rarr; a position on the ring
+        the next 3 nodes clockwise are its replicas
+
+              A ---- B ---- C ---- D ---- E ---- F ---- (back to A)
+                     ^^^^^^^^^^^^^^^^
+                     replicas for this key
+
+
+  <span class="fl-key">WRITE</span>  put(k, v) with W=2
+
+    client &rarr; <span class="fl-hi">any node</span>  <span class="fl-note">it becomes the coordinator; no special node exists</span>
+                 |
+                 +--&gt; B  ack
+                 +--&gt; C  ack        <span class="fl-hi">2 acks &rarr; return OK to the client</span>
+                 +--&gt; D  ...        <span class="fl-dim">still in flight; it will catch up</span>
+
+
+  <span class="fl-key">READ</span>  get(k) with R=2
+
+    coordinator asks 2 replicas
+         both agree            &rarr; return it
+         one is stale          &rarr; return the newer, <span class="fl-hi">write it back</span>  <span class="fl-note">read repair</span>
+         neither descends      &rarr; <span class="fl-bad">return both</span>  <span class="fl-note">the client merges</span></div>
+<div class="flow-cap">No leader, no lookup tier, no special node. Every node can coordinate, which is
+why losing any one of them costs you capacity rather than a function.</div>
+
+<h4>Why the ring, rather than hash(key) % N</h4>
+
+<p>Modulo hashing is simpler and completely unusable here. Go from 100 nodes to 101 and the modulus
+changes, so nearly every key maps somewhere new: you have to move essentially the entire dataset to
+add one machine.</p>
+
+<p>On a ring, each node owns the arc between it and its predecessor. Insert a new node and it takes
+over part of one arc. Everything else stays exactly where it was. <strong>Adding 1% capacity moves
+about 1% of the data</strong>, which is the property that makes the cluster growable at all.</p>
+
+<p>One wrinkle: placing each node at a single ring position gives wildly uneven arcs, so real systems
+give each node a few hundred <em>virtual</em> positions. The arcs average out, and a departing node's
+load spreads across many neighbours instead of landing entirely on the next one.</p></div>
 </div>
-<div class="design-step concl">
-  <div class="ds-header"><span class="ds-ico">&#127937;</span>9. Conclusion &mdash; what I would say in the last three minutes</div>
-  <div class="ds-body">
-  <div class="concl-grid">
+<div class="design-step wflow">
+  <div class="ds-header"><span class="ds-ico">&#128260;</span>8. Workflows &mdash; what actually happens</div>
+  <div class="ds-body"><div class="wf">
+  <div class="wf-title">A normal write, and then a normal read</div>
+  <div class="wf-sub">Nothing is broken. This is the 99.9% case.</div>
+  <ol>
+    <li>A client calls <b>put("cart:alice", {book})</b>. It connects to node B, which happens to be nearest; B is now the coordinator for this request.</li>
+    <li>B hashes the key, finds the three replicas &mdash; say C, D and E &mdash; and sends the write to all three at once.</li>
+    <li>C and D confirm within a millisecond. That is <b>W=2</b>, so B returns <b>OK</b> to the client. E's write is still in flight and nobody is waiting for it.</li>
+    <li>E confirms 4 ms later. All three now hold the value. Total client-visible latency: the second-fastest replica, not the slowest.</li>
+    <li>A read arrives at node F. F asks two replicas, both return the same version, F returns the value.</li>
+  </ol>
+  <div class="wf-out">Waiting for 2 of 3 rather than 3 of 3 is what keeps p99 low: you are immune to one slow replica, and at any moment one of them is always garbage-collecting or flushing.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">Replica E is down when a write arrives</div>
+  <div class="wf-sub">Hinted handoff, and the guarantee it quietly cancels.</div>
+  <ol>
+    <li>Coordinator B sends the write to C, D and E. C and D ack; E does not respond.</li>
+    <li>W=2 is satisfied, so the client already has its OK. Nothing is wrong yet.</li>
+    <li>B writes a <b>hint</b> to a healthy node: <i>&ldquo;this value belongs to E, hand it over when E returns.&rdquo;</i></li>
+    <li>E comes back an hour later. The hint holder notices and replays the write. E is now current.</li>
+    <li>The catch: while E was away, if the coordinator had counted the hint holder toward the quorum &mdash; a <b>sloppy quorum</b> &mdash; then the write set and a later read set need not overlap at all. <b>R + W &gt; N no longer holds.</b></li>
+  </ol>
+  <div class="wf-out">This is the availability purchase made explicit. You kept accepting writes through a failure and paid for it with a guarantee. Worth saying out loud in the interview &mdash; most candidates describe hinted handoff as free.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">Alice's cart diverges, and comes back together</div>
+  <div class="wf-sub">The scenario from step 1, all the way through.</div>
+  <ol>
+    <li>A partition splits the replicas. Alice's laptop writes <b>{book}</b> to one side; her phone writes <b>{lamp}</b> to the other. Both get an OK.</li>
+    <li>Neither version vector descends from the other, so both survive as siblings rather than one overwriting the other.</li>
+    <li>The partition heals. Nothing happens yet &mdash; nodes do not proactively compare every key.</li>
+    <li>Alice opens her cart. The coordinator reads 2 replicas, sees two unrelated versions, and returns <b>both</b>.</li>
+    <li>The client merges them the only way that makes sense for a cart &mdash; union &mdash; and writes back <b>{book, lamp}</b> with a version that descends from both.</li>
+    <li>That write supersedes both siblings. The conflict is gone.</li>
+  </ol>
+  <div class="wf-out">The store never guessed. It detected the conflict and handed it to the only layer that knew carts merge by union. Under last-write-wins, Alice would simply have found one item missing.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">A key nobody reads, diverged for six months</div>
+  <div class="wf-sub">Why read repair is not enough on its own.</div>
+  <ol>
+    <li>Read repair only fixes keys that somebody reads. A key written once and never read again stays diverged forever.</li>
+    <li>So each pair of replicas periodically compares a <b>Merkle tree</b>: a tree of hashes where each leaf covers a range of keys and each parent hashes its children.</li>
+    <li>They exchange root hashes first. Equal roots mean the entire range matches &mdash; two hashes exchanged, terabytes verified.</li>
+    <li>Different roots mean they walk down, comparing children, until they reach the leaves that actually differ.</li>
+    <li>Only those keys are shipped across. A cluster with one stale key transfers one key, not a replica.</li>
+  </ol>
+  <div class="wf-out">Comparing two large datasets over a network is a general problem, and hashing the structure rather than the contents is the general answer. The same trick is how Git tells whether two trees differ.</div>
+</div></div>
+</div>
+<div class="design-step deep">
+  <div class="ds-header"><span class="ds-ico">&#128269;</span>9. Deep dives, and what breaks</div>
+  <div class="ds-body"><h4>Choosing R and W</h4>
+
+<p>These are per-call knobs, and different callers should use different ones.</p>
+
+<ul>
+  <li><strong>W=1, R=1</strong> &mdash; fastest, no overlap guarantee. Fine for metrics, view
+  counters, anything where a lost write is a rounding error.</li>
+  <li><strong>W=2, R=2</strong> with N=3 &mdash; the default. Overlap holds, and you tolerate one
+  node being slow or dead on either path.</li>
+  <li><strong>W=3, R=1</strong> &mdash; reads are as cheap as possible, writes wait for everyone.
+  Good for config data: written rarely, read constantly.</li>
+  <li><strong>W=1, R=3</strong> &mdash; the mirror image. Good for an ingest path that must never
+  block, where readers can afford the extra fan-out.</li>
+</ul>
+
+<p>The useful framing is that R and W move latency between the read path and the write path. They do
+not create consistency; they only decide where you pay.</p>
+
+<h4>Why not just run consensus</h4>
+
+<p>A perfectly good answer to &ldquo;replicas disagree&rdquo; is to not let them: put every write
+through Raft and there is one log, one order, no conflicts. Spanner does this.</p>
+
+<p>It costs you the thing the question asked for. Consensus needs a majority to be reachable, so a
+minority partition cannot accept writes &mdash; it returns errors instead. Every write also pays a
+round trip to the leader, which across regions is tens of milliseconds rather than one.</p>
+
+<p>The honest summary: <strong>consensus gives you one truth and refuses service when it cannot;
+quorums give you continuous service and several truths to reconcile.</strong> The question asked for
+the second. If it had asked for account balances, the answer would be the first.</p>
+
+<h4>Tombstones, and when they can be dropped</h4>
+
+<p>A tombstone has to outlive any replica that might still hold the deleted value. Drop it too early
+and a node returning from a long outage re-introduces data a user deleted &mdash; a bug that looks
+like a ghost and is nearly impossible to reproduce.</p>
+
+<p>The standard rule is to keep tombstones for longer than the maximum time a node is allowed to be
+down before it is rebuilt from scratch rather than repaired. Ten days is a common setting. The
+corollary is that a workload of constant writes and deletes accumulates tombstones and reads slow
+down, which is why queue-like workloads on this kind of store are a known trap.</p>
+
+<h4>What breaks</h4>
+
+<div class="ft-row"><div class="ft-fail">Node failure (permanent)</div><div class="ft-fix">Detect via gossip heartbeat timeout (phi = 8 threshold). Remove from ring. Adjacent nodes inherit its key range. Replica count temporarily drops to 2; auto-repair brings it back to 3 via anti-entropy within minutes.</div></div><div class="ft-row"><div class="ft-fail">Network partition (split-ring)</div><div class="ft-fix">Both halves continue serving with their available replicas. Writes with W=2 succeed on majority side, fail on minority (if only 1 replica there). On heal: anti-entropy detects divergence, repairs. LWW resolves conflicts.</div></div><div class="ft-row"><div class="ft-fail">Hot key (one key getting 1M QPS)</div><div class="ft-fix">Detect via coordinator: if key appears in >10% of requests -> replicate to local cache. Or: key sharding -- append suffix (0-9), fan-out writes to 10 keys, fan-in reads with merge.</div></div><div class="concl-grid">
     <div class="cc"><div class="h">The dominant constraint</div><p><strong>Whether the caller needs strong or eventual consistency.</strong> I designed for eventual with tunable quorums, because that is what buys availability during a partition; strong consistency would mean consensus on the write path and a different system.</p></div>
     <div class="cc first"><div class="h">What I would build first</div><p>Consistent hashing with virtual nodes, plus R + W > N quorums. Anti-entropy and hinted handoff come next, because without them eventual never actually converges.</p></div>
     <div class="cc"><div class="h">What I deliberately did not build</div><p>Secondary indexes, transactions and range scans. Each of those pulls the design back toward a database.</p></div>
     <div class="cc risk"><div class="h">The biggest risk</div><p>Silent divergence. Without Merkle-tree anti-entropy running and being monitored, replicas drift and nobody finds out until a read repair surfaces it years later.</p></div>
-  </div>
-  </div>
+  </div></div>
 </div>
 
 <div class="followup">
@@ -8169,66 +8387,130 @@ service on the read path, which is a real latency cost you should name rather th
     <div class="fu-a"><p>You cannot, and that is by design. Keys are hashed onto the ring, so adjacent keys land on unrelated nodes and a range query becomes a scatter-gather over every partition.</p><p>If range queries are a real requirement, hash partitioning is the wrong choice and you want range partitioning instead. But that reintroduces hot spots, because sequential keys like timestamps all land on one node.</p><p>The usual answer is to keep the KV store for point lookups and maintain a separate index for range access.</p></div>
   </details>
 </div>
+  </div>
 </div>
-</div>
+
 <div class="design-card">
   <div class="dc-header">
     <h3 class="dc-title"><span id="design-whatsapp">Design WhatsApp / Messaging System</span></h3>
     <div class="dc-meta">Difficulty: <strong>Hard</strong> &nbsp;.&nbsp; Target: <strong>45 min</strong></div>
   </div>
-  <div class="dc-body"><div class="asked">
+  <div class="dc-body">
+<div class="asked">
   <div class="ak-q"><span class="ak-l">&#128172; The question, as asked</span><p>&ldquo;Design a messaging system like WhatsApp. One-to-one and group chats, delivery and read receipts, and messages must arrive even if the recipient is offline.&rdquo;</p></div>
   <div class="ak-h"><span class="ak-l">&#9889; What makes it hard</span><p>Millions of <strong>long-lived connections</strong> rather than short requests, which inverts the usual scaling model. Ordering must hold per conversation, and end-to-end encryption rules out most server-side features you would otherwise reach for.</p></div>
 </div>
 <div class="design-step req">
-  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Requirements</div>
-  <div class="ds-body"><div class="clarify">
+  <div class="ds-header"><span class="ds-ico">&#128203;</span>1. Understanding the question</div>
+  <div class="ds-body"><p>The prompt: <em>&ldquo;Design a messaging system like WhatsApp. One-to-one and group
+chats, delivery and read receipts, and messages must arrive even if the recipient is
+offline.&rdquo;</em></p>
+
+<p>Most systems you design are request-response: a client asks, a server answers, the connection
+closes, and the server remembers nothing. This one is not, and that single difference generates most
+of the work.</p>
+
+<p>Here the server has to <strong>push</strong>. When Priya sends a message to Dev, nothing on Dev's
+phone asked for it. So Dev's phone must already be holding an open connection, and the server must
+know which of its thousands of machines is holding it.</p>
+
+<div class="insight">
+  <div class="label">&#127919; The shift in model</div>
+  <p>A stateless web tier can route any request to any server, because no server holds anything.
+  Here a message for Dev can only be delivered by <em>the one machine holding Dev's socket</em>.
+  You have gone from &ldquo;any server will do&rdquo; to &ldquo;find the right server&rdquo;, and
+  that lookup is the core of the design.</p>
+</div>
+
+<h4>Two more things the prompt smuggles in</h4>
+
+<p><strong>&ldquo;Even if the recipient is offline.&rdquo;</strong> Phones lose signal constantly
+&mdash; tunnels, lifts, flights, flat batteries. So delivery is never a synchronous handoff. The
+message has to become durable the moment we accept it, and be replayable whenever Dev's phone comes
+back, which might be next week.</p>
+
+<p><strong>Receipts.</strong> Two grey ticks, then two blue ones. These look like decoration and are
+actually a second delivery problem running backwards, at roughly the same volume as the messages
+themselves &mdash; and one that is far more forgiving, which is worth exploiting.</p>
+
+<h4>What they are looking for</h4>
+
+<p><strong>Do you reach for a persistent connection and then handle the registry?</strong> Everyone
+says &ldquo;WebSocket&rdquo;. Fewer immediately ask how server A finds out that Dev is on server C.</p>
+
+<p><strong>Do you design for reconnection rather than connection?</strong> On mobile, disconnection
+is the normal state of affairs, not the failure case.</p>
+
+<p><strong>Do you notice what end-to-end encryption takes away?</strong> If the server cannot read
+the message, it cannot index it, filter it, or generate a useful notification preview. That
+constrains features, and saying so unprompted is a strong signal.</p>
+<div class="clarify">
   <div class="label">&#10067; Clarify first &mdash; and what each answer changes</div>
   <div class="cq-row"><div class="cq-q">1:1 only, or groups &mdash; and how large?</div><div class="cq-w">Group size drives fan-out cost. A 100,000-member group is a completely different write amplification problem from a 1:1 chat.</div></div><div class="cq-row"><div class="cq-q">Is ordering required per conversation or globally?</div><div class="cq-w">Per-conversation ordering lets you <strong>partition by conversation</strong> and avoid coordination. Global ordering does not.</div></div><div class="cq-row"><div class="cq-q">Do we store history server-side?</div><div class="cq-w">Decides whether end-to-end encryption is possible, and whether server-side search can exist at all.</div></div><div class="cq-row"><div class="cq-q">Is presence (online / typing) in scope?</div><div class="cq-w">Presence has a far higher write rate than messaging and is usually a separate system. Saying so is a scoping signal.</div></div><div class="cq-row"><div class="cq-q">Multi-device per account?</div><div class="cq-w">Changes key management, read-state synchronisation and delivery semantics all at once.</div></div>
   <div class="cq-note">At L6 the interviewer is watching <em>which</em> question you ask first. Naming the dominant constraint before being steered is the cheapest available staff signal &mdash; see <a class="qlink" href="#toolkit-questionbank">T6</a> for the rubric.</div>
 </div>
-<p><strong>Functional:</strong></p>
-<ul>
-  <li>1-to-1 and group messaging (max 256 members)</li>
-  <li>Message delivery: sent -> delivered -> read receipts</li>
-  <li>Online presence: show when user was last online</li>
-  <li>Push notifications for offline users</li>
-  <li>End-to-end encryption (Signal Protocol)</li>
-  <li>Media: images, videos, documents (up to 100MB)</li>
-</ul>
-<p><strong>Non-Functional:</strong></p>
-<ul>
-  <li>2B users, 100B messages/day</li>
-  <li>Message delivery: p99 &lt; 500ms (online recipient)</li>
-  <li>High availability: 99.99%</li>
-  <li>Messages durable: survive sender/receiver being offline for weeks</li>
-</ul></div>
-</div><div class="design-step est">
-  <div class="ds-header"><span class="ds-ico">&#128202;</span>2. Capacity Estimation</div>
-  <div class="ds-body"><div class="assume">
-  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
-  <div class="as-row"><div class="as-a">Groups are bounded, order of hundreds</div><div class="as-b">A 100,000-member group changes fan-out from a loop into its own subsystem.</div></div><div class="as-row"><div class="as-a">Ordering is required per conversation only</div><div class="as-b">Global ordering across conversations would force coordination and remove the partitioning that makes this scale.</div></div><div class="as-row"><div class="as-a">Messages are not stored after delivery</div><div class="as-b">If history must be retained server-side, end-to-end encryption becomes far harder and search becomes possible.</div></div>
 </div>
-<div class="ng"><div class="ng-cell"><div class="ng-val">~1.16M</div><div class="ng-desc">messages/sec avg</div></div><div class="ng-cell"><div class="ng-val">~3.5M</div><div class="ng-desc">messages/sec peak</div></div><div class="ng-cell"><div class="ng-val">~100 KB</div><div class="ng-desc">avg message size</div></div><div class="ng-cell"><div class="ng-val">~116 GB/s</div><div class="ng-desc">message throughput</div></div><div class="ng-cell"><div class="ng-val">~10 PB</div><div class="ng-desc">storage/year</div></div><div class="ng-cell"><div class="ng-val">~50K</div><div class="ng-desc">concurrent WS conns/server</div></div></div>
-<p><strong>WebSocket servers:</strong> 2B users x 70% active daily x peak 30% online simultaneously = 600M concurrent connections / 50K/server = 12,000 WebSocket servers.</p></div>
-</div><div class="design-step api">
-  <div class="ds-header"><span class="ds-ico">&#128268;</span>3. API Design</div>
-  <div class="ds-body"><div class="api-code"><span class="cm">// Long-lived WebSocket. HTTP is used only for auth and media.</span>
+</div>
+<div class="design-step fr">
+  <div class="ds-header"><span class="ds-ico">&#128221;</span>2. Functional requirements</div>
+  <div class="ds-body"><ul>
+  <li><strong>1:1 and group messaging</strong>, with groups bounded at a few hundred members.</li>
+  <li><strong>Ordered delivery within a conversation.</strong> If Priya sends three messages, Dev
+  sees them in that order. Across different conversations, order does not matter and should not be
+  enforced.</li>
+  <li><strong>Receipts:</strong> sent &rarr; delivered &rarr; read.</li>
+  <li><strong>Offline delivery.</strong> Messages are held until acknowledged, then replayed on
+  reconnect.</li>
+  <li><strong>Push notifications</strong> when the app is not running.</li>
+  <li><strong>End-to-end encryption</strong>, so the server stores ciphertext it cannot read.</li>
+  <li><strong>Media</strong> &mdash; images, video, documents &mdash; which do not travel over the
+  message path at all.</li>
+</ul>
 
-<span class="kw">WS</span>     /v1/connect        Header: Bearer &lt;token&gt;
-  &lt;- { type:"ack",      client_msg_id, server_msg_id, seq }
-  &lt;- { type:"message",  conversation_id, seq, from, ciphertext, ts }
-  &lt;- { type:"receipt",  message_id, state:"delivered"|"read" }
-  -&gt; { type:"send",     conversation_id, client_msg_id, ciphertext }
-     <span class="cm">// client_msg_id makes the send idempotent across reconnects</span>
+<p>Two of these are worth a sentence each because they shape everything downstream.</p>
 
-<span class="kw">POST</span>   /v1/media          -&gt; { media_id, upload_url }
-<span class="kw">GET</span>    /v1/sync?since_seq= -&gt; missed messages after reconnect
-<span class="kw">POST</span>   /v1/keys/prekeys    -&gt; replenish the one-time prekey pool</div></div>
+<p><strong>Per-conversation ordering, not global.</strong> This is the most valuable requirement in
+the list, because of what it lets you <em>not</em> build. Ordering messages within one conversation
+means one writer's worth of sequence numbers, which one partition can assign by itself. Ordering
+messages globally across two billion users would require every message in the system to agree on a
+position, which is a coordination problem with no good answer at this scale.</p>
+
+<p><strong>Media is not a message.</strong> A 40 MB video does not go through the chat pipeline.
+The sender uploads it to blob storage and sends a message containing a reference. The chat path
+stays small-message and low-latency, and the upload can retry and resume without touching it.</p></div>
+</div>
+<div class="design-step nfr">
+  <div class="ds-header"><span class="ds-ico">&#9201;</span>3. Non-functional requirements</div>
+  <div class="ds-body"><div class="tw"><table class="to">
+<thead><tr><th style="width:26%">Requirement</th><th style="width:22%">Target</th><th style="width:52%">What it forces</th></tr></thead>
+<tbody>
+<tr><td><strong>Delivery latency</strong></td><td class="chosen">p99 &lt; 500 ms</td><td>Recipient online. This is a chat, and anything slower feels broken.</td></tr>
+<tr><td><strong>Concurrent connections</strong></td><td>~600M</td><td>The defining number. Not requests per second &mdash; <em>simultaneously open sockets</em>, each costing memory whether or not it is carrying anything.</td></tr>
+<tr><td><strong>Durability</strong></td><td>Weeks offline</td><td>An undelivered message must survive the recipient being unreachable for a very long time.</td></tr>
+<tr><td><strong>Availability</strong></td><td>99.99%</td><td>Roughly an hour a year. And an outage means reconnecting hundreds of millions of clients at once, which is its own problem.</td></tr>
+<tr><td><strong>Ordering</strong></td><td>Per conversation</td><td>Deliberately not global. This is what permits partitioning by conversation with no coordination.</td></tr>
+<tr><td><strong>Delivery semantics</strong></td><td>At least once</td><td>Exactly-once over a lossy mobile link is not achievable. Duplicates are handled by the client instead.</td></tr>
+</tbody></table></div>
+
+<h4>Why at-least-once, and why that is fine</h4>
+
+<p>Dev's phone receives a message and sends an acknowledgement. The signal drops before the ack
+lands. The server, having no way to tell &ldquo;delivered but unacked&rdquo; from &ldquo;never
+delivered&rdquo;, does the only safe thing and sends it again.</p>
+
+<p>You cannot engineer this away; you can only choose which way to fail. Retry and you risk
+duplicates. Do not retry and you risk lost messages. <strong>A duplicate message is a visual
+annoyance; a lost message is a broken product.</strong></p>
+
+<p>So we retry, and we give every message an id chosen by the sending client. The receiving client
+keeps a small set of ids it has already displayed and drops repeats. The duplicate never reaches the
+user, and the server never has to solve an unsolvable problem.</p></div>
 </div>
 <div class="design-step schema">
-  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Schema Design</div>
-  <div class="ds-body"><div class="schema-code"><span class="cm">-- Messages (Cassandra -- write-heavy, time-series)</span>
+  <div class="ds-header"><span class="ds-ico">&#128450;</span>4. Data model and API</div>
+  <div class="ds-body"><p>Four kinds of state, with genuinely different access patterns &mdash; which is why
+they live in different places.</p>
+<div class="schema-code"><span class="cm">-- Messages (Cassandra -- write-heavy, time-series)</span>
 <span class="kw">TABLE</span> messages {
   conversation_id  <span class="ty">UUID</span>         <span class="pk">PARTITION KEY</span>,
   message_id       <span class="ty">BIGINT</span>       <span class="pk">CLUSTERING KEY DESC</span>,  <span class="cm">-- Snowflake</span>
@@ -8252,11 +8534,107 @@ service on the read path, which is a real latency cost you should name rather th
 <span class="cm">-- TTL: 30 seconds. Refreshed every 20s by client heartbeat.</span>
 
 <span class="cm">-- Message queue for offline delivery (Redis List per user)</span>
-<span class="kw">KEY</span> inbox:{user_id}  ->  LIST [ message_ids... ]  (max 1000)</div></div>
-</div><div class="design-step arch">
-  <div class="ds-header"><span class="ds-ico">&#127959;</span>5. High-Level Architecture</div>
-  <div class="ds-body">
-<div class="anim" id="anim-whatsapp">
+<span class="kw">KEY</span> inbox:{user_id}  ->  LIST [ message_ids... ]  (max 1000)</div>
+<p><strong>Messages</strong> are partitioned by conversation id and clustered by message id
+descending. That layout is chosen to match the only query that matters: <em>give me the last fifty
+messages in this chat</em>. It is a single sequential read of one partition, with no sorting and no
+cross-partition fan-in.</p>
+
+<p><strong>Presence</strong> lives in a cache with a 30-second expiry rather than in a database, and
+the reasoning is worth stating. Presence changes far more often than messages are sent &mdash; every
+client refreshes it every 20 seconds whether or not anything happened. Writing that to durable
+storage would mean a write rate several times the message rate, for data that is worthless the moment
+it is stale. So it is a key with a TTL, and when a client stops refreshing, the key expires and the
+user is offline. No logout event needed; disappearing <em>is</em> the signal.</p>
+
+<p><strong>Receipts</strong> are stored apart from messages. A message is written once and read many
+times; a receipt is written twice per recipient and read rarely. Putting them in the same row would
+mean updating a message row on every receipt, turning an append-only table into an update-heavy one.</p>
+
+<h4>The API</h4>
+<div class="api-code"><span class="cm">// Long-lived WebSocket. HTTP is used only for auth and media.</span>
+
+<span class="kw">WS</span>     /v1/connect        Header: Bearer &lt;token&gt;
+  &lt;- { type:"ack",      client_msg_id, server_msg_id, seq }
+  &lt;- { type:"message",  conversation_id, seq, from, ciphertext, ts }
+  &lt;- { type:"receipt",  message_id, state:"delivered"|"read" }
+  -&gt; { type:"send",     conversation_id, client_msg_id, ciphertext }
+     <span class="cm">// client_msg_id makes the send idempotent across reconnects</span>
+
+<span class="kw">POST</span>   /v1/media          -&gt; { media_id, upload_url }
+<span class="kw">GET</span>    /v1/sync?since_seq= -&gt; missed messages after reconnect
+<span class="kw">POST</span>   /v1/keys/prekeys    -&gt; replenish the one-time prekey pool</div>
+<p>Note what is <em>not</em> a WebSocket frame: auth and media upload are plain HTTP. The socket
+carries small, ordered, latency-sensitive traffic and nothing else.</p>
+
+<p>The <code>/sync?since_seq=</code> endpoint is how reconnection works, and it is the most important
+call in the API. The client says what it last saw; the server sends everything after it. That single
+idea replaces any attempt to track delivery state per connection &mdash; the client is the source of
+truth about what it has, which is the only arrangement that survives a phone that vanished mid-stream.</p></div>
+</div>
+<div class="design-step est">
+  <div class="ds-header"><span class="ds-ico">&#128202;</span>5. Capacity estimation</div>
+  <div class="ds-body"><p>The numbers, and the one that actually sizes the fleet.</p>
+<div class="assume">
+  <div class="label">&#9878; Assumptions &mdash; and what breaks if each is wrong</div>
+  <div class="as-row"><div class="as-a">Groups are bounded, order of hundreds</div><div class="as-b">A 100,000-member group changes fan-out from a loop into its own subsystem.</div></div><div class="as-row"><div class="as-a">Ordering is required per conversation only</div><div class="as-b">Global ordering across conversations would force coordination and remove the partitioning that makes this scale.</div></div><div class="as-row"><div class="as-a">Messages are not stored after delivery</div><div class="as-b">If history must be retained server-side, end-to-end encryption becomes far harder and search becomes possible.</div></div>
+</div>
+<div class="ng"><div class="ng-cell"><div class="ng-val">~1.16M</div><div class="ng-desc">messages/sec avg</div></div><div class="ng-cell"><div class="ng-val">~3.5M</div><div class="ng-desc">messages/sec peak</div></div><div class="ng-cell"><div class="ng-val">~100 KB</div><div class="ng-desc">avg message size</div></div><div class="ng-cell"><div class="ng-val">~116 GB/s</div><div class="ng-desc">message throughput</div></div><div class="ng-cell"><div class="ng-val">~10 PB</div><div class="ng-desc">storage/year</div></div><div class="ng-cell"><div class="ng-val">~50K</div><div class="ng-desc">concurrent WS conns/server</div></div></div>
+<p>The headline is not messages per second. At around 3.5M messages/sec peak, each a few hundred
+bytes of ciphertext, the write path is large but ordinary &mdash; comparable to a busy analytics
+pipeline.</p>
+
+<p>The number that shapes the system is <strong>600 million simultaneously open connections</strong>.
+Those sockets cost memory even at three in the morning when nobody is typing. At roughly 50,000
+connections per machine &mdash; which needs tuned file-descriptor limits, small socket buffers and an
+event loop rather than a thread per connection &mdash; that is about <strong>12,000 gateway
+machines whose job is mostly to hold sockets open</strong>.</p>
+
+<p>That is the insight worth stating: this fleet is sized by <em>idle</em> connections, not by
+traffic. Which in turn means a mass reconnection event &mdash; a deploy, a regional network blip
+&mdash; is the worst load this system ever sees, because every one of those clients tries to
+re-establish and re-sync at the same moment.</p></div>
+</div>
+<div class="design-step tradeoff">
+  <div class="ds-header"><span class="ds-ico">&#9878;</span>6. The key trade-offs</div>
+  <div class="ds-body"><p>The choices, and their costs.</p>
+<div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Transport</strong></td><td class='chosen'>WebSocket (persistent)</td><td class='rej'>HTTP polling</td><td>Persistent connection = instant delivery, no polling overhead. Critical for sub-500ms delivery. Poll would require 1-5 req/sec x 2B users = billions of wasted requests.</td></tr><tr><td><strong>Message store</strong></td><td class='chosen'>Cassandra</td><td class='rej'>PostgreSQL</td><td>Time-series append workload. 100B msgs/day = 1.16M writes/sec. Cassandra's LSM-tree handles this. PostgreSQL B-tree would require enormous infrastructure for this write rate.</td></tr><tr><td><strong>Group messaging</strong></td><td class='chosen'>Fan-out on send (for small groups)</td><td class='rej'>Fan-out on receive</td><td>For 256-member groups: fan-out on send = 256 DB writes + 256 WS pushes. Manageable. On receive = one write but N reads on timeline load. Fan-out on send is better for groups this size.</td></tr></tbody></table></div>
+<h4>The one that decides the fleet: persistent sockets vs polling</h4>
+
+<p>The alternative to holding 600 million connections is to have clients ask periodically:
+<em>anything for me?</em> No connection state, no registry, ordinary stateless servers behind an
+ordinary load balancer.</p>
+
+<p>It fails on both ends at once. Poll every 30 seconds and messages arrive up to 30 seconds late,
+which is not a chat app. Poll every second and you are serving two billion requests per second,
+almost all of which answer &ldquo;nothing&rdquo; &mdash; and every one of those wakes the phone's
+radio, which is the single largest battery cost on a mobile device.</p>
+
+<p>So we hold the connection. The bill is 12,000 stateful machines, a registry to find them, and
+reconnection logic that has to be correct because it runs constantly.</p>
+
+<h4>The other one: what encryption costs the product</h4>
+
+<p>End-to-end encryption means the server stores bytes it cannot read. Everything that would have
+been a server-side feature now has to be a client-side feature or not exist:</p>
+
+<ul>
+  <li><strong>Search</strong> runs on the device, over messages that device has. Search a chat from
+  three years ago on a phone you bought last month and there is nothing to find.</li>
+  <li><strong>Notification previews</strong> cannot be generated by the server, because the server
+  cannot read the message. The push carries a wake-up; the client decrypts and renders the text.</li>
+  <li><strong>Multi-device</strong> stops being a display problem and becomes a key-management
+  problem: every device needs its own identity and its own copy of each message, encrypted to it.</li>
+  <li><strong>Server-side moderation of content</strong> is off the table entirely. Abuse handling
+  has to work from metadata and user reports.</li>
+</ul>
+
+<p>Naming these unprompted is the point. Encryption is not a checkbox in the requirements; it deletes
+several features you would otherwise have assumed.</p></div>
+</div>
+<div class="design-step arch">
+  <div class="ds-header"><span class="ds-ico">&#127959;</span>7. High-level design</div>
+  <div class="ds-body"><div class="anim" id="anim-whatsapp">
   <div class="an-head">
     <div class="an-title">Message delivery &mdash; and the reconnect that can deliver twice</div>
     <div class="an-btns">
@@ -8293,56 +8671,162 @@ service on the read path, which is a real latency cost you should name rather th
   <div class="an-cap ok-only"><strong>What is moving:</strong> a message travels to the gateway holding the sender&rsquo;s socket, is appended to the conversation&rsquo;s ordered log with a sequence number, then pushed to the recipient. Ordering is guaranteed <em>per conversation</em>, which is what lets the system partition by conversation ID and coordinate nowhere.</div>
   <div class="an-cap fail-only"><span class="whatbreaks">What goes wrong:</span> the recipient goes offline mid-delivery. Messages queue, and on reconnect the client asks for everything after its last acknowledged sequence. If the client acknowledged but the ack was lost, the server replays messages it already delivered &mdash; a <strong>duplicate</strong>. The fix is the client-supplied message ID: delivery is at-least-once and the client deduplicates on it (<span class="srcref">Ch 11</span>).</div>
 </div>
-<div class="dc-diagram"><svg width="680" height="240" viewBox="0 0 680 240" xmlns="http://www.w3.org/2000/svg">
-  <defs><marker id="w1" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto"><polygon points="0 0,6 2.5,0 5" fill="#636e72"/></marker></defs>
-  <rect x="10" y="80" width="70" height="80" rx="7" fill="#5c6bc0"/><text x="45" y="115" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Phone A</text><text x="45" y="130" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">(sender)</text>
-  <line x1="80" y1="120" x2="108" y2="120" stroke="#636e72" stroke-width="1.5" marker-end="url(#w1)"/>
-  <text x="95" y="113" font-family="Inter,sans-serif" font-size="8" fill="#636e72">WebSocket</text>
-  <rect x="110" y="60" width="120" height="120" rx="8" fill="#1a237e"/>
-  <text x="170" y="83" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" font-weight="700" fill="white">WebSocket</text>
-  <text x="170" y="96" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" font-weight="700" fill="white">Server A</text>
-  <text x="170" y="115" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">- Holds conn A</text>
-  <text x="170" y="128" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">- Receives msg</text>
-  <text x="170" y="141" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">- Lookup: B on Server C</text>
-  <text x="170" y="160" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">- Forward to Server C</text>
-  <line x1="230" y1="100" x2="258" y2="80" stroke="#636e72" stroke-width="1.2" marker-end="url(#w1)"/>
-  <rect x="260" y="15" width="100" height="40" rx="7" fill="#00b894"/><text x="310" y="35" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Cassandra</text><text x="310" y="48" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">(message store)</text>
-  <line x1="230" y1="130" x2="258" y2="145" stroke="#636e72" stroke-width="1.2" marker-end="url(#w1)"/>
-  <rect x="260" y="135" width="110" height="40" rx="7" fill="#e84393"/><text x="315" y="155" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Connection Registry</text><text x="315" y="168" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">(Redis: user->server)</text>
-  <line x1="370" y1="155" x2="398" y2="135" stroke="#636e72" stroke-width="1.2" marker-end="url(#w1)"/>
-  <rect x="400" y="60" width="120" height="120" rx="8" fill="#1a237e"/>
-  <text x="460" y="83" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" font-weight="700" fill="white">WebSocket</text>
-  <text x="460" y="96" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" font-weight="700" fill="white">Server C</text>
-  <text x="460" y="115" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">- Holds conn B</text>
-  <text x="460" y="128" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">- Receives from A</text>
-  <text x="460" y="141" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">- Pushes to Phone B</text>
-  <line x1="520" y1="120" x2="548" y2="120" stroke="#636e72" stroke-width="1.5" marker-end="url(#w1)"/>
-  <rect x="550" y="80" width="70" height="80" rx="7" fill="#5c6bc0"/><text x="585" y="115" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="white">Phone B</text><text x="585" y="130" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="rgba(255,255,255,.8)">(receiver)</text>
-  <text x="340" y="220" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" fill="#636e72">If B is offline: message queued in Redis inbox:{B}. On B reconnect: flush inbox -> deliver all queued messages.</text>
-</svg><div class="dc-caption">Messages route through WebSocket servers. Connection registry (Redis) maps users to their current WS server.</div></div></div>
-</div><div class="design-step deep">
-  <div class="ds-header"><span class="ds-ico">&#128269;</span>6. Component Deep Dives</div>
-  <div class="ds-body"><p><strong>Connection Management -- The Hard Part:</strong> 600M concurrent WebSocket connections cannot all connect to one server. You have 12,000 WebSocket servers. When A sends a message to B, how does A's server know B is connected to Server C?</p>
-<p><strong>Connection registry:</strong> When a user connects, their WebSocket server writes {user_id -> server_id} to Redis. On message: sender's server looks up recipient's server -> forwards message over internal HTTP/gRPC -> recipient's server pushes to phone. Lookup: O(1) Redis get.</p>
-<p><strong>Offline delivery:</strong> Recipient not in connection registry -> store message in Redis inbox:{user_id} list. When user reconnects: flush inbox, deliver all queued messages, update receipts. Inbox in Redis, backed up in Cassandra for long-term storage (user offline for days).</p>
-<p><strong>End-to-End Encryption (Signal Protocol):</strong> Each device generates a key pair. Public keys uploaded to WhatsApp servers. Sender fetches recipient's public key, encrypts message locally. WhatsApp servers store and forward ciphertext -- they cannot read it. Key exchange happens via X3DH (Extended Triple Diffie-Hellman). Forward secrecy: ratchet keys for each message.</p>
-<p><strong>Read receipts:</strong> Two blue ticks. Receiver sends ACK -> delivered receipt. Receiver opens conversation -> seen receipt. Receipts stored in receipts table. Sender's server updates the message status and notifies sender over their WebSocket.</p></div>
-</div><div class="design-step tradeoff">
-  <div class="ds-header"><span class="ds-ico">&#9878;</span>7. Trade-off Analysis</div>
-  <div class="ds-body"><div class="tw"><table class="to"><thead><tr><th>Decision</th><th>Chosen v</th><th>Alternative x</th><th>Reasoning</th></tr></thead><tbody><tr><td><strong>Transport</strong></td><td class='chosen'>WebSocket (persistent)</td><td class='rej'>HTTP polling</td><td>Persistent connection = instant delivery, no polling overhead. Critical for sub-500ms delivery. Poll would require 1-5 req/sec x 2B users = billions of wasted requests.</td></tr><tr><td><strong>Message store</strong></td><td class='chosen'>Cassandra</td><td class='rej'>PostgreSQL</td><td>Time-series append workload. 100B msgs/day = 1.16M writes/sec. Cassandra's LSM-tree handles this. PostgreSQL B-tree would require enormous infrastructure for this write rate.</td></tr><tr><td><strong>Group messaging</strong></td><td class='chosen'>Fan-out on send (for small groups)</td><td class='rej'>Fan-out on receive</td><td>For 256-member groups: fan-out on send = 256 DB writes + 256 WS pushes. Manageable. On receive = one write but N reads on timeline load. Fan-out on send is better for groups this size.</td></tr></tbody></table></div></div>
-</div><div class="design-step fault">
-  <div class="ds-header"><span class="ds-ico">&#128737;</span>8. Fault Tolerance</div>
-  <div class="ds-body"><div class="ft-row"><div class="ft-fail">WebSocket server crashes</div><div class="ft-fix">All connections on that server disconnect. Clients auto-reconnect to any WS server (load balancer with sticky session NOT required -- connection registry handles routing). Reconnect within 1-2 seconds. Messages in flight are re-delivered from Cassandra.</div></div><div class="ft-row"><div class="ft-fail">Connection registry (Redis) down</div><div class="ft-fix">Short outage: WS servers cache recent {user->server} mappings locally (LRU, 5 min TTL). On cache miss: fan-out to all WS servers (expensive but rare). Redis Cluster + sentinels for HA.</div></div><div class="ft-row"><div class="ft-fail">Cassandra node failure</div><div class="ft-fix">RF=3, W=2, R=1. Node failure -> writes still succeed (2 of remaining 4 nodes). Read: if returning stale data, read-repair brings it up to date. Hinted handoff for writes during node unavailability.</div></div><div class="ft-row"><div class="ft-fail">Message lost in transit</div><div class="ft-fix">Message ID is Snowflake (globally unique). ACK from WS server means it received the message. If sender doesn't get ACK in 5s -> retry (idempotent: same message_id = same Cassandra row). Three retries, then store in outbox for async retry.</div></div></div>
-</div><div class="design-step concl">
-  <div class="ds-header"><span class="ds-ico">&#127937;</span>9. Conclusion &mdash; what I would say in the last three minutes</div>
-  <div class="ds-body">
-  <div class="concl-grid">
+<p>Three tiers, with the middle one doing the interesting work.</p>
+<div class="flow">  Priya's phone                                          Dev's phone
+       |                                                       ^
+       | <span class="fl-dim">persistent socket</span>                                     | <span class="fl-dim">persistent socket</span>
+       v                                                       |
+  <span class="fl-hi">GATEWAY A</span>                                              <span class="fl-hi">GATEWAY C</span>
+  holds Priya's socket                                    holds Dev's socket
+       |                                                       ^
+       | 1. append to conversation log                         |
+       v                                                       | 4. push
+  <span class="fl-key">MESSAGE STORE</span>  partitioned by conversation_id                |
+  assigns seq 41, durable before we ack                        |
+       |                                                       |
+       | 2. who has Dev?                                       |
+       v                                                       |
+  <span class="fl-key">CONNECTION REGISTRY</span>  <span class="fl-note">Dev -&gt; Gateway C, TTL 30s</span>          |
+       |                                                       |
+       +--- 3. forward to C ----------------------------------+
+
+
+  <span class="fl-bad">Dev is offline</span>  &mdash; registry has no entry
+
+       message stays durable in the log
+       a push notification wakes the app  <span class="fl-note">wake-up only; no readable text</span>
+       on reconnect: <span class="fl-hi">GET /sync?since_seq=40</span> &rarr; everything after 40</div>
+<div class="flow-cap">Gateways are stateful only in the sense that they hold sockets &mdash; they store
+no messages. Lose a gateway and its clients reconnect elsewhere and re-sync. Nothing is lost, because
+durability lives in the log, not in the connection.</div>
+
+<h4>Why the registry is a cache with a TTL</h4>
+
+<p>The registry maps each online user to the gateway holding their socket. It is written on every
+connect, which at this scale is a very high write rate, and read on every message.</p>
+
+<p>It is also allowed to be wrong. If it says Dev is on gateway C and Dev has actually just
+reconnected to gateway F, C receives a message for a socket it no longer has, replies &ldquo;not
+mine&rdquo;, and the message falls back to the offline path &mdash; where Dev picks it up on sync
+anyway. A stale entry costs one wasted hop, not a lost message.</p>
+
+<p>That tolerance is why it can be an in-memory cache with a short TTL rather than a replicated
+consistent store, and the difference in cost between those two is enormous.</p></div>
+</div>
+<div class="design-step wflow">
+  <div class="ds-header"><span class="ds-ico">&#128260;</span>8. Workflows &mdash; what actually happens</div>
+  <div class="ds-body"><div class="wf">
+  <div class="wf-title">Priya messages Dev, and Dev is online</div>
+  <div class="wf-sub">The happy path, end to end.</div>
+  <ol>
+    <li>Priya's client encrypts the text for Dev, attaches a <b>client message id</b> it generated itself, and sends it over its open socket to gateway A.</li>
+    <li>A appends it to the conversation's log, which assigns <b>seq 41</b> and makes it durable. Only now does A send Priya an ack &mdash; her first tick.</li>
+    <li>A asks the registry where Dev is. Answer: <b>gateway C</b>.</li>
+    <li>A forwards the message to C, which writes it down Dev's socket. Total elapsed: a few tens of milliseconds.</li>
+    <li>Dev's phone displays it and sends a <b>delivered</b> receipt back along the same path. Priya's second tick appears.</li>
+    <li>Dev opens the chat. A <b>read</b> receipt follows, and the ticks turn blue.</li>
+  </ol>
+  <div class="wf-out">The message was durable before Priya saw a single tick. That ordering is deliberate: a tick is a promise, and promising delivery for something held only in memory is how messages disappear.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">Dev is in the London Underground</div>
+  <div class="wf-sub">Offline delivery, which is the normal case on mobile.</div>
+  <ol>
+    <li>Priya sends four messages over twenty minutes. Each is appended to the log with seq 42 through 45 and each is durable.</li>
+    <li>The registry has no entry for Dev &mdash; his socket died when the signal did, and the TTL expired thirty seconds later.</li>
+    <li>For the first message we send a push notification through the platform's service. It carries <b>no text</b>, because the server cannot read the text. It is a wake-up.</li>
+    <li>We do not send a push for the next three. Priya's client shows a single tick on all four: sent, not delivered.</li>
+    <li>Dev surfaces. The client reconnects, lands on gateway F this time, and calls <b>/sync?since_seq=41</b>.</li>
+    <li>The server returns 42 through 45 in order. Dev's phone renders them, sends delivered receipts, and Priya's four single ticks become doubles at once.</li>
+  </ol>
+  <div class="wf-out">Nothing tracked Dev's state while he was away. The client said what it last saw and the server answered from the log &mdash; which is the only approach that survives a phone that disappears for a week.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">The ack is lost and the message arrives twice</div>
+  <div class="wf-sub">At-least-once, and where the duplicate actually dies.</div>
+  <ol>
+    <li>Gateway C delivers seq 43 to Dev's phone. The phone displays it and sends the ack.</li>
+    <li>The train enters a tunnel. The ack never arrives.</li>
+    <li>The server sees an unacked message and, on Dev's next connection, sends 43 again. It cannot distinguish <i>delivered but unacked</i> from <i>never delivered</i>.</li>
+    <li>Dev's client looks at the message id, finds it in the set of ids it has already displayed, and <b>drops it silently</b>.</li>
+    <li>It re-sends the ack. This time it lands, and the server stops retrying.</li>
+  </ol>
+  <div class="wf-out">Deduplication happens on the client because that is the only place with enough information to do it. The server chose the safe failure &mdash; send twice rather than risk zero &mdash; and the client cleaned up after it.</div>
+</div>
+
+<div class="wf alt">
+  <div class="wf-title">A 200-member group chat</div>
+  <div class="wf-sub">Fan-out at a bounded size, which is what makes this tractable.</div>
+  <ol>
+    <li>Priya sends to the group. Because of end-to-end encryption she does not send one message &mdash; her client encrypts the <b>same content once per recipient device</b>, since each has a different key.</li>
+    <li>All of those go up the one socket in a single batch. The upload is one round trip, not two hundred.</li>
+    <li>The server appends them to the group's conversation log with one sequence number shared across the batch, so every member sees group messages in the same order.</li>
+    <li>It looks up all 200 members in the registry: perhaps 60 are online. Those get an immediate push to their gateways.</li>
+    <li>The other 140 get a notification wake-up and their copies wait in the log until they sync.</li>
+    <li>Receipts come back from 200 devices. We aggregate them &mdash; Priya sees &ldquo;delivered to 200&rdquo;, not two hundred separate events.</li>
+  </ol>
+  <div class="wf-out">This works because groups are bounded at a few hundred. At a hundred thousand members, per-recipient encryption stops being viable and the design changes shape entirely &mdash; which is exactly why group size was the first thing to clarify.</div>
+</div></div>
+</div>
+<div class="design-step deep">
+  <div class="ds-header"><span class="ds-ico">&#128269;</span>9. Deep dives, and what breaks</div>
+  <div class="ds-body"><h4>Holding 600 million sockets</h4>
+
+<p>A gateway's job is nearly all waiting. The engineering is about making idle connections cheap.</p>
+
+<p>A thread per connection is immediately out &mdash; 50,000 threads on one machine spend their lives
+context-switching. It is an event loop with non-blocking I/O, where one thread manages tens of
+thousands of sockets and only does work when one of them actually has bytes.</p>
+
+<p>Then the per-connection memory. Default socket buffers are sized for throughput; here they should
+be small, because the traffic is tiny messages, and 50,000 &times; a few hundred kilobytes of buffer
+is the whole machine. File descriptor limits and ephemeral port ranges both need raising past their
+defaults, which are set for servers holding hundreds of connections, not tens of thousands.</p>
+
+<p>And keepalives. The connection must survive carrier NAT timeouts, which on mobile networks can be
+as short as a couple of minutes, so something has to send a byte periodically. Too frequent and you
+drain batteries across the entire user base; too infrequent and connections die silently and messages
+take a push notification to arrive. It is a tuned number, usually a few minutes, and it is one of the
+higher-leverage constants in the whole system.</p>
+
+<h4>Sequence numbers, and why they are per conversation</h4>
+
+<p>Each conversation has its own counter. Messages in it are 1, 2, 3, and a client that has seen 41
+knows immediately whether it is missing anything.</p>
+
+<p>Because the counter is scoped to one conversation, one partition owns it and can hand out numbers
+without asking anybody. Two billion conversations therefore assign sequence numbers entirely in
+parallel. A global counter would mean every message in the world queueing behind one assignment
+point.</p>
+
+<p>Within a single conversation the ordering does have to be decided somewhere &mdash; two members
+sending simultaneously is a genuine race &mdash; but that is one partition serialising two writes,
+which is cheap and local. This is the same move that appears throughout the guide: <strong>make the
+constraint local instead of coordinating.</strong></p>
+
+<h4>Receipts, and why they get a cheaper pipeline</h4>
+
+<p>Receipts roughly double the system's event count, but they have much weaker requirements: a
+delayed tick is unnoticeable, and a lost one is nearly so.</p>
+
+<p>So they are not treated like messages. They are batched &mdash; a client that has been offline
+sends one aggregate rather than forty individual receipts &mdash; they are not retried indefinitely,
+and in groups they are collapsed to a count before the sender ever sees them.</p>
+
+<p>Recognising that two flows of similar volume can have very different guarantees, and building the
+cheaper pipeline for the cheaper one, is the kind of thing that separates a design that scales from
+one that is merely correct.</p>
+
+<h4>What breaks</h4>
+
+<div class="ft-row"><div class="ft-fail">WebSocket server crashes</div><div class="ft-fix">All connections on that server disconnect. Clients auto-reconnect to any WS server (load balancer with sticky session NOT required -- connection registry handles routing). Reconnect within 1-2 seconds. Messages in flight are re-delivered from Cassandra.</div></div><div class="ft-row"><div class="ft-fail">Connection registry (Redis) down</div><div class="ft-fix">Short outage: WS servers cache recent {user->server} mappings locally (LRU, 5 min TTL). On cache miss: fan-out to all WS servers (expensive but rare). Redis Cluster + sentinels for HA.</div></div><div class="ft-row"><div class="ft-fail">Cassandra node failure</div><div class="ft-fix">RF=3, W=2, R=1. Node failure -> writes still succeed (2 of remaining 4 nodes). Read: if returning stale data, read-repair brings it up to date. Hinted handoff for writes during node unavailability.</div></div><div class="ft-row"><div class="ft-fail">Message lost in transit</div><div class="ft-fix">Message ID is Snowflake (globally unique). ACK from WS server means it received the message. If sender doesn't get ACK in 5s -> retry (idempotent: same message_id = same Cassandra row). Three retries, then store in outbox for async retry.</div></div><div class="concl-grid">
     <div class="cc"><div class="h">The dominant constraint</div><p><strong>Delivery ordering is required per conversation, not globally.</strong> That single relaxation is what lets me partition by conversation ID and avoid any cross-shard coordination on the hot path.</p></div>
     <div class="cc first"><div class="h">What I would build first</div><p>The WebSocket gateway plus per-conversation sequencing and the offline queue. Presence is deliberately a separate service.</p></div>
     <div class="cc"><div class="h">What I deliberately did not build</div><p>Server-side search, which end-to-end encryption largely rules out, and global message ordering, which nobody needs.</p></div>
     <div class="cc risk"><div class="h">The biggest risk</div><p>Presence. It has a far higher write rate than messaging and, if co-located, its load will take the messaging path down with it.</p></div>
-  </div>
-  </div>
+  </div></div>
 </div>
 
 <div class="followup">
@@ -8365,8 +8849,9 @@ service on the read path, which is a real latency cost you should name rather th
     <div class="fu-a"><p>Presence is a much higher write rate than messaging &mdash; a typing indicator changes several times per message sent &mdash; so it must not share the messaging path.</p><p>Keep it entirely in memory, never persist it, give it a short TTL so a crashed client stops appearing to type, and send it only to people currently looking at that conversation rather than all members.</p><p>The reason to separate it is blast radius: if presence falls over, messaging should be completely unaffected. Co-locating them means the noisiest feature can take down the important one.</p></div>
   </details>
 </div>
+  </div>
 </div>
-</div>
+
 <div class="design-card">
   <div class="dc-header">
     <h3 class="dc-title"><span id="design-youtube">Design YouTube (Video Upload & Streaming)</span></h3>

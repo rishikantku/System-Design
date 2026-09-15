@@ -1754,8 +1754,9 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   <h1>Atlassian Isolated Cloud</h1>
   <p class="cover-sub">A single-customer deployment of Atlassian Cloud: dedicated AWS accounts, a dedicated
   VPC, a dedicated domain, customer-managed keys, and egress blocked by default &mdash; operated by a
-  control plane that is still shared. This page reconstructs the architecture from Atlassian&rsquo;s
-  public documentation, then builds the Staff-level engineering problems around it.</p>
+  control plane that is still shared. Parts&nbsp;1&ndash;4 reconstruct the architecture from Atlassian&rsquo;s
+  public documentation. Part&nbsp;5 is the platform work behind it. Parts&nbsp;6&ndash;7 turn both into
+  interview preparation, ending with the design-retrospective format.</p>
 </div>
 
 <div class="content" id="how-to-read">
@@ -3044,7 +3045,7 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
 
   <p>The platform owns infrastructure, routing, lifecycle and security. Product teams adopt isolation
   with minimal change to their own applications &mdash; their integration was principally about
-  adopting the platform&rsquo;s shard configuration model, not rewriting business logic.</p>
+  adopting the platform&rsquo;s shard descriptor model, not rewriting business logic.</p>
 
   <div class="tw"><table class="to">
     <thead><tr><th style="width:28%">Approach</th><th style="width:36%">What it means</th><th style="width:36%">How it plays out</th></tr></thead>
@@ -3384,7 +3385,8 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   <p><span class="tag tag-y">YOUR ACCOUNT</span> Originally a product service was described through a
   <strong>service descriptor</strong>. The service was fundamentally multi-tenant, and its deployment
   and configuration assumed a common runtime model. Supporting Isolated Cloud meant introducing a
-  <strong>shard-oriented configuration model</strong>.</p>
+  <strong>shard-oriented configuration model</strong> &mdash; a <strong>shard descriptor</strong> describing an
+  individual shard, alongside the service-level description.</p>
 
   <div class="insight">
     <div class="label">&#127919; The shape of the change</div>
@@ -3403,8 +3405,9 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   <span class="fl-note">configuration can cover compute, memory, networking, storage,
   keys, monitoring and other deployment/runtime settings.</span></div>
 
-  <p>The assumption the original descriptor encoded was that there is <em>one</em> runtime for the
-  service. That was true for a decade and false the moment a tenant needs its own deployment. A
+  <p>A service descriptor described <em>the service</em>; a shard descriptor describes <em>one
+  tenant&rsquo;s isolated runtime of it</em>. The assumption the original descriptor encoded was that there
+  is <em>one</em> runtime for the service. That was true for a decade and false the moment a tenant needs its own deployment. A
   shard-oriented model lets each isolated environment carry the configuration that suits it, without
   every tenant being forced onto one shared set of numbers.</p>
 
@@ -3412,7 +3415,7 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
 
   <p><span class="tag tag-y">YOUR ACCOUNT</span> <strong>The goal was to avoid forcing product teams to
   rewrite their business logic.</strong> A team&rsquo;s integration was principally adopting the
-  platform and shard configuration model, plus the necessary service and configuration changes.</p>
+  platform and the shard descriptor model, plus the necessary service and configuration changes.</p>
 
   <p>That is the sentence that connects the technical design to the 178-team outcome, and it is worth
   being explicit about the causation in an interview: <strong>the configuration model is what kept the

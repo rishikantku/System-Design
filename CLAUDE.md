@@ -9,7 +9,7 @@ relative to that folder unless stated otherwise.
 **Companion files in this folder:**
 - `index.html` — the artifact (renamed from Distributed_Systems_Deep_Guide.html for Vercel)
 - `questions-google.html` — **one question-bank page per company.** See §2b before adding another.
-- `specialization-aic.html` — **companion page: Atlassian Isolated Cloud.** See §2c.
+- `specialization-aic.html` — **retrospective prep for the reader's own project.** See §2c.
 - `Distributed_Systems_Deep_Guide.backup.html` — pre-enrichment original
 - `DDIA_REFERENCE.md` — source-book structural index + synthesis notes
 - `Designing Data Intensive Applications by Martin Kleppmann.pdf` — the source book
@@ -188,124 +188,66 @@ ids = set(re.findall(r'id="([\w-]+)"', open('index.html').read()))
 and three points inside T6. T6 keeps only the *analysis* — the two-round finding, the
 clusters, the rubric ladder — and hands the list itself to the page.
 
-## 2c. `specialization-aic.html` — the specialization companion page
+## 2c. `specialization-aic.html` — the Isolated Cloud retrospective page
 
-A standalone, self-contained page on **Atlassian Isolated Cloud**, for the reader's
-"depth in specialization" technical round. ~15,100 words, 31 sections in 6 parts, 27 click-to-reveal
-drills, 14 `.flow` diagrams, 24 tables.
+Prep for the reader's **LinkedIn Staff-level design retrospective** — a 1-hour interview about
+one real past project (~40 min drilling it, ~15 min their questions). Not a system-design round.
 
-**All AIC content lives on this page. `index.html` carries only the link** — one master-TOC
-card (badge `S`) and one sidebar link. That split was an explicit instruction; do not move
-AIC material into the guide.
+**~3,700 words, 15 sections, 3 parts. Keep it that way.** It reached 17,400 words and 36
+sections and the reader said it had become unreadable. The cut is documented in commit
+`4b8f7a1`; the fuller research version is at `864b9f0` if a detail is ever needed back.
 
-It reuses `index.html`'s entire `<style>` block verbatim so the two files look like one book,
-plus a small page-local `<style>` for the provenance tags and cover.
+| Part | Sections | Contains |
+|---|---|---|
+| 1 The system | §1–2 | What AIC is; the two-tag provenance key |
+| 2 What you built | §3–10 | The platform architecture — this is the interview's subject |
+| 3 The interview | §11–15 | Retrospective format, the story, drill chains, their questions, one-page revision |
 
-### The sourcing rule — this is the point of the page
+### Rules for this page
 
-The page was built **research-first** from Atlassian's public documentation, and every claim
-carries one of three tags:
+- **Plain English. Short sentences.** No "which is precisely why", "it is worth noting". Lead
+  with the point. Tables over paragraphs when it is genuinely a list.
+- **Two tags only:** `PUBLIC` (.tag-c, Atlassian docs, citable) and `YOURS` (.tag-y, the
+  reader's own work, not citable but first-hand). The old four-tag scheme was cut with the
+  research sections.
+- **Do not re-add hypothetical design.** A retrospective rewards decisions actually made.
+  Inventing a migration platform actively trains the wrong instinct.
+- **If adding something, cut something.** This page's value is that it can be read in one
+  sitting.
 
-| Tag | Class | Meaning | Count |
-|---|---|---|---|
-| `CONFIRMED` | `.tag-c` | Explicitly in Atlassian's docs. Safe to assert. | 54 |
-| `INFERENCE` | `.tag-i` | Not documented; a sound conclusion from what is. | 23 |
-| `SCENARIO` | `.tag-s` | Constructed design problem, representative but invented. | 6 |
-| `YOUR ACCOUNT` | `.tag-y` | **The reader's own architecture and work.** Not in any public source and not citable — but they can speak to it first-hand. | 20 |
+### The architecture it must state correctly
 
-**Never add an untagged factual claim, never let a SCENARIO drift into sounding CONFIRMED,
-and never let a YOUR ACCOUNT item drift into sounding like public documentation** — the reader
-must always know which claims a stranger could verify and which only they can vouch for. Atlassian does not publish its migration-platform internals, so §14–§17 are
-labelled SCENARIO in their headings, not just inline.
-
-### Load-bearing confirmed facts (re-verify before trusting)
-
-AIC is a **2026** product and its docs move. Key facts as checked **September 2026**:
-
-- Atlassian says **"single-customer architecture"**, not single-tenant — one customer, many sites.
-- Dedicated: AWS **OU + accounts**, VPC, **domain and edge**, firewall, compute/storage/DB, CMK.
-- Shared: the control plane, *"across the Atlassian Isolated Cloud environments as well as the
-  Atlassian Cloud environment"*.
-- Named components: **Isolation Gateway** (inbound, allowlisted endpoints), **Isolated Context
-  Gateway** (outbound, field obfuscation), **Controlled & Monitored Egress**, **Transit Policy
-  Manager**, **User Context Token**, **Global Edge**.
-- Domains: `<site>.<org>.atlassian-isolated.net`, admin on `.atlassian-isolated.com`.
-- Identity inverts: the isolated env is an **OAuth2/OIDC IdP *for* `id.atlassian.com`**.
-- Products: Jira, JSM, Confluence only. **Forge yes, Connect and Connect-on-Forge no.**
-- **No data sovereignty. No AWS VPN. 150 sites/org. SSO-only; no Google Workspace IdP.**
-- Migration is on an **EAP**, via the Cloud Migration Assistants; DC support ends **2029-03-28**.
-
-**One documented contradiction is flagged in the page itself** (§10): the admin egress doc says
-app egress is disabled by default with per-remote consent; the developer publishing doc says
-there are "no platform-enforced egress restrictions specific to Isolated Cloud". The page offers
-a reading and marks it unresolved rather than picking one. Keep it that way.
-
-### Part 5 — the reader's own work (`YOUR ACCOUNT`)
-
-§19–§27 are the reader's own architecture and work, supplied by them as a source of truth.
-**An earlier version of this part was wrong and was rebuilt** — the errors are listed at the
-bottom because they are easy to repeat.
-
-**The one idea:** *isolation is a platform capability, not a product-specific feature.*
-Everything else descends from it. ~178 engineering teams migrated, phased.
-
-**The components, with exact terminology (§19 of their source says use these consistently):**
+The reader supplied this as source of truth. Getting it wrong has happened twice.
 
 | Term | Means |
 |---|---|
-| **Control plane** | Shared. Onboarding, provisioning (AWS accounts, VPC, databases, storage, keys), deployment/monitoring/logging config, tenant metadata, environment lifecycle. **Not on the request path.** |
-| **Customer data plane** | The isolated runtime serving customer traffic. |
-| **Global Edge** | Initial request handling, forwards to Router. **Do not over-attribute tenant placement to it.** |
-| **Router** | Tenant-aware routing. In-memory cache of tenant context; miss → Tenant Context Service. Decides **Commercial vs Isolated only** — does *not* own runtime placement. |
-| **Tenant Context (Service)** | Relatively static: tenant identity, environment, entitlements. Answers *who is this tenant*. |
-| **Shard Manager** | Runtime placement + shard lifecycle/operational state. Answers *which shard serves this tenant now*. |
-| **Shard** | **Logical** isolated deployment/runtime for a **tenant + product**. Contains multiple replicas. |
-| **Replica** | An individual runtime copy inside a shard. |
-| **Shard configuration repository** | Persistent **source of truth** for placement/config. |
-| **Egress Gateway** | Centralized outbound policy enforcement point. |
+| **Control plane** | Shared. Provisioning, lifecycle. **Not on the request path.** |
+| **Customer data plane** | Dedicated per customer. Serves traffic. |
+| **Global Edge** | Handles request, forwards to Router. Does **not** decide placement. |
+| **Router** | Decides **commercial vs isolated only**. Caches tenant context; miss → Tenant Context Service. |
+| **Tenant Context** | Static: identity, environment, entitlements. |
+| **Shard Manager** | Runtime placement + shard lifecycle. |
+| **Shard** | **Logical** isolated runtime for a **tenant + product**. Holds multiple replicas. |
+| **Replica** | A runtime copy inside a shard. |
+| **Shard descriptor** | Per-shard config. Service descriptor describes the service. |
+| **Shard configuration repository** | **Source of truth** for placement. |
+| **Egress Gateway** | Centralized outbound policy enforcement. |
 
-**Request path:** Client → Global Edge → Router → Tenant Context → {Commercial runtime | Shard
-Manager → resolve shard → isolated shard → replicas → dedicated data stores} → Egress Gateway.
+Path: Client → Global Edge → Router → Tenant Context → {commercial | Shard Manager → shard →
+replicas → dedicated data} → Egress Gateway.
 
-**Why Router and Shard Manager are separate** — their source calls this fundamental, and it is
-the strongest single interview answer in the story. Tenant context is static, infrequently
-changed, highly cacheable, identity-oriented. Shard placement is dynamic — it changes on
-failure, maintenance, deployment, migration, runtime replacement, capacity events. Coupling a
-stable concern to a volatile one is the mistake.
+**Five things that were wrong before — do not reintroduce:**
 
-**Migration tiers:** L0 foundation/critical (Identity, Global Edge) · L1 near-edge and shared
-platform (shared gateway/platform services, observability) · L2 major products (Jira, JSM,
-Confluence, Trello) · L3 the lower-priority tail. The reader separately described inserting an
-**L2.5**; it is presented as their refinement, not as part of the base taxonomy. Ordering
-considered dependency graph, business priority, traffic, risk and operational readiness — it is
-an *organisational* strategy, not a dependency sort.
+1. A shard is **not** a service instance or an EC2 instance. Shard ≠ replica.
+2. **Replica failure ≠ shard replacement.** Only a shard change updates placement and
+   invalidates the cache.
+3. The **Router must be present**, scoped to commercial-vs-isolated.
+4. **Caches are never the source of truth.**
+5. **No Kubernetes.** AWS-native Auto Scaling. (A drill titled "Why not Kubernetes?" is
+   intended — it answers the anticipated question.)
 
-### Five things that were wrong before — do not reintroduce them
-
-1. **A shard is not a service instance and not an EC2 instance.** It is a logical isolated
-   deployment containing replicas. Shard ≠ replica.
-2. **Replica failure ≠ shard replacement.** A replica failing does not change the tenant→shard
-   mapping; infrastructure replaces it. Only a *shard* change updates placement and invalidates
-   the cache.
-3. **The Router must be present**, and must be scoped to Commercial-vs-Isolated only.
-4. **Caches are never the source of truth** — the shard configuration repository is.
-5. **No Kubernetes.** Scaling is AWS-native Auto Scaling. (The page does contain a drill titled
-   "Why not Kubernetes?" — that is answering the anticipated question, which is intended.)
-
-Also: **do not name a policy engine** (e.g. OPA) for the Egress Gateway. Say "policy-driven
-enforcement".
-
-### Verifying this page
-
-Same tooling as the guide. All 12 external sources were curl-checked (12/12 → 200). The
-`.flow` alignment rule bit here too — the main architecture diagram shipped ragged (content at
-columns 65/67/69 against a 66-wide border) and was rebuilt by `scratchpad/aic/fixflow.py`,
-which pads programmatically, colours by **(line, start, end) column range** rather than
-`str.replace`, and **asserts every box line is flush before rendering**. Reuse that script's
-shape for any new diagram here.
-
-Note the connector lines (`    |        ^`) are *not* box edges — an alignment check must
-exclude lines matching `^[\s|^v]*$` or it reports false positives.
+Also: **never name a policy engine** (e.g. OPA). Say "policy-driven enforcement". And never
+invent a metric — 178 teams is the reader's; everything else needs their verification.
 
 ---
 

@@ -195,7 +195,7 @@ one real past project (~40 min drilling it, ~15 min their questions). Not a syst
 
 **~3,700 words, 15 sections, 3 parts. Keep it that way.** It reached 17,400 words and 36
 sections and the reader said it had become unreadable. The cut is documented in commit
-`4b8f7a1`; the fuller research version is at `864b9f0` if a detail is ever needed back.
+`9305e4f`; the fuller research version is at `864b9f0` if a detail is ever needed back.
 
 | Part | Sections | Contains |
 |---|---|---|

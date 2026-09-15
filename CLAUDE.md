@@ -9,6 +9,7 @@ relative to that folder unless stated otherwise.
 **Companion files in this folder:**
 - `index.html` — the artifact (renamed from Distributed_Systems_Deep_Guide.html for Vercel)
 - `questions-google.html` — **one question-bank page per company.** See §2b before adding another.
+- `specialization-aic.html` — **companion page: Atlassian Isolated Cloud.** See §2c.
 - `Distributed_Systems_Deep_Guide.backup.html` — pre-enrichment original
 - `DDIA_REFERENCE.md` — source-book structural index + synthesis notes
 - `Designing Data Intensive Applications by Martin Kleppmann.pdf` — the source book
@@ -186,6 +187,70 @@ ids = set(re.findall(r'id="([\w-]+)"', open('index.html').read()))
 `index.html` links to the bank from six places: the cover CTA, the master TOC, the sidebar,
 and three points inside T6. T6 keeps only the *analysis* — the two-round finding, the
 clusters, the rubric ladder — and hands the list itself to the page.
+
+## 2c. `specialization-aic.html` — the specialization companion page
+
+A standalone, self-contained page on **Atlassian Isolated Cloud**, for the reader's
+"depth in specialization" technical round. ~10,800 words, 23 sections, 19 click-to-reveal
+drills, 7 `.flow` diagrams, 16 tables.
+
+**All AIC content lives on this page. `index.html` carries only the link** — one master-TOC
+card (badge `S`) and one sidebar link. That split was an explicit instruction; do not move
+AIC material into the guide.
+
+It reuses `index.html`'s entire `<style>` block verbatim so the two files look like one book,
+plus a small page-local `<style>` for the provenance tags and cover.
+
+### The sourcing rule — this is the point of the page
+
+The page was built **research-first** from Atlassian's public documentation, and every claim
+carries one of three tags:
+
+| Tag | Class | Meaning | Count |
+|---|---|---|---|
+| `CONFIRMED` | `.tag-c` | Explicitly in Atlassian's docs. Safe to assert. | 54 |
+| `INFERENCE` | `.tag-i` | Not documented; a sound conclusion from what is. | 17 |
+| `SCENARIO` | `.tag-s` | Constructed design problem, representative but invented. | 6 |
+
+**Never add an untagged factual claim, and never let a SCENARIO drift into sounding
+CONFIRMED.** Atlassian does not publish its migration-platform internals, so §14–§17 are
+labelled SCENARIO in their headings, not just inline.
+
+### Load-bearing confirmed facts (re-verify before trusting)
+
+AIC is a **2026** product and its docs move. Key facts as checked **September 2026**:
+
+- Atlassian says **"single-customer architecture"**, not single-tenant — one customer, many sites.
+- Dedicated: AWS **OU + accounts**, VPC, **domain and edge**, firewall, compute/storage/DB, CMK.
+- Shared: the control plane, *"across the Atlassian Isolated Cloud environments as well as the
+  Atlassian Cloud environment"*.
+- Named components: **Isolation Gateway** (inbound, allowlisted endpoints), **Isolated Context
+  Gateway** (outbound, field obfuscation), **Controlled & Monitored Egress**, **Transit Policy
+  Manager**, **User Context Token**, **Global Edge**.
+- Domains: `<site>.<org>.atlassian-isolated.net`, admin on `.atlassian-isolated.com`.
+- Identity inverts: the isolated env is an **OAuth2/OIDC IdP *for* `id.atlassian.com`**.
+- Products: Jira, JSM, Confluence only. **Forge yes, Connect and Connect-on-Forge no.**
+- **No data sovereignty. No AWS VPN. 150 sites/org. SSO-only; no Google Workspace IdP.**
+- Migration is on an **EAP**, via the Cloud Migration Assistants; DC support ends **2029-03-28**.
+
+**One documented contradiction is flagged in the page itself** (§10): the admin egress doc says
+app egress is disabled by default with per-remote consent; the developer publishing doc says
+there are "no platform-enforced egress restrictions specific to Isolated Cloud". The page offers
+a reading and marks it unresolved rather than picking one. Keep it that way.
+
+### Verifying this page
+
+Same tooling as the guide. All 12 external sources were curl-checked (12/12 → 200). The
+`.flow` alignment rule bit here too — the main architecture diagram shipped ragged (content at
+columns 65/67/69 against a 66-wide border) and was rebuilt by `scratchpad/aic/fixflow.py`,
+which pads programmatically, colours by **(line, start, end) column range** rather than
+`str.replace`, and **asserts every box line is flush before rendering**. Reuse that script's
+shape for any new diagram here.
+
+Note the connector lines (`    |        ^`) are *not* box edges — an alignment check must
+exclude lines matching `^[\s|^v]*$` or it reports false positives.
+
+---
 
 ## 3. Source material
 

@@ -191,8 +191,8 @@ clusters, the rubric ladder — and hands the list itself to the page.
 ## 2c. `specialization-aic.html` — the specialization companion page
 
 A standalone, self-contained page on **Atlassian Isolated Cloud**, for the reader's
-"depth in specialization" technical round. ~10,800 words, 23 sections, 19 click-to-reveal
-drills, 7 `.flow` diagrams, 16 tables.
+"depth in specialization" technical round. ~15,200 words, 29 sections in 6 parts, 25 click-to-reveal
+drills, 9 `.flow` diagrams, 20 tables.
 
 **All AIC content lives on this page. `index.html` carries only the link** — one master-TOC
 card (badge `S`) and one sidebar link. That split was an explicit instruction; do not move
@@ -209,11 +209,13 @@ carries one of three tags:
 | Tag | Class | Meaning | Count |
 |---|---|---|---|
 | `CONFIRMED` | `.tag-c` | Explicitly in Atlassian's docs. Safe to assert. | 54 |
-| `INFERENCE` | `.tag-i` | Not documented; a sound conclusion from what is. | 17 |
+| `INFERENCE` | `.tag-i` | Not documented; a sound conclusion from what is. | 23 |
 | `SCENARIO` | `.tag-s` | Constructed design problem, representative but invented. | 6 |
+| `YOUR ACCOUNT` | `.tag-y` | **The reader's own description of work they did.** Not in any public source and not citable — but they can speak to it first-hand. | 12 |
 
-**Never add an untagged factual claim, and never let a SCENARIO drift into sounding
-CONFIRMED.** Atlassian does not publish its migration-platform internals, so §14–§17 are
+**Never add an untagged factual claim, never let a SCENARIO drift into sounding CONFIRMED,
+and never let a YOUR ACCOUNT item drift into sounding like public documentation** — the reader
+must always know which claims a stranger could verify and which only they can vouch for. Atlassian does not publish its migration-platform internals, so §14–§17 are
 labelled SCENARIO in their headings, not just inline.
 
 ### Load-bearing confirmed facts (re-verify before trusting)
@@ -237,6 +239,30 @@ AIC is a **2026** product and its docs move. Key facts as checked **September 20
 app egress is disabled by default with per-remote consent; the developer publishing doc says
 there are "no platform-enforced egress restrictions specific to Isolated Cloud". The page offers
 a reading and marks it unresolved rather than picking one. Keep it that way.
+
+### Part 5 — the reader's own work (`YOUR ACCOUNT`)
+
+§19–§25 are the reader's contribution, supplied by them, not researched. The load-bearing facts:
+
+- **178 multi-tenant services** had to migrate.
+- The thesis: **make the platform aware of tenant isolation, not each service.** Everything
+  else is a consequence of that one decision — it is the sentence to lead with.
+- Services were tiered **L0–L3**; Isolated Cloud required inserting **L2.5** (a fractional tier,
+  so 178 services' tier assignments did not have to be renumbered).
+- **Shards** = a dedicated service instance *per tenant* — an isolation/lifecycle unit, **not**
+  a data partition. Say so explicitly; readers assume partitioning-for-scale otherwise.
+- A **Shard Manager** owns the shard lifecycle (create/configure/scale/upgrade/repair/retire).
+- **Tenant context** = what kind of tenant this is (multi-tenant vs isolated entitlement),
+  resolved once by the platform and propagated. Must **fail closed**.
+- The **service descriptor** (CPU, RAM, keys, database, scaling strategy) was split, with a
+  per-shard **isolated descriptor** — the template/instance separation that makes per-tenant
+  sizing and dynamic traffic-driven config possible.
+- Data transfers are **encrypted centrally**, so it is a platform guarantee rather than 178
+  promises.
+
+§25 is the STAR story, the "why Staff-level" table and six direct-question answers. It opens
+with two rules that must stay: **claim only what they did**, and **every number must be real**
+(178 is theirs; everything else needs verifying or an explicit "I'd have to check").
 
 ### Verifying this page
 

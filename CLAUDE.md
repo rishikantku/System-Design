@@ -191,8 +191,8 @@ clusters, the rubric ladder — and hands the list itself to the page.
 ## 2c. `specialization-aic.html` — the specialization companion page
 
 A standalone, self-contained page on **Atlassian Isolated Cloud**, for the reader's
-"depth in specialization" technical round. ~15,200 words, 29 sections in 6 parts, 25 click-to-reveal
-drills, 9 `.flow` diagrams, 20 tables.
+"depth in specialization" technical round. ~15,100 words, 31 sections in 6 parts, 27 click-to-reveal
+drills, 14 `.flow` diagrams, 24 tables.
 
 **All AIC content lives on this page. `index.html` carries only the link** — one master-TOC
 card (badge `S`) and one sidebar link. That split was an explicit instruction; do not move
@@ -211,7 +211,7 @@ carries one of three tags:
 | `CONFIRMED` | `.tag-c` | Explicitly in Atlassian's docs. Safe to assert. | 54 |
 | `INFERENCE` | `.tag-i` | Not documented; a sound conclusion from what is. | 23 |
 | `SCENARIO` | `.tag-s` | Constructed design problem, representative but invented. | 6 |
-| `YOUR ACCOUNT` | `.tag-y` | **The reader's own description of work they did.** Not in any public source and not citable — but they can speak to it first-hand. | 12 |
+| `YOUR ACCOUNT` | `.tag-y` | **The reader's own architecture and work.** Not in any public source and not citable — but they can speak to it first-hand. | 20 |
 
 **Never add an untagged factual claim, never let a SCENARIO drift into sounding CONFIRMED,
 and never let a YOUR ACCOUNT item drift into sounding like public documentation** — the reader
@@ -242,27 +242,58 @@ a reading and marks it unresolved rather than picking one. Keep it that way.
 
 ### Part 5 — the reader's own work (`YOUR ACCOUNT`)
 
-§19–§25 are the reader's contribution, supplied by them, not researched. The load-bearing facts:
+§19–§27 are the reader's own architecture and work, supplied by them as a source of truth.
+**An earlier version of this part was wrong and was rebuilt** — the errors are listed at the
+bottom because they are easy to repeat.
 
-- **178 multi-tenant services** had to migrate.
-- The thesis: **make the platform aware of tenant isolation, not each service.** Everything
-  else is a consequence of that one decision — it is the sentence to lead with.
-- Services were tiered **L0–L3**; Isolated Cloud required inserting **L2.5** (a fractional tier,
-  so 178 services' tier assignments did not have to be renumbered).
-- **Shards** = a dedicated service instance *per tenant* — an isolation/lifecycle unit, **not**
-  a data partition. Say so explicitly; readers assume partitioning-for-scale otherwise.
-- A **Shard Manager** owns the shard lifecycle (create/configure/scale/upgrade/repair/retire).
-- **Tenant context** = what kind of tenant this is (multi-tenant vs isolated entitlement),
-  resolved once by the platform and propagated. Must **fail closed**.
-- The **service descriptor** (CPU, RAM, keys, database, scaling strategy) was split, with a
-  per-shard **isolated descriptor** — the template/instance separation that makes per-tenant
-  sizing and dynamic traffic-driven config possible.
-- Data transfers are **encrypted centrally**, so it is a platform guarantee rather than 178
-  promises.
+**The one idea:** *isolation is a platform capability, not a product-specific feature.*
+Everything else descends from it. ~178 engineering teams migrated, phased.
 
-§25 is the STAR story, the "why Staff-level" table and six direct-question answers. It opens
-with two rules that must stay: **claim only what they did**, and **every number must be real**
-(178 is theirs; everything else needs verifying or an explicit "I'd have to check").
+**The components, with exact terminology (§19 of their source says use these consistently):**
+
+| Term | Means |
+|---|---|
+| **Control plane** | Shared. Onboarding, provisioning (AWS accounts, VPC, databases, storage, keys), deployment/monitoring/logging config, tenant metadata, environment lifecycle. **Not on the request path.** |
+| **Customer data plane** | The isolated runtime serving customer traffic. |
+| **Global Edge** | Initial request handling, forwards to Router. **Do not over-attribute tenant placement to it.** |
+| **Router** | Tenant-aware routing. In-memory cache of tenant context; miss → Tenant Context Service. Decides **Commercial vs Isolated only** — does *not* own runtime placement. |
+| **Tenant Context (Service)** | Relatively static: tenant identity, environment, entitlements. Answers *who is this tenant*. |
+| **Shard Manager** | Runtime placement + shard lifecycle/operational state. Answers *which shard serves this tenant now*. |
+| **Shard** | **Logical** isolated deployment/runtime for a **tenant + product**. Contains multiple replicas. |
+| **Replica** | An individual runtime copy inside a shard. |
+| **Shard configuration repository** | Persistent **source of truth** for placement/config. |
+| **Egress Gateway** | Centralized outbound policy enforcement point. |
+
+**Request path:** Client → Global Edge → Router → Tenant Context → {Commercial runtime | Shard
+Manager → resolve shard → isolated shard → replicas → dedicated data stores} → Egress Gateway.
+
+**Why Router and Shard Manager are separate** — their source calls this fundamental, and it is
+the strongest single interview answer in the story. Tenant context is static, infrequently
+changed, highly cacheable, identity-oriented. Shard placement is dynamic — it changes on
+failure, maintenance, deployment, migration, runtime replacement, capacity events. Coupling a
+stable concern to a volatile one is the mistake.
+
+**Migration tiers:** L0 foundation/critical (Identity, Global Edge) · L1 near-edge and shared
+platform (shared gateway/platform services, observability) · L2 major products (Jira, JSM,
+Confluence, Trello) · L3 the lower-priority tail. The reader separately described inserting an
+**L2.5**; it is presented as their refinement, not as part of the base taxonomy. Ordering
+considered dependency graph, business priority, traffic, risk and operational readiness — it is
+an *organisational* strategy, not a dependency sort.
+
+### Five things that were wrong before — do not reintroduce them
+
+1. **A shard is not a service instance and not an EC2 instance.** It is a logical isolated
+   deployment containing replicas. Shard ≠ replica.
+2. **Replica failure ≠ shard replacement.** A replica failing does not change the tenant→shard
+   mapping; infrastructure replaces it. Only a *shard* change updates placement and invalidates
+   the cache.
+3. **The Router must be present**, and must be scoped to Commercial-vs-Isolated only.
+4. **Caches are never the source of truth** — the shard configuration repository is.
+5. **No Kubernetes.** Scaling is AWS-native Auto Scaling. (The page does contain a drill titled
+   "Why not Kubernetes?" — that is answering the anticipated question, which is intended.)
+
+Also: **do not name a policy engine** (e.g. OPA) for the Egress Gateway. Say "policy-driven
+enforcement".
 
 ### Verifying this page
 

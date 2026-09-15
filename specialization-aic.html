@@ -3008,437 +3008,603 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
 </div>
 
 
+
 <div class="part-banner"><span class="part-tag">Part 5</span><h2>The platform work</h2></div>
 
 <div class="content" id="s19-platform-problem">
-  <div class="chapter"><div class="ch-num">19</div><h2>178 services, and the decision that made it tractable</h2></div>
+  <div class="chapter"><div class="ch-num">19</div><h2>The problem, and the one idea</h2></div>
 
   <div class="warning">
     <strong>Everything in Part 5 is tagged <span class="tag tag-y">YOUR ACCOUNT</span>.</strong>
-    It comes from your description of the work, not from Atlassian&rsquo;s public documentation, and it
-    is not independently verifiable from outside. That distinction matters in two directions: you can
-    speak to this with first-hand authority, and you should <strong>not</strong> attribute it to a
-    public source if an interviewer asks where it is written down. Use your own judgement about which
-    internal component names you are comfortable saying out loud.
+    It is your description of the architecture and the work, not Atlassian&rsquo;s public
+    documentation, so it cannot be cited &mdash; but you can speak to it first-hand. Use your own
+    judgement about which internal component names you are comfortable saying out loud.
   </div>
 
-  <h3>The problem, stated properly</h3>
+  <h3>The problem, stated at the right altitude</h3>
 
-  <p><span class="tag tag-y">YOUR ACCOUNT</span> Atlassian ran <strong>178 multi-tenant services</strong>.
-  Every one of them had been built on an assumption that was true for a decade and is false in Isolated
-  Cloud:</p>
+  <p>The framing that separates a Staff answer from a Senior one is refusing the shallow version of
+  the question.</p>
 
   <div class="insight">
-    <div class="label">&#127919; The assumption that broke</div>
-    <p><strong>&ldquo;One deployment of this service serves all tenants.&rdquo;</strong></p>
-    <p>In multi-tenant cloud, tenancy is a <em>row-level</em> concept &mdash; a tenant identifier in a
-    query, a partition key, a scope check. One running service, many customers inside it.</p>
-    <p>Isolated Cloud inverts that. A tenant now needs its own <em>deployment</em>: its own compute, its
-    own database, its own configuration, inside its own account. Tenancy stops being something you
-    filter by and becomes something you <strong>provision</strong>.</p>
-    <p>That is not a feature change. It is a change to what a service fundamentally is, and it landed on
-    all 178 at once.</p>
+    <div class="label">&#127919; The deeper problem</div>
+    <p>It was <strong>not</strong>: <em>&ldquo;how do we create an isolated AWS environment for a
+    customer?&rdquo;</em> That is a solved infrastructure task.</p>
+    <p>It was: <em>&ldquo;<strong>how do we introduce strong infrastructure isolation across a large
+    multi-tenant product ecosystem without requiring every product team to redesign its
+    application?</strong>&rdquo;</em></p>
+    <p><span class="tag tag-y">YOUR ACCOUNT</span> Roughly <strong>178 engineering teams</strong>
+    eventually migrated, in phases rather than at once.</p>
   </div>
 
-  <h3>The two ways to solve it</h3>
+  <h3>The principle everything descends from</h3>
+
+  <p><span class="tag tag-y">YOUR ACCOUNT</span> <strong>Isolation is a platform capability, not a
+  product-specific feature.</strong></p>
+
+  <p>The platform owns infrastructure, routing, lifecycle and security. Product teams adopt isolation
+  with minimal change to their own applications &mdash; their integration was principally about
+  adopting the platform&rsquo;s shard configuration model, not rewriting business logic.</p>
 
   <div class="tw"><table class="to">
-    <thead><tr><th style="width:26%">Approach</th><th style="width:37%">What it means</th><th style="width:37%">Why it plays out that way</th></tr></thead>
+    <thead><tr><th style="width:28%">Approach</th><th style="width:36%">What it means</th><th style="width:36%">How it plays out</th></tr></thead>
     <tbody>
-      <tr><td class="rej"><strong>Every service becomes tenant-aware</strong></td>
-        <td>Each of the 178 teams learns to deploy per tenant: provisioning, configuration, scaling, lifecycle, upgrade.</td>
-        <td>178 implementations of the same problem, each slightly different. Multiply by the weeks per team and it does not finish. Worse, it never <em>stays</em> finished &mdash; service 179 starts from nothing, and the 178 drift apart the moment they ship.</td></tr>
-      <tr><td class="chosen"><strong>The platform becomes tenant-aware</strong></td>
-        <td>Services declare what they need. The platform decides how many instances exist, for which tenants, with what configuration.</td>
-        <td>One implementation. A service&rsquo;s own code barely changes. Service 179 gets it by existing. The cost moves from 178 teams to one platform team &mdash; and to the organisational work of getting 178 teams to adopt an abstraction.</td></tr>
+      <tr><td class="rej"><strong>Isolation per product</strong></td>
+        <td>Each of 178 teams redesigns its application for isolation: provisioning, placement, lifecycle, egress policy.</td>
+        <td>178 implementations of one problem, each different. It does not converge, and product 179 starts from nothing. The compliance-critical parts &mdash; egress policy especially &mdash; end up inconsistent across products.</td></tr>
+      <tr><td class="chosen"><strong>Isolation in the platform</strong></td>
+        <td>The platform provides provisioning, tenant context, routing, runtime placement, shard lifecycle and egress enforcement as reusable capabilities.</td>
+        <td>One implementation. Products adopt a configuration model. <strong>Future products inherit isolation by existing.</strong> The cost moves to one platform and to the organisational work of adoption.</td></tr>
     </tbody>
   </table></div>
 
-  <p><span class="tag tag-y">YOUR ACCOUNT</span> <strong>The second is what was built, and it is the
-  thesis of the whole programme:</strong> <em>make the platform aware of the tenant-isolation concept,
-  rather than making each service aware of it.</em></p>
-
-  <div class="deep">
-    <div class="label">&#128269; Why this is the Staff-level decision, specifically</div>
-    <p>It is not the harder <em>engineering</em> choice. Pushing the concern into the platform is a
-    well-understood move &mdash; it is the same instinct as putting a rule in CI rather than a style
-    guide, or in the shared library rather than in every caller.</p>
-    <p>It is the harder <strong>organisational</strong> choice, and that is what makes it Staff-level.
-    It requires 178 teams to accept an abstraction they did not design, to give up local control of
-    their own deployment configuration, and to trust a platform contract for something they previously
-    owned outright. Any one team can reasonably argue their case is special. <strong>Holding the
-    abstraction against 178 opportunities to make an exception is the actual work.</strong></p>
-    <p>And the counterfactual is worth stating in an interview: had each service solved it locally,
-    Isolated Cloud would not have shipped as a product. It would have shipped as 178 partially-complete
-    migrations with no consistent tenancy story &mdash; which is to say, it would not have shipped.</p>
-  </div>
+  <p><strong>The most important outcome was organisational leverage</strong>, and that is the phrase to
+  use. Not &ldquo;we built an isolation platform&rdquo; but &ldquo;instead of every product team
+  solving isolation independently, the platform provided capabilities many teams could adopt&rdquo;.</p>
 </div>
 
-<div class="content" id="s20-tiers">
-  <div class="chapter"><div class="ch-num">20</div><h2>Service tiering, and why L2.5 appeared</h2></div>
+<div class="content" id="s20-planes">
+  <div class="chapter"><div class="ch-num">20</div><h2>Control plane and customer data plane</h2></div>
 
-  <p><span class="tag tag-y">YOUR ACCOUNT</span> Services were already classified <strong>L0, L1, L2,
-  L3</strong>. Isolated Cloud required a new tier, <strong>L2.5</strong>, to be inserted.</p>
+  <p><span class="tag tag-y">YOUR ACCOUNT</span> The architecture divides into a <strong>shared control
+  plane</strong> and a <strong>customer data plane</strong>. The split is not organisational tidiness
+  &mdash; the two have opposite operational characteristics.</p>
 
-  <p>The fact that a new tier was <em>needed</em> is itself the interesting part, and it is a strong
-  thing to lead with: <strong>a new deployment model exposed a category the existing taxonomy could not
-  express.</strong> That is a much better story than &ldquo;we added a tier&rdquo;.</p>
+  <div class="tw"><table class="to">
+    <thead><tr><th style="width:22%"></th><th style="width:39%">Shared control plane</th><th style="width:39%">Customer data plane</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Responsibility</strong></td><td>Lifecycle, provisioning, management</td><td>Serving runtime customer traffic</td></tr>
+      <tr><td><strong>Frequency</strong></td><td class="rej">Infrequent</td><td class="chosen">Continuous</td></tr>
+      <tr><td><strong>Cost profile</strong></td><td>Potentially expensive per operation</td><td>Must be cheap per request</td></tr>
+      <tr><td><strong>Latency</strong></td><td>Not latency-sensitive</td><td class="chosen">Latency-sensitive</td></tr>
+      <tr><td><strong>Shared?</strong></td><td>Shared across customers</td><td>Dedicated per isolated customer</td></tr>
+      <tr><td><strong>On the request path?</strong></td><td class="rej"><strong>No</strong></td><td class="chosen">Yes</td></tr>
+    </tbody>
+  </table></div>
 
-  <h3>What tiering is doing here</h3>
+  <p>That last row is the one to say out loud. <strong>The control plane does not serve normal customer
+  application requests.</strong> Provisioning an environment can take minutes and involve expensive,
+  failure-prone steps; a request cannot. Keeping them apart means the expensive path never sits in front
+  of the cheap one.</p>
 
-  <p><span class="tag tag-i">INFERENCE</span> A tier in a system like this is generally doing two jobs
-  at once, and both matter for a migration of this size:</p>
+  <h3>What the control plane provisions and owns</h3>
 
-  <ul>
-    <li><strong>Criticality</strong> &mdash; how much of the product stops working if this service is
-    unavailable, which drives availability targets, on-call expectations and review rigour.</li>
-    <li><strong>Dependency ordering</strong> &mdash; what has to exist before what. This is the one that
-    governs a migration, because <strong>you cannot migrate a service before the things it depends
-    on</strong>. The tier is effectively a topological layer in the dependency graph.</li>
-  </ul>
+  <p><span class="tag tag-y">YOUR ACCOUNT</span> Tenant onboarding, and then the creation and
+  configuration of the isolated environment: <strong>AWS accounts, VPC and networking, dedicated
+  databases, dedicated storage, keys and security configuration</strong>, plus deployment, monitoring,
+  logging and operational configuration &mdash; and the tenant metadata and lifecycle of that
+  environment thereafter.</p>
 
-  <p>Which means the tiering is not documentation. <strong>It is the migration plan.</strong> Ordering
-  178 services by hand is not possible; ordering them by tier is, and that is what turns an intractable
-  scheduling problem into a set of waves.</p>
+  <div class="flow">  <span class="fl-key">CONTROL PLANE</span>   shared, off the request path
+      |
+      |  onboard tenant
+      |  provision AWS accounts, VPC, networking
+      |  provision dedicated databases and storage
+      |  configure keys and security
+      |  configure deployment, monitoring, logging, operations
+      |  maintain tenant metadata
+      |  manage the environment's lifecycle
+      |
+      v
+  <span class="fl-hi">ISOLATED CUSTOMER DATA PLANE</span>   dedicated, serves traffic
 
-  <div class="insight">
-    <div class="label">&#127919; How to explain L2.5 without over-claiming</div>
-    <p>The honest framing, which is also the strongest one:</p>
-    <p><em>&ldquo;We had L0 through L3. Isolated Cloud produced a class of service that did not fit
-    cleanly: it needed to be migrated and made shard-aware earlier than L3, but it was not a foundation
-    service in the sense L2 meant. Rather than stretch an existing tier and make it mean two things, we
-    inserted L2.5. The value was not the label &mdash; it was that the migration ordering stayed
-    <strong>derivable from the tier</strong> instead of becoming a spreadsheet of exceptions. Once a
-    taxonomy needs exceptions to express reality, it stops being able to drive automation.&rdquo;</em></p>
-    <p>If pushed on why not just renumber everything: renumbering 178 services&rsquo; tier assignments
-    breaks every dashboard, alert policy, on-call rota and runbook keyed to the old values. A fractional
-    tier is deliberately cheap &mdash; it inserts a layer without invalidating anything already
-    written.</p>
-  </div>
-
-  <div class="warning">
-    <strong>Interviewer challenge:</strong> <em>&ldquo;Isn&rsquo;t a fractional tier a smell? You are
-    admitting the taxonomy was wrong.&rdquo;</em>
-    <p style="margin-top:8px">Concede the half that is true and keep the half that is not. The taxonomy
-    <em>was</em> incomplete &mdash; it was designed when every service was multi-tenant, and it had no
-    way to express a distinction that did not exist then. The alternative was not a better original
-    taxonomy; it was either overloading L2 or L3 until it meant two different things, or a full
-    renumber whose cost lands on every artefact keyed to the old values. <strong>A fractional insert is
-    the cheapest correct answer, and it is reversible at the next natural revision.</strong></p>
-  </div>
+      <span class="fl-note">once provisioned, tenant metadata and configuration reach the
+      runtime platform through the Tenant Context / tenant metadata system.</span></div>
+  <div class="flow-cap">The handoff is the interesting part. Provisioning finishes and produces
+  <em>metadata</em>; the runtime then consumes that metadata rather than calling back into the control
+  plane on every request. That is what keeps a slow, shared system out of a fast, isolated one.</div>
 </div>
 
-<div class="content" id="s21-shards">
-  <div class="chapter"><div class="ch-num">21</div><h2>Shards and the Shard Manager</h2></div>
+<div class="content" id="s21-request-path">
+  <div class="chapter"><div class="ch-num">21</div><h2>The runtime request path</h2></div>
 
-  <p><span class="tag tag-y">YOUR ACCOUNT</span> Isolated Cloud introduced the concept of a
-  <strong>shard</strong>. <strong>Each tenant service instance has its own dedicated shard</strong>, and
-  a <strong>Shard Manager</strong> owns the shard lifecycle.</p>
+  <p>This is the diagram to draw first if someone asks how a request is served.</p>
+
+  <div class="flow">  <span class="fl-key">Client</span>
+    |
+    v
+  <span class="fl-hi">GLOBAL EDGE</span>              <span class="fl-note">initial handling; forwards toward the Router</span>
+    |
+    v
+  <span class="fl-hi">ROUTER</span>                   <span class="fl-key">tenant-aware routing</span>
+    |                        in-memory cache of tenant context
+    |                        miss -&gt; Tenant Context Service -&gt; populate cache
+    v
+  <span class="fl-hi">TENANT CONTEXT</span>           <span class="fl-note">who is this tenant, which environment</span>
+    |
+    +---- <span class="fl-dim">Commercial Cloud</span> ----&gt; commercial product runtime
+    |
+    +---- <span class="fl-key">Isolated Cloud</span> ------&gt; <span class="fl-hi">SHARD MANAGER</span>
+                                       |
+                                       v
+                                <span class="fl-key">RESOLVE SHARD</span>       <span class="fl-note">which shard serves this tenant</span>
+                                       |
+                                       v
+                                <span class="fl-hi">ISOLATED SHARD</span>
+                                       |
+                              +--------+--------+
+                              |        |        |
+                          <span class="fl-dim">replica 1  replica 2  replica 3</span>
+                              |        |        |
+                              +--------+--------+
+                                       |
+                                       v
+                            <span class="fl-hi">DEDICATED DATA STORES</span>
+                                       |
+                                       v
+                             <span class="fl-hi">EGRESS GATEWAY</span>  <span class="fl-note">policy enforcement</span>
+                                       |
+                                       v
+                                external systems</div>
+
+  <h3>Global Edge</h3>
+
+  <p><span class="tag tag-y">YOUR ACCOUNT</span> The edge handles the incoming request initially and
+  forwards it toward the Router. <strong>Do not over-attribute tenant placement to the edge</strong>
+  &mdash; it is a common and wrong instinct to describe the edge as deciding where a tenant lives. It
+  does not; that is two components further down.</p>
+
+  <h3>Router</h3>
+
+  <p><span class="tag tag-y">YOUR ACCOUNT</span> The Router sits on the runtime request path and owns
+  <strong>tenant-aware routing</strong>. It holds an <strong>in-memory cache of tenant context</strong>;
+  on a miss it calls the Tenant Context Service, gets the context, and populates its cache.</p>
+
+  <p>The tenant context it uses carries relatively static information: tenant identity, whether the
+  tenant belongs to Commercial Cloud or Isolated Cloud, relevant entitlements, and other routing
+  metadata.</p>
 
   <div class="misconception">
-    <div class="label">&#9888; Say this before anyone assumes the wrong thing</div>
-    <div class="mc-wrong">&ldquo;Shard&rdquo; usually means a horizontal partition of data for scale &mdash; users A&ndash;M here, N&ndash;Z there.</div>
+    <div class="label">&#9888; The scoping mistake to avoid</div>
+    <div class="mc-wrong">&ldquo;The Router figures out which shard to send the request to.&rdquo;</div>
     <div class="mc-right">
-      <p><strong>That is not what it means here.</strong> A shard in this system is a
-      <strong>dedicated instance of a service for a tenant</strong>. It is an isolation and lifecycle
-      unit, not a scale unit.</p>
-      <p>The distinction changes what the design is optimising. Data sharding exists because the data is
-      too big for one machine, and the goal is even distribution. Here, the shard exists because the
-      <em>tenant</em> must not share, and even distribution is irrelevant &mdash; a shard is exactly one
-      tenant&rsquo;s, however small they are.</p>
-      <p>Get in front of this in an interview. Anyone hearing &ldquo;shard&rdquo; will assume
-      partitioning-for-scale, and the whole explanation drifts if you let that assumption stand for two
-      minutes.</p>
+      <p>It does not. <strong>The Router determines <em>whether</em> the tenant is Commercial or
+      Isolated.</strong> It does not own detailed runtime placement.</p>
+      <p>Resolving which shard currently serves a tenant belongs to the Shard Manager, and &sect;22
+      explains why that separation exists. Collapsing the two is the most natural-sounding way to get
+      this architecture wrong.</p>
+    </div>
+  </div>
+</div>
+
+<div class="content" id="s22-separation">
+  <div class="chapter"><div class="ch-num">22</div><h2>Tenant Context vs Shard Manager</h2></div>
+
+  <p><span class="tag tag-y">YOUR ACCOUNT</span> This is described as a <strong>fundamental
+  architectural decision</strong>, and it is the best single thing to volunteer in an interview,
+  because it is a design choice with a reason rather than a component list.</p>
+
+  <div class="insight">
+    <div class="label">&#127919; Two different questions</div>
+    <p><strong>Router / Tenant Context answers:</strong> <em>&ldquo;Who is this tenant, and what
+    environment and entitlements apply to it?&rdquo;</em></p>
+    <p><strong>Shard Manager answers:</strong> <em>&ldquo;Which shard or runtime should serve this
+    tenant&rsquo;s request right now?&rdquo;</em></p>
+    <p>It is tempting to answer both in one place. The reason not to is that the two pieces of
+    information have <strong>completely different change characteristics</strong>.</p>
+  </div>
+
+  <div class="tw"><table class="to">
+    <thead><tr><th style="width:24%"></th><th style="width:38%">Tenant context</th><th style="width:38%">Shard placement</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Nature</strong></td><td>Identity and environment</td><td>Runtime and operational</td></tr>
+      <tr><td><strong>Volatility</strong></td><td class="chosen">Relatively static</td><td class="rej">Dynamic</td></tr>
+      <tr><td><strong>Changes when</strong></td><td>A tenant&rsquo;s environment or entitlement changes &mdash; for example migrating from Commercial to Isolated</td><td>Failure, maintenance, deployment, migration, runtime replacement, capacity or operational changes</td></tr>
+      <tr><td><strong>Cacheability</strong></td><td class="chosen">Highly cacheable</td><td>Cacheable, but must track a moving truth</td></tr>
+      <tr><td><strong>Owner</strong></td><td>Tenant Context Service</td><td>Shard Manager</td></tr>
+    </tbody>
+  </table></div>
+
+  <p><strong>Separating them decouples the two.</strong> Runtime placement can change &mdash; repeatedly,
+  for ordinary operational reasons &mdash; without touching tenant identity. A tenant does not become a
+  different tenant because their shard was replaced during a deployment.</p>
+
+  <h3>The cache invalidation that matters</h3>
+
+  <p><span class="tag tag-y">YOUR ACCOUNT</span> Because the Router caches tenant context in memory,
+  <strong>a tenant-level state change must invalidate or refresh that cache</strong>, or the Router
+  keeps routing on stale context.</p>
+
+  <p>The consequential case is exactly the migration this whole programme exists for: a tenant moves
+  from Commercial Cloud to Isolated Cloud, their context changes &mdash; and until the Router&rsquo;s
+  cache reflects it, requests keep going to the commercial runtime. <strong>That is a correctness
+  problem, not a performance one</strong>, which is why the invalidation path is part of the design
+  rather than an optimisation.</p>
+
+  <div class="warning">
+    <strong>Interviewer challenge:</strong> <em>&ldquo;Why cache in the Router at all, if staleness is a
+    correctness problem?&rdquo;</em>
+    <p style="margin-top:8px">Because the Router is on every request and the Tenant Context Service is
+    not something you want in that path synchronously, every time. The reason caching is <em>safe</em>
+    here is precisely the property in the table above: tenant context is relatively static, so the
+    cache is right almost always, and the small set of events that change it are known and can trigger
+    invalidation. <strong>You could not safely cache shard placement the same way</strong> &mdash;
+    which is, again, why the two are separate systems.</p>
+  </div>
+</div>
+
+<div class="content" id="s23-shards">
+  <div class="chapter"><div class="ch-num">23</div><h2>Shards, replicas, and the Shard Manager</h2></div>
+
+  <div class="misconception">
+    <div class="label">&#9888; Correct this before anything else</div>
+    <div class="mc-wrong">&ldquo;A shard is a tenant&rsquo;s instance of a service.&rdquo; &mdash; or worse, &ldquo;a shard is an EC2 instance.&rdquo;</div>
+    <div class="mc-right">
+      <p><span class="tag tag-y">YOUR ACCOUNT</span> <strong>A shard is a <em>logical</em> isolated
+      deployment / runtime for a particular tenant and product. A shard can contain multiple
+      replicas.</strong></p>
+      <p><strong>Shard &ne; replica. Shard &ne; single instance.</strong> The shard is the logical unit
+      of isolation and placement; replicas are the runtime copies inside it.</p>
+      <p>Two reasons to get in front of this. First, anyone hearing &ldquo;shard&rdquo; assumes a data
+      partition &mdash; users A&ndash;M here, N&ndash;Z there &mdash; which is not what it means.
+      Second, if you describe a shard as one instance, every follow-up about scaling and failure comes
+      out wrong.</p>
     </div>
   </div>
 
-  <h3>What the Shard Manager has to own</h3>
+  <div class="flow">  <span class="fl-key">Tenant A</span>
+    |
+    +-- <span class="fl-hi">Jira Shard-123</span>        <span class="fl-note">the logical isolated runtime</span>
+          |
+          +-- <span class="fl-dim">Replica 1</span>
+          +-- <span class="fl-dim">Replica 2</span>       <span class="fl-note">all three belong to the SAME shard</span>
+          +-- <span class="fl-dim">Replica 3</span>
 
-  <p><span class="tag tag-i">INFERENCE</span> Naming the lifecycle explicitly is what makes this sound
-  like a platform component rather than a deployment script:</p>
+  <span class="fl-key">SCALING</span>   traffic rises
 
-  <div class="flow">  <span class="fl-key">SHARD LIFECYCLE</span>
-
-    <span class="fl-hi">CREATE</span>     a tenant becomes entitled to isolated
-      |        allocate the shard, apply its descriptor, register it
-      v
-    <span class="fl-hi">CONFIGURE</span>  resources, keys, database, scaling policy
-      |        <span class="fl-note">from the isolated descriptor, per shard, not per service</span>
-      v
-    <span class="fl-hi">RUN</span>        healthy, serving, observable as its own unit
-      |
-      +--&gt; <span class="fl-hi">SCALE</span>     adjust to THIS tenant's traffic pattern
-      |                <span class="fl-note">independently of every other shard</span>
-      |
-      +--&gt; <span class="fl-hi">UPGRADE</span>   roll a new version to this shard
-      |                <span class="fl-note">in waves; per-shard rollback is possible</span>
-      |
-      +--&gt; <span class="fl-bad">REPAIR</span>    drift detected, reconcile to desired state
-      |
-      v
-    <span class="fl-bad">RETIRE</span>     tenant leaves; reclaim, verify destruction
+    the shard scales its <span class="fl-hi">replicas</span>          <span class="fl-note">AWS-native, Auto Scaling</span>
+    <span class="fl-key">the shard itself is unchanged</span>
+    tenant -&gt; shard mapping is unchanged
 
 
-  <span class="fl-dim">the Shard Manager is the control loop over all of this.
-  services do not implement any of it -- that is the entire point.</span></div>
-  <div class="flow-cap">Every one of those verbs is something 178 teams would otherwise have implemented
-  separately. Centralising the lifecycle is what converts &ldquo;178 migrations&rdquo; into &ldquo;one
-  platform capability plus 178 adoptions&rdquo;, and the second is a much smaller problem.</div>
+  <span class="fl-key">REPLICA FAILURE</span>
 
-  <h3>Why a shard per tenant service instance, rather than per tenant</h3>
+    Shard-123
+      +-- Replica 1
+      +-- <span class="fl-bad">Replica 2   fails</span>
+      +-- Replica 3
 
-  <p><span class="tag tag-i">INFERENCE</span> Worth being ready for, because it is a natural probe. If a
-  shard were per <em>tenant</em>, every service that tenant uses would be locked to the same
-  configuration and the same scaling decisions &mdash; which is wrong, because a tenant&rsquo;s search
-  service and their attachment service have nothing in common in resource shape or traffic pattern.</p>
+    infrastructure replaces or adds a replica
+    <span class="fl-key">the shard mapping does NOT necessarily change</span>
 
-  <p>A shard per <strong>tenant service instance</strong> is the finer granularity, and it is what makes
-  the dynamic per-shard configuration in &sect;23 meaningful. The cost is more shards to manage, which is
-  precisely why the Shard Manager has to exist rather than being a set of runbooks.</p>
-</div>
 
-<div class="content" id="s22-tenant-context">
-  <div class="chapter"><div class="ch-num">22</div><h2>Tenant Context</h2></div>
+  <span class="fl-bad">SHARD REPLACEMENT</span>   a different event entirely
 
-  <p><span class="tag tag-y">YOUR ACCOUNT</span> A <strong>tenant context</strong> defines what kind of
-  tenant this is &mdash; whether it is a <strong>multi-tenant</strong> tenant or an <strong>Isolated
-  Cloud entitlement</strong>.</p>
+    Tenant A -&gt; Shard-123        becomes        Tenant A -&gt; <span class="fl-hi">Shard-456</span>
 
-  <p>This is the smallest component in Part 5 and arguably the most important, because it is the
-  primitive that lets the platform decide anything at all.</p>
+    now the Shard Manager updates placement state
+    and the relevant cache entry is invalidated</div>
+  <div class="flow-cap">The distinction between a replica failing and a shard being replaced is the one
+  an interviewer will probe, because conflating them is what a candidate does when they have only heard
+  the architecture described rather than reasoned about it.</div>
 
-  <div class="insight">
-    <div class="label">&#127919; What it actually buys</div>
-    <p>Without a tenant context, &ldquo;is this tenant isolated?&rdquo; is a question <em>every service
-    has to answer for itself</em> &mdash; usually by checking a flag somewhere, in 178 slightly
-    different ways, with 178 slightly different failure behaviours when the lookup fails.</p>
-    <p>With it, tenancy kind becomes <strong>an ambient property of the request or operation</strong>
-    that the platform resolves once and everything downstream can rely on. Routing, configuration
-    resolution, entitlement checks, and which shard to talk to all read the same context.</p>
-    <p>It is the difference between a concept the platform <em>knows</em> and a convention services
-    <em>follow</em>.</p>
+  <h3>What the Shard Manager owns</h3>
+
+  <p><span class="tag tag-y">YOUR ACCOUNT</span> Runtime placement, and shard lifecycle and operational
+  state. It maintains the mapping from tenant and product to the current shard &mdash; <code>Tenant A +
+  Jira &rarr; Shard-123</code> &mdash; and that mapping is dynamic, because a shard can be replaced or
+  moved during failure, maintenance, deployment, migration, runtime replacement, or capacity and
+  operational changes.</p>
+
+  <h3>The shard lifecycle</h3>
+
+  <p>Note that this is the lifecycle of the <em>logical</em> runtime, not of individual replicas.</p>
+
+  <div class="flow">  <span class="fl-hi">PROVISION SHARD</span>
+        |
+        v
+  <span class="fl-hi">REGISTER SHARD</span>            <span class="fl-note">placement state now knows it exists</span>
+        |
+        v
+  <span class="fl-hi">TRACK HEALTH / STATE</span>
+        |
+        v
+  <span class="fl-hi">SERVE TRAFFIC</span>
+        |
+        +---- healthy ------&gt; continue
+        |
+        +---- <span class="fl-bad">unhealthy</span> ----&gt; replacement / failover
+                                  |
+                                  v
+                           <span class="fl-hi">NEW SHARD / RUNTIME</span>
+                                  |
+                                  v
+                           <span class="fl-key">UPDATE PLACEMENT STATE</span>
+                                  |
+                                  v
+                           <span class="fl-key">INVALIDATE CACHE</span>
+                                  |
+                                  v
+                           <span class="fl-hi">ROUTE NEW TRAFFIC</span></div>
+  <div class="flow-cap">The last three steps are the ones that make this a control loop rather than a
+  deployment script: placement changes, the cache that fronts it is invalidated, and only then does new
+  traffic follow the new placement. Skip the invalidation and traffic keeps arriving at a shard that is
+  no longer serving the tenant.</div>
+
+  <h3>Where placement truth lives</h3>
+
+  <p><span class="tag tag-y">YOUR ACCOUNT</span> The Shard Manager relies on a persistent
+  <strong>shard configuration repository</strong> as the source of truth for placement. A cache may
+  front it to make lookups fast.</p>
+
+  <div class="flow">  <span class="fl-hi">SHARD CONFIGURATION REPOSITORY</span>    <span class="fl-key">source of truth</span>
+            |
+            v
+        <span class="fl-dim">CACHE</span>                        <span class="fl-note">optimization only</span>
+            |
+            v
+     <span class="fl-hi">SHARD MANAGER</span>
+            |
+            v
+   <span class="fl-hi">CURRENT SHARD PLACEMENT</span></div>
+
+  <div class="warning">
+    <strong>Never describe the cache as the source of truth.</strong> If a distributed cache appears in
+    the implementation, it is an optimisation in front of the repository, and it can be cold, stale or
+    entirely absent without placement becoming unknowable. A system whose authoritative placement lives
+    only in a cache has no answer to &ldquo;what happens when the cache is lost?&rdquo; &mdash; and that
+    is a question you will be asked.
   </div>
 
-  <h3>The design questions worth having answers to</h3>
+  <h3>Scaling</h3>
+
+  <p><span class="tag tag-y">YOUR ACCOUNT</span> Scaling uses <strong>AWS-native infrastructure
+  mechanisms and Auto Scaling</strong>. Replicas within a shard scale; that is different from changing
+  the shard itself.</p>
+
+  <p>Worth stating the restraint explicitly, because it is a defensible decision rather than an
+  omission: the platform uses AWS-native capabilities rather than introducing an additional
+  infrastructure orchestration layer. <strong>Adding an orchestration system would have been a second
+  platform to operate across every isolated environment</strong>, for a problem AWS already solves.</p>
+</div>
+
+<div class="content" id="s24-descriptor">
+  <div class="chapter"><div class="ch-num">24</div><h2>From service descriptor to shard descriptor</h2></div>
+
+  <p><span class="tag tag-y">YOUR ACCOUNT</span> Originally a product service was described through a
+  <strong>service descriptor</strong>. The service was fundamentally multi-tenant, and its deployment
+  and configuration assumed a common runtime model. Supporting Isolated Cloud meant introducing a
+  <strong>shard-oriented configuration model</strong>.</p>
+
+  <div class="insight">
+    <div class="label">&#127919; The shape of the change</div>
+    <p>One product service, many shards, each with configuration appropriate to its isolated
+    environment:</p>
+  </div>
+
+  <div class="flow">  <span class="fl-key">ONE PRODUCT SERVICE</span>
+      |
+      +-- <span class="fl-hi">Shard A</span>  -&gt;  Tenant A specific configuration
+      |
+      +-- <span class="fl-hi">Shard B</span>  -&gt;  Tenant B specific configuration
+      |
+      +-- <span class="fl-hi">Shard C</span>  -&gt;  Tenant C specific configuration
+
+  <span class="fl-note">configuration can cover compute, memory, networking, storage,
+  keys, monitoring and other deployment/runtime settings.</span></div>
+
+  <p>The assumption the original descriptor encoded was that there is <em>one</em> runtime for the
+  service. That was true for a decade and false the moment a tenant needs its own deployment. A
+  shard-oriented model lets each isolated environment carry the configuration that suits it, without
+  every tenant being forced onto one shared set of numbers.</p>
+
+  <h3>Why this is what made adoption cheap</h3>
+
+  <p><span class="tag tag-y">YOUR ACCOUNT</span> <strong>The goal was to avoid forcing product teams to
+  rewrite their business logic.</strong> A team&rsquo;s integration was principally adopting the
+  platform and shard configuration model, plus the necessary service and configuration changes.</p>
+
+  <p>That is the sentence that connects the technical design to the 178-team outcome, and it is worth
+  being explicit about the causation in an interview: <strong>the configuration model is what kept the
+  per-team cost low enough that 178 adoptions were feasible.</strong> Had isolation required each team
+  to change how their application worked, the programme would have been 178 rewrites and it would not
+  have finished.</p>
+
+  <div class="warning">
+    <strong>Interviewer challenge:</strong> <em>&ldquo;You have multiplied your configuration surface by
+    the number of tenants. How does that not become unmanageable?&rdquo;</em>
+    <p style="margin-top:8px">The honest answer has two halves. The service-level description still
+    carries what is common; a shard&rsquo;s configuration expresses what is specific to that isolated
+    environment, and it lives in the shard configuration repository rather than being hand-maintained in
+    178 places.</p>
+    <p style="margin-top:8px">And the failure mode worth conceding rather than hiding: <strong>per-shard
+    settings are easy to add and nobody removes them.</strong> Over time you accumulate tenants running
+    on bespoke configuration whose original justification is forgotten. The mitigation is treating
+    divergence from the common configuration as something that needs a reason and is reported on, not
+    something that silently accretes.</p>
+  </div>
+</div>
+
+<div class="content" id="s25-egress">
+  <div class="chapter"><div class="ch-num">25</div><h2>The Egress Gateway</h2></div>
+
+  <p><span class="tag tag-y">YOUR ACCOUNT</span> Isolated Cloud also has to control outbound data
+  movement. Ingress is customer &rarr; Atlassian; <strong>egress is Atlassian &rarr; external
+  system</strong> &mdash; external integrations, analytics, telemetry, logging, and other external
+  destinations.</p>
+
+  <div class="flow">  <span class="fl-hi">PRODUCT</span>
+     |
+     v
+  <span class="fl-key">EGRESS GATEWAY</span>          <span class="fl-note">centralized policy enforcement point</span>
+     |
+     v
+  <span class="fl-hi">POLICY ENFORCEMENT</span>      <span class="fl-note">is this outbound traffic permitted?</span>
+     |
+     v
+  external destination</div>
+
+  <h3>Why centralise it</h3>
+
+  <p><strong>Data egress is a cross-cutting security and compliance concern.</strong> That phrase is the
+  whole argument, and it generalises well beyond this system.</p>
+
+  <p>Without centralisation, every product team implements its own outbound data policy. The result is
+  not merely duplicated effort &mdash; it is <strong>inconsistency in exactly the place inconsistency is
+  least acceptable</strong>. One team&rsquo;s weaker policy undermines the guarantee for the whole
+  product, and nobody discovers it until an audit or an incident, because a policy that is too permissive
+  produces no error.</p>
+
+  <p>With a central enforcement point, policy is applied consistently across products, and it is
+  evaluated in one place that can be reviewed, tested and changed once.</p>
+
+  <div class="insight">
+    <div class="label">&#127919; The generalisable principle</div>
+    <p>This is the same instinct as the platform decision in &sect;19, applied to one concern:
+    <strong>a guarantee that must hold everywhere cannot be delegated to everyone.</strong> If
+    correctness depends on 178 teams each implementing a policy correctly, the guarantee is only as
+    strong as the weakest implementation &mdash; and you will not know which one that is.</p>
+  </div>
+
+  <div class="warning">
+    <strong>Do not name a policy technology you are not certain of.</strong> Describe it as
+    <em>policy-driven enforcement</em> or <em>policy evaluation</em>. Naming a specific engine you did
+    not verify is a cheap way to get caught, and it adds nothing to the answer &mdash; the architecture
+    is interesting because enforcement is centralised, not because of which library evaluates the rule.
+  </div>
+</div>
+
+<div class="content" id="s26-migration">
+  <div class="chapter"><div class="ch-num">26</div><h2>Migration strategy &mdash; the tiers, and adoption</h2></div>
+
+  <p><span class="tag tag-y">YOUR ACCOUNT</span> Roughly <strong>178 teams</strong> migrated, and
+  migration was <strong>phased</strong>. Teams were grouped by architectural dependency, business
+  criticality and migration priority.</p>
 
   <div class="tw"><table class="to">
-    <thead><tr><th style="width:30%">Question</th><th style="width:70%">The reasoning</th></tr></thead>
+    <thead><tr><th style="width:10%">Tier</th><th style="width:44%">What it is</th><th style="width:46%">Examples</th></tr></thead>
     <tbody>
-      <tr><td><strong>Where is it resolved?</strong></td><td><span class="tag tag-i">INFERENCE</span> As early as possible &mdash; at the edge or entry point &mdash; and then propagated. Resolving it repeatedly deep in the stack means N lookups per request and N chances to disagree.</td></tr>
-      <tr><td><strong>How does it propagate?</strong></td><td>Carried through the call chain rather than re-derived. This is the same shape as a trace context or an auth principal, and it has the same requirement: every hop must pass it on, including async ones. A queue that drops the context is a service that silently forgets which kind of tenant it is acting for.</td></tr>
-      <tr><td><strong>What if it is missing?</strong></td><td class="chosen">It must <strong>fail closed</strong>. An absent tenant context should be an error, never a default to multi-tenant &mdash; because defaulting means an isolated tenant&rsquo;s operation silently executes on the shared path, which is the exact failure the product exists to prevent.</td></tr>
-      <tr><td><strong>Why not just check entitlement?</strong></td><td>Entitlement is a fact about a customer&rsquo;s contract. Context is a fact about <em>this operation</em>. They diverge during migration, when a tenant is entitled to isolated but not yet fully moved &mdash; and that window is exactly when you most need to know which one you are acting on.</td></tr>
+      <tr><td class="chosen"><strong>L0</strong></td><td>Foundation and critical services needing immediate migration</td><td>Identity &middot; Global Edge</td></tr>
+      <tr><td><strong>L1</strong></td><td>Services close to the edge, and shared platform services</td><td>Shared gateway and platform services &middot; observability and platform capabilities</td></tr>
+      <tr><td><strong>L2</strong></td><td>Major business and product services required by the initial enterprise tenants</td><td>Jira &middot; Jira Service Management &middot; Confluence &middot; Trello</td></tr>
+      <tr><td><strong>L3</strong></td><td>Lower-priority services that could migrate later, representing a smaller share of overall traffic</td><td>The long tail</td></tr>
     </tbody>
   </table></div>
 
-  <p><span class="tag tag-i">INFERENCE</span> That last row is the one to volunteer unprompted. It shows
-  you understand that migration is not instantaneous, and that the system spends real time in a state
-  where the answer to &ldquo;is this tenant isolated?&rdquo; is <em>partly</em>.</p>
-</div>
+  <p>The tiering is doing real work: <strong>nothing can migrate before what it depends on</strong>.
+  Identity and the edge are L0 because everything above them is unusable otherwise. Products are L2
+  because they are what the first enterprise tenants actually need, and they depend on L0 and L1
+  existing first.</p>
 
-<div class="content" id="s23-descriptor">
-  <div class="chapter"><div class="ch-num">23</div><h2>Splitting the service descriptor</h2></div>
+  <p><span class="tag tag-y">YOUR ACCOUNT</span> You also described inserting an
+  <strong>L2.5</strong> for a class of service that did not sit cleanly in either L2 or L3. The value
+  of a fractional tier is that it refines the ordering <em>without renumbering</em> &mdash; reassigning
+  178 services' tiers would invalidate every dashboard, alert policy and runbook keyed to the existing
+  values, for no gain.</p>
 
-  <p><span class="tag tag-y">YOUR ACCOUNT</span> Every service had a <strong>service descriptor</strong>
-  &mdash; its configuration: CPU, RAM, keys, database, scaling strategy. Isolated Cloud split this, with
-  an <strong>isolated descriptor</strong> describing a <em>shard&rsquo;s</em> configuration, which made
-  it possible to control each migrated tenant&rsquo;s requirements dynamically, based on their traffic
-  patterns, with dynamic configuration maintained per shard.</p>
+  <h3>The five things the ordering considered</h3>
 
-  <p>This is the most technically elegant piece of the programme, and it is worth explaining as a
-  <em>modelling</em> decision rather than a config-file change.</p>
-
-  <div class="insight">
-    <div class="label">&#127919; What the split actually is</div>
-    <p>The original service descriptor conflated two things that were identical for a decade and stopped
-    being identical here:</p>
-    <p><strong>What this service needs in general</strong> &mdash; its shape. It runs on this runtime, it
-    needs a database of this kind, it scales on this signal.</p>
-    <p><strong>What this particular running copy needs</strong> &mdash; its size. 4 CPUs, 16 GB, these
-    keys, this database instance, these thresholds.</p>
-    <p>In multi-tenant there is exactly one running copy, so one descriptor can be both and nobody
-    notices. The moment there are <em>many</em> copies &mdash; one per tenant &mdash; the two must
-    separate, or every tenant is forced to share one set of numbers.</p>
-    <p>It is the distinction between a <strong>template and an instance</strong>, and the isolated
-    descriptor is the instance.</p>
-  </div>
-
-  <div class="flow">  <span class="fl-key">BEFORE</span>   one descriptor, one deployment
-
-    service-descriptor.yaml
-      cpu / ram / keys / database / scaling strategy
-           |
-           v
-      the deployment          <span class="fl-dim">serves every tenant</span>
-
-
-  <span class="fl-key">AFTER</span>    template + per-shard instance
-
-    service descriptor                 <span class="fl-note">what this SERVICE is</span>
-      runtime, dependencies, shape, defaults
-           |
-           |  instantiated per tenant
-           v
-    <span class="fl-hi">ISOLATED DESCRIPTOR</span>  (one per shard)     <span class="fl-note">what THIS TENANT's copy needs</span>
-      cpu / ram / keys / database / scaling policy
-      <span class="fl-key">tuned to this tenant's traffic pattern</span>
-           |
-           v
-      shard for tenant A      shard for tenant B      shard for tenant C
-      <span class="fl-dim">4 vCPU, 16 GB</span>           <span class="fl-dim">32 vCPU, 128 GB</span>        <span class="fl-dim">2 vCPU, 8 GB</span>
-      <span class="fl-dim">a small customer</span>        <span class="fl-dim">a very large bank</span>       <span class="fl-dim">a pilot</span>
-
-    <span class="fl-hi">change one tenant's sizing without touching the service
-    definition or any other tenant.</span></div>
-  <div class="flow-cap">Before the split, right-sizing one tenant meant editing the service&rsquo;s own
-  descriptor, which changed it for everyone. After it, per-tenant sizing is a property of the shard and
-  the service definition is untouched &mdash; which is what makes dynamic, traffic-driven configuration
-  possible at all.</div>
-
-  <h3>Why this matters more than it sounds</h3>
+  <p>Worth enumerating, because it is what makes this a strategy rather than a dependency sort:</p>
 
   <ul>
-    <li><strong>It is what makes isolation affordable.</strong> If every isolated tenant had to be
-    provisioned at the size of the largest, the cost per customer would be set by the worst case. Per-shard
-    sizing means a small customer costs a small amount.</li>
-    <li><strong>It makes tenant-specific behaviour safe.</strong> A tenant with an unusual traffic shape
-    can be tuned without a change that touches anyone else &mdash; so the blast radius of a
-    configuration mistake is one customer rather than the fleet.</li>
-    <li><strong>It gives the platform something to act on.</strong> A control loop can adjust a shard in
-    response to observed traffic, because the thing it needs to change is a per-shard object rather than
-    a shared service definition.</li>
-    <li><strong>It keeps the service&rsquo;s own config honest.</strong> The service descriptor goes back
-    to describing the service, which is what it was always supposed to mean.</li>
+    <li><strong>Dependency graph</strong> &mdash; the hard constraint. Everything else is a preference.</li>
+    <li><strong>Customer and business priority</strong> &mdash; what the first enterprise tenants need to be usable at all.</li>
+    <li><strong>Traffic</strong> &mdash; where the volume is, and therefore where risk concentrates.</li>
+    <li><strong>Risk</strong> &mdash; blast radius if a migration goes wrong.</li>
+    <li><strong>Operational readiness</strong> &mdash; whether the owning team can actually absorb it now.</li>
   </ul>
 
-  <div class="warning">
-    <strong>Interviewer challenge:</strong> <em>&ldquo;You have just multiplied your configuration
-    surface by the number of tenants. How is that not a drift disaster?&rdquo;</em>
-    <p style="margin-top:8px">A fair and important challenge, and the answer is that the descriptors are
-    <strong>generated and reconciled, not hand-maintained</strong>. The service descriptor supplies
-    defaults; a shard&rsquo;s descriptor is an override of a small number of fields; and the Shard
-    Manager continuously reconciles reality to the descriptor rather than trusting that a past apply
-    still holds. Drift becomes a detectable condition rather than an accumulating one.</p>
-    <p style="margin-top:8px">The failure mode to admit is the opposite one: <strong>per-shard overrides
-    are easy to add and nobody removes them</strong>, so over time you accumulate tenants running on
-    bespoke settings whose original reason is forgotten. The mitigation is to treat an override as
-    something that needs a reason and an expiry, and to report how far each shard has drifted from the
-    default &mdash; otherwise the defaults slowly stop meaning anything.</p>
-  </div>
-</div>
-
-<div class="content" id="s24-adoption">
-  <div class="chapter"><div class="ch-num">24</div><h2>Migrating 178 teams &mdash; adoption, tooling, onboarding</h2></div>
-
-  <p>This is the part most candidates underplay and it is the clearest Staff+ evidence in the whole
-  story, because <strong>178 is not an engineering number, it is an organisational one</strong>.</p>
-
   <div class="insight">
-    <div class="label">&#127919; The framing to lead with</div>
-    <p><em>&ldquo;The platform capability was maybe half the work. The other half was that 178 teams had
-    to adopt it, and I could not make any of them do anything. So the real design problem was: how do
-    you make the migration path so much cheaper than the alternatives that teams choose it, and how do
-    you make progress visible enough that it does not stall at 60%?&rdquo;</em></p>
+    <div class="label">&#127919; The Staff-level insight to state explicitly</div>
+    <p><strong>This was not simply a technical migration. It was an organisational and operational
+    migration strategy.</strong></p>
+    <p>A pure dependency sort gives you a valid order and an unworkable plan, because it ignores whether
+    the team at position 40 has capacity this quarter, and whether position 12 carries most of the
+    traffic. The ordering had to satisfy the dependency graph and then optimise within it for priority,
+    risk and readiness.</p>
   </div>
 
-  <h3>What a team actually has to do, and what the tooling absorbs</h3>
+  <h3>Moving 178 teams</h3>
 
-  <p><span class="tag tag-i">INFERENCE</span> The generalisable principle for tooling like this:
-  <strong>every step a team has to perform by hand is a step where 178 teams will produce 178 different
-  outcomes and some will stop.</strong> So the tooling&rsquo;s job is to move work from the team to the
-  platform.</p>
+  <p>The platform capability was one half. The other was that 178 teams had to adopt it, and adoption
+  across that many teams is not won by mandate &mdash; every team can find a reason to defer.</p>
+
+  <p><span class="tag tag-i">INFERENCE</span> The generalisable principle: <strong>every step a team
+  performs by hand is a step where 178 teams produce 178 different outcomes and some stop.</strong> So
+  the work is moving effort off teams and into the platform.</p>
 
   <div class="tw"><table class="to">
-    <thead><tr><th style="width:32%">The step</th><th style="width:34%">Left to the team</th><th style="width:34%">Absorbed by the platform</th></tr></thead>
+    <thead><tr><th style="width:30%">Concern</th><th style="width:34%">If left to each team</th><th style="width:36%">Owned by the platform</th></tr></thead>
     <tbody>
-      <tr><td><strong>Split the descriptor</strong></td><td class="rej">Hand-write an isolated descriptor per service and get the fields right</td><td class="chosen">Generate it from the existing service descriptor; the team reviews a diff rather than authoring a file</td></tr>
-      <tr><td><strong>Become shard-aware</strong></td><td class="rej">Each service implements provisioning, lifecycle, per-tenant config lookup</td><td class="chosen">Shard Manager owns the lifecycle; the service consumes its shard&rsquo;s config through the platform</td></tr>
-      <tr><td><strong>Handle tenant kind</strong></td><td class="rej">178 bespoke &ldquo;is this isolated?&rdquo; checks with 178 failure behaviours</td><td class="chosen">Tenant context resolved once and propagated; services read it</td></tr>
-      <tr><td><strong>Know if you are done</strong></td><td class="rej">Self-assessment, which is optimistic and inconsistent</td><td class="chosen">Automated conformance checks &mdash; a service is migrated when the platform says so, not when the team says so</td></tr>
-      <tr><td><strong>Move the data</strong></td><td class="rej">Per-team export/import scripts of varying quality</td><td class="chosen">A common transfer path &mdash; <span class="tag tag-y">YOUR ACCOUNT</span> with every transfer encrypted &mdash; so no team implements it and no team gets it wrong</td></tr>
+      <tr><td><strong>Provisioning</strong></td><td class="rej">178 ways to create an isolated environment</td><td class="chosen">Control plane provisions accounts, VPC, databases, storage, keys</td></tr>
+      <tr><td><strong>Knowing the tenant kind</strong></td><td class="rej">178 bespoke checks, 178 failure behaviours</td><td class="chosen">Tenant Context Service; Router decides Commercial vs Isolated</td></tr>
+      <tr><td><strong>Runtime placement</strong></td><td class="rej">Each service tracks its own tenant-to-runtime mapping</td><td class="chosen">Shard Manager owns placement and lifecycle</td></tr>
+      <tr><td><strong>Scaling</strong></td><td class="rej">Per-service scaling logic per tenant</td><td class="chosen">AWS-native Auto Scaling of replicas within a shard</td></tr>
+      <tr><td><strong>Outbound data policy</strong></td><td class="rej">178 policies of varying strictness &mdash; the guarantee is only as strong as the weakest</td><td class="chosen">Egress Gateway enforces centrally</td></tr>
+      <tr><td><strong>Per-tenant configuration</strong></td><td class="rej">Hand-maintained, divergent</td><td class="chosen">Shard configuration model and repository</td></tr>
     </tbody>
   </table></div>
 
-  <p><span class="tag tag-y">YOUR ACCOUNT</span> That last row deserves emphasis in an interview.
-  <strong>Encrypting every data transfer centrally</strong> is the difference between a property the
-  platform guarantees and a property 178 teams each promise. For a product whose entire premise is
-  provable data control, a single team&rsquo;s unencrypted transfer path would undermine the claim for
-  all of them &mdash; and nobody would find out until someone audited it.</p>
-
-  <h3>How you actually move 178 teams</h3>
-
-  <ol class="steps">
-    <li><strong>Do the first few by hand, deliberately.</strong> The earliest services get white-glove
-    treatment, not because it scales but because it is how you discover what the tooling must do. A
-    platform designed before anyone has migrated is a platform designed against assumptions.</li>
-    <li><strong>Sequence by tier.</strong> <span class="tag tag-y">YOUR ACCOUNT</span> L0&ndash;L3 with
-    L2.5 inserted gives a dependency-respecting order. Foundations first &mdash; nothing can migrate
-    before what it depends on. The tiering makes the wave plan derivable instead of negotiated.</li>
-    <li><strong>Make the paved path the cheapest path.</strong> Adoption is not won by mandate. If
-    onboarding to the platform is less work than a team&rsquo;s own alternative, they adopt it because it
-    is easier, and that is the only version that holds at 178.</li>
-    <li><strong>Publish progress per team.</strong> 178 parallel efforts stall invisibly. A dashboard
-    showing every service&rsquo;s conformance state converts &ldquo;we are mostly done&rdquo; into a
-    number, and it is what stops the long tail from being discovered in the final month.</li>
-    <li><strong>Treat the blockers as platform bugs.</strong> When several teams hit the same obstacle,
-    that is the platform&rsquo;s problem, not theirs. A migration programme where the same question is
-    answered in 40 separate threads is a programme with a missing feature.</li>
-    <li><strong>Define done mechanically.</strong> A conformance check, not an opinion &mdash; otherwise
-    the last 20% takes as long as the first 80% and nobody can say which services are actually
-    finished.</li>
-  </ol>
+  <p>Read that table as the answer to <em>&ldquo;what did the platform actually give teams?&rdquo;</em>
+  Every right-hand cell is work that did not happen 178 times.</p>
 
   <div class="deep">
-    <div class="label">&#128269; The number to be ready for</div>
-    <p>Expect <em>&ldquo;how long did it take, and where did it stall?&rdquo;</em> Every large migration
-    stalls in the same place: the long tail of services owned by teams with other priorities, or with no
-    clear owner at all.</p>
-    <p>The honest answer names it: the first 80% moves on the strength of the tooling, and the last 20%
-    moves on visibility and on someone doing the unglamorous work of finding owners for services whose
-    teams have reorganised. If you have the real figures &mdash; how many waves, how long, how many
-    services needed hands-on help &mdash; use them.
-    <strong>If you do not, say you would need to check rather than estimating, because an invented
-    migration timeline is trivially exposed by two follow-up questions.</strong></p>
+    <div class="label">&#128269; The question to be ready for</div>
+    <p><em>&ldquo;Where did the migration stall?&rdquo;</em> Large migrations stall in the same place:
+    the long tail of services owned by teams with other priorities, or with no clear owner after a
+    reorganisation. The first 80% moves on the strength of the tooling; the last 20% moves on visibility
+    and on someone doing the unglamorous work of finding owners.</p>
+    <p>If you have real figures &mdash; how many phases, how long, how many teams needed hands-on help
+    &mdash; use them. <strong>If you do not, say you would need to check.</strong> An invented migration
+    timeline does not survive two follow-up questions.</p>
   </div>
 </div>
 
-<div class="content" id="s25-your-story">
-  <div class="chapter"><div class="ch-num">25</div><h2>Your story</h2></div>
+<div class="content" id="s27-your-story">
+  <div class="chapter"><div class="ch-num">27</div><h2>Your story</h2></div>
 
   <div class="warning">
-    <strong>Two rules before you use any of this.</strong>
-    <p style="margin-top:8px"><strong>1. Only claim what you did.</strong> Part 5 describes a programme
-    with many people in it. Wherever the text below says &ldquo;I&rdquo;, check that it is true of you
-    &mdash; and where you contributed rather than owned, say <em>&ldquo;I owned X; the wider programme
-    did Y&rdquo;</em>. That distinction reads as senior, not as modesty.</p>
+    <strong>Two rules.</strong>
+    <p style="margin-top:8px"><strong>1. Claim only what you did.</strong> This was a programme with
+    many people in it. Where you contributed rather than owned, say so &mdash; <em>&ldquo;I owned X; the
+    wider programme did Y&rdquo;</em> reads as senior, not modest.</p>
     <p style="margin-top:8px"><strong>2. Every number must be real.</strong> 178 is yours. Anything else
-    &mdash; timelines, percentages, cost reductions &mdash; either comes from your records or gets said
-    as <em>&ldquo;I&rsquo;d have to check the exact figure&rdquo;</em>. That sentence costs you nothing.
-    An invented number that unravels costs you the interview.</p>
+    comes from your records or gets said as <em>&ldquo;I&rsquo;d have to check the exact
+    figure&rdquo;</em>, which costs nothing.</p>
   </div>
 
   <h3>The 90-second version</h3>
 
   <div class="deep">
-    <p><em>&ldquo;Atlassian was building Isolated Cloud &mdash; a single-customer deployment for
-    enterprises whose compliance rules forbid shared infrastructure. The part I worked on was the
-    platform side, and the problem was that we had <strong>178 multi-tenant services</strong>, every one
-    of which was built on the assumption that one deployment serves all tenants. Isolated Cloud breaks
-    that: a tenant now needs its own deployment.</em></p>
-    <p><em>The obvious path was to make each service tenant-aware. That is 178 implementations of the
-    same problem, and it does not finish. So the decision we took instead was to
-    <strong>make the platform aware of tenant isolation rather than each service</strong>.</em></p>
-    <p><em>Concretely that meant a few things. We introduced <strong>shards</strong> &mdash; a dedicated
-    service instance per tenant &mdash; with a <strong>Shard Manager</strong> owning the lifecycle, so
-    no service implements provisioning or scaling itself. We introduced a <strong>tenant context</strong>
-    so the platform resolves once whether a tenant is multi-tenant or an isolated entitlement, instead
-    of 178 services each checking in their own way. And we split the <strong>service descriptor</strong>
-    &mdash; which used to hold CPU, RAM, keys, database and scaling strategy for the one deployment
-    &mdash; into a per-shard <strong>isolated descriptor</strong>, so each tenant can be sized and tuned
-    to their own traffic without touching the service definition or anyone else.</em></p>
-    <p><em>The other half was adoption. 178 teams had to onboard and I had no authority over any of
-    them, so the work was making the migration path cheaper than the alternatives and making progress
-    visible enough that it did not stall in the long tail.&rdquo;</em></p>
+    <p><em>&ldquo;Atlassian&rsquo;s cloud is multi-tenant, which works for almost everyone, but highly
+    regulated enterprises need stronger isolation guarantees. The obvious way to give them that is for
+    every product to redesign itself for isolation. We had roughly <strong>178 engineering teams</strong>
+    &mdash; so that does not finish, and it never converges.</em></p>
+    <p><em>The architectural position we took was that <strong>isolation is a platform capability, not a
+    product-specific feature</strong>. The platform owns provisioning, routing, runtime placement,
+    lifecycle and egress policy, so a product team adopts isolation mostly by adopting a configuration
+    model rather than rewriting business logic.</em></p>
+    <p><em>Concretely: a shared <strong>control plane</strong> provisions and manages isolated
+    environments and stays off the request path. At runtime, a request goes edge &rarr;
+    <strong>Router</strong>, which caches tenant context and decides whether the tenant is commercial or
+    isolated; if isolated, the <strong>Shard Manager</strong> resolves which shard serves them. A
+    <strong>shard</strong> is a logical isolated runtime for a tenant and product, and it contains
+    multiple replicas that scale with AWS Auto Scaling.</em></p>
+    <p><em>The decision I&rsquo;d highlight is separating <strong>tenant context</strong> from
+    <strong>shard placement</strong>. Tenant identity is static and highly cacheable; runtime placement
+    is dynamic and changes on failure, maintenance or deployment. Putting both in the Router would have
+    coupled a stable thing to a volatile one. Keeping them apart means a shard can be replaced without
+    anything about the tenant changing.&rdquo;</em></p>
   </div>
 
   <h3>The STAR version</h3>
@@ -3446,16 +3612,18 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   <div class="tw"><table class="to">
     <thead><tr><th style="width:16%">Part</th><th style="width:84%">Content</th></tr></thead>
     <tbody>
-      <tr><td><strong>Situation</strong></td><td>Atlassian needed a single-customer deployment for regulated enterprises who could not use shared infrastructure and were on Data Center with an end-of-support date. The platform had <strong>178 multi-tenant services</strong>, all assuming one deployment serves every tenant.</td></tr>
-      <tr><td><strong>Task</strong></td><td>Make those services work under per-tenant isolation &mdash; without 178 teams each building their own answer, and without a rewrite none of them had time for.</td></tr>
+      <tr><td><strong>Situation</strong></td><td>Atlassian&rsquo;s commercial cloud is multi-tenant. Regulated enterprise customers required stronger isolation for security and compliance. The platform spanned roughly <strong>178 engineering teams</strong>, all built on multi-tenant assumptions.</td></tr>
+      <tr><td><strong>Task</strong></td><td>Provide dedicated isolated environments <strong>without</strong> every product team independently redesigning its application architecture.</td></tr>
       <tr><td class="chosen"><strong>Action</strong></td><td>
-        <strong>Chose the boundary.</strong> Argued for tenancy as a <em>platform</em> concern rather than a per-service one, and held that line against the pressure to let individual services special-case themselves.<br><br>
-        <strong>Defined the primitives.</strong> Shards as the per-tenant service instance; a Shard Manager owning create / configure / scale / upgrade / repair / retire; tenant context so tenancy kind is resolved once and propagated rather than re-derived.<br><br>
-        <strong>Re-modelled configuration.</strong> Split the service descriptor into a service-level template and a per-shard isolated descriptor, which is what made per-tenant sizing and dynamic, traffic-driven configuration possible without touching shared definitions.<br><br>
-        <strong>Extended the tiering.</strong> Inserted <strong>L2.5</strong> into the existing L0&ndash;L3 classification so migration ordering stayed derivable from the dependency layer rather than becoming a negotiated spreadsheet.<br><br>
-        <strong>Drove adoption.</strong> Sequenced 178 services by tier, moved work off teams and into tooling &mdash; generated descriptors, centralised encrypted data transfer, automated conformance checks &mdash; and made per-team progress visible so the long tail could not hide.
+        <strong>Set the architectural position:</strong> isolation as a platform capability rather than a per-product feature &mdash; and held it against the pressure for products to special-case themselves.<br><br>
+        <strong>Separated the planes:</strong> a shared control plane for onboarding, provisioning (AWS accounts, VPC, databases, storage, keys) and lifecycle, deliberately off the runtime request path; an isolated customer data plane serving traffic.<br><br>
+        <strong>Separated tenant identity from runtime placement</strong> &mdash; the decision I&rsquo;d defend hardest. Router plus Tenant Context answers <em>who is this tenant and which environment</em>; Shard Manager answers <em>which shard serves them now</em>. Static and cacheable versus dynamic and operational.<br><br>
+        <strong>Defined the shard model:</strong> a shard as the logical isolated runtime for a tenant and product, containing replicas scaled by AWS Auto Scaling, with a persistent shard configuration repository as the source of truth for placement and caches strictly as optimisation.<br><br>
+        <strong>Introduced the shard configuration model</strong> so one product service can carry per-tenant configuration &mdash; compute, memory, networking, storage, keys, monitoring &mdash; which is what kept per-team adoption cost low.<br><br>
+        <strong>Centralised egress policy</strong> behind an Egress Gateway, because outbound data control is cross-cutting and 178 separate policies would be as strong as the weakest.<br><br>
+        <strong>Sequenced the migration</strong> by tier &mdash; L0 identity and edge, L1 shared platform, L2 the products, L3 the tail &mdash; against dependency, business priority, traffic, risk and operational readiness.
       </td></tr>
-      <tr><td><strong>Result</strong></td><td>A repeatable platform capability rather than 178 bespoke migrations: a new service gets tenant isolation by existing, and a new isolated customer is a provisioning operation rather than a project. <em class="tag tag-y">Add your real figures here &mdash; services migrated, waves, elapsed time, anything you can evidence. Say &ldquo;I&rsquo;d have to check&rdquo; for anything you cannot.</em></td></tr>
+      <tr><td><strong>Result</strong></td><td>Isolation became a reusable platform capability rather than 178 independent redesigns, and future products inherit it without rebuilding the architecture. <em class="tag tag-y">Add your real figures &mdash; teams migrated, phases, elapsed time. Say &ldquo;I&rsquo;d have to check&rdquo; for anything you cannot evidence.</em></td></tr>
     </tbody>
   </table></div>
 
@@ -3464,14 +3632,14 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   <div class="tw"><table class="to">
     <thead><tr><th style="width:22%">Dimension</th><th style="width:78%">The specific answer</th></tr></thead>
     <tbody>
-      <tr><td><strong>Scale</strong></td><td>178 services across the platform, plus every future one. The decision applies to services that did not exist when it was made.</td></tr>
-      <tr><td><strong>Ambiguity</strong></td><td>A deployment model nobody had built against. The existing service tiering could not even <em>express</em> the new category &mdash; hence L2.5.</td></tr>
-      <tr><td><strong>Architecture</strong></td><td>The load-bearing call was where tenancy lives: platform or service. Everything downstream &mdash; shards, tenant context, the descriptor split &mdash; follows from it.</td></tr>
-      <tr><td class="chosen"><strong>Cross-team</strong></td><td>178 teams, no authority over any of them. Adoption had to be earned by making the path cheaper, not mandated. <strong>This is the dimension that most clearly is not an L5 story.</strong></td></tr>
-      <tr><td><strong>Risk</strong></td><td>Getting the boundary wrong means either 178 partial migrations with no consistent tenancy story, or a platform abstraction that does not fit and gets routed around.</td></tr>
-      <tr><td><strong>Trade-offs</strong></td><td>Centralising lifecycle costs teams local control and makes the platform a dependency for everyone. That is a real price, paid deliberately.</td></tr>
-      <tr><td><strong>Platform impact</strong></td><td>Tenant isolation became a property of the platform. Service 179 inherits it without doing anything.</td></tr>
-      <tr><td><strong>Durability</strong></td><td>The primitives outlast the migration. Shards, tenant context and per-shard descriptors are how new isolated customers are onboarded from now on.</td></tr>
+      <tr><td><strong>Scale</strong></td><td>~178 teams, plus every product built afterwards. The decision binds services that did not exist when it was made.</td></tr>
+      <tr><td><strong>Ambiguity</strong></td><td>A deployment model nobody had built against, in an ecosystem whose every assumption was multi-tenant.</td></tr>
+      <tr><td class="chosen"><strong>Architecture</strong></td><td>Two load-bearing calls: isolation belongs to the platform, and tenant identity must be separated from runtime placement. Everything else follows from those.</td></tr>
+      <tr><td class="chosen"><strong>Cross-team</strong></td><td>178 teams, no authority over any. Adoption had to be earned by keeping the integration cost low. <strong>This is the dimension that is clearly not an L5 story.</strong></td></tr>
+      <tr><td><strong>Risk</strong></td><td>Getting the boundary wrong yields 178 partial, incompatible isolation implementations &mdash; and inconsistent egress policy, which is the compliance-critical one.</td></tr>
+      <tr><td><strong>Trade-offs</strong></td><td>Centralising lifecycle and policy costs teams local control and makes the platform a dependency for everyone. A real price, paid deliberately.</td></tr>
+      <tr><td><strong>Platform impact</strong></td><td>Isolation is now a property products inherit. Product 179 gets it by existing.</td></tr>
+      <tr><td><strong>Operations</strong></td><td>The phased migration had to respect dependency, priority, traffic, risk and team readiness simultaneously &mdash; an operational plan, not a sort.</td></tr>
     </tbody>
   </table></div>
 
@@ -3479,48 +3647,58 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
 
   <div class="drills">
     <details class="drill"><summary><span class="dr-n">1</span><span class="dr-q">&ldquo;What problem did you actually solve?&rdquo;</span><span class="dr-cue">Answer</span></summary>
-    <div class="dr-a"><p>Not &ldquo;I worked on Isolated Cloud&rdquo;. The problem was that a new deployment model invalidated an assumption baked into 178 services, and the naive fix &mdash; each service solving it locally &mdash; would not have finished and would not have stayed consistent. I solved it by moving tenancy into the platform, which turned 178 engineering projects into one platform capability plus 178 adoptions.</p>
-    <span class="dr-key">Lead with the assumption that broke. It makes the scale of the problem obvious in one sentence.</span></div></details>
+    <div class="dr-a"><p>Not &ldquo;I worked on Isolated Cloud&rdquo;. Regulated customers needed isolation, and the naive route &mdash; every product redesigning itself &mdash; would not converge across 178 teams. I helped make isolation a platform capability so products adopt a configuration model instead of rewriting their architecture.</p>
+    <span class="dr-key">Lead with the assumption that broke and the number of teams. It makes the scale obvious in one sentence.</span></div></details>
 
-    <details class="drill"><summary><span class="dr-n">2</span><span class="dr-q">&ldquo;What was the hardest technical problem?&rdquo;</span><span class="dr-cue">Answer</span></summary>
-    <div class="dr-a"><p>Modelling configuration correctly. The service descriptor had conflated &ldquo;what this service is&rdquo; with &ldquo;what this running copy needs&rdquo; &mdash; harmless when there is one copy, wrong the moment there is one per tenant. Splitting it into a service-level template and a per-shard isolated descriptor is what made per-tenant sizing possible without every tenant sharing one set of numbers.</p>
-    <p>The follow-up to expect is the configuration-surface challenge in &sect;23. Have the generated-and-reconciled answer ready, and concede the override-accumulation failure mode rather than pretending it does not exist.</p>
-    <span class="dr-key">A modelling answer beats a scaling answer. It shows you found the wrong abstraction rather than just more load.</span></div></details>
+    <details class="drill"><summary><span class="dr-n">2</span><span class="dr-q">&ldquo;Why are the Router and the Shard Manager separate? Why not resolve the shard in the Router?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+    <div class="dr-a"><p>Because the two pieces of information have different change characteristics. Tenant context &mdash; who the tenant is, which environment, what entitlements &mdash; is relatively static, changes rarely, and is highly cacheable. Shard placement is dynamic: it changes on failure, maintenance, deployment, migration and capacity events.</p>
+    <p>Putting both in the Router couples a stable concern to a volatile one, and forces the Router to track a moving truth on every request. Separating them means runtime placement can change repeatedly without tenant identity changing at all.</p>
+    <span class="dr-key">This is the strongest single answer in your story. It is a decision with a reason, not a component description.</span></div></details>
 
-    <details class="drill"><summary><span class="dr-n">3</span><span class="dr-q">&ldquo;What was your biggest architectural contribution?&rdquo;</span><span class="dr-cue">Answer</span></summary>
-    <div class="dr-a"><p>Deciding that tenant isolation is a platform concern, and defining the primitives that made it real &mdash; shards, a shard lifecycle owned centrally, tenant context resolved once, and per-shard configuration. The contribution is not any one of those; it is the boundary that says services declare intent and the platform decides instantiation.</p>
-    <span class="dr-key">Name the boundary, not the components. Components are implementation; the boundary is the architecture.</span></div></details>
+    <details class="drill"><summary><span class="dr-n">3</span><span class="dr-q">&ldquo;A replica fails. What happens?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+    <div class="dr-a"><p>Nothing at the placement layer. A shard is a logical isolated runtime containing multiple replicas; the infrastructure replaces or adds a replica, and the tenant-to-shard mapping is unchanged.</p>
+    <p>That is different from the entire logical shard being replaced &mdash; Tenant A moving from Shard-123 to Shard-456 &mdash; which is when the Shard Manager updates placement state and the relevant cache entry is invalidated.</p>
+    <span class="dr-key">Interviewers probe this specifically. Conflating replica failure with shard replacement is the giveaway that someone has heard the architecture rather than reasoned about it.</span></div></details>
 
-    <details class="drill"><summary><span class="dr-n">4</span><span class="dr-q">&ldquo;What was the biggest risk, and what would have happened if you hadn&rsquo;t solved it?&rdquo;</span><span class="dr-cue">Answer</span></summary>
-    <div class="dr-a"><p>The risk was fragmentation: 178 teams each building a partial, incompatible answer. The failure mode is not that it breaks loudly &mdash; it is that the migration reaches 70% and the remaining services cannot be finished because every one is a special case, and there is no consistent definition of what &ldquo;isolated&rdquo; even means across the platform.</p>
-    <p>Concretely, Isolated Cloud would not have shipped as a product. It would have shipped as a set of partially-isolated services with no coherent tenancy story, which is not something you can sell to a bank.</p>
-    <span class="dr-key">Describe the slow failure, not a dramatic one. Fragmentation never has an outage; it just never finishes.</span></div></details>
+    <details class="drill"><summary><span class="dr-n">4</span><span class="dr-q">&ldquo;Where is placement actually stored? What if the cache is lost?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+    <div class="dr-a"><p>The persistent shard configuration repository is the source of truth. Any cache in front of it is an optimisation for lookup speed. If the cache is cold, stale or gone, placement is still knowable &mdash; you pay latency, not correctness.</p>
+    <p>The inverse design, where authoritative placement lives only in a distributed cache, has no answer to this question, which is why the distinction is worth stating before being asked.</p>
+    <span class="dr-key">Naming what is authoritative and what is an optimisation is a reliability signal in any system.</span></div></details>
 
-    <details class="drill"><summary><span class="dr-n">5</span><span class="dr-q">&ldquo;Why couldn&rsquo;t another team have just implemented this?&rdquo;</span><span class="dr-cue">Answer</span></summary>
-    <div class="dr-a"><p>Any one team could have built shards for their own service &mdash; several probably would have. What no single team could do is decide that tenancy belongs to the platform, get 178 teams to accept an abstraction they did not design, and hold that line when each of them had a reasonable case for being the exception.</p>
-    <p>The technical work was buildable by many people. The boundary decision and its adoption across the org was the part that needed someone operating above any single team.</p>
-    <span class="dr-key">This is the cleanest articulation of Staff versus Senior available in this story. Have it ready.</span></div></details>
+    <details class="drill"><summary><span class="dr-n">5</span><span class="dr-q">&ldquo;A tenant migrates from commercial to isolated. What has to happen?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+    <div class="dr-a"><p>Their tenant context changes &mdash; that is exactly the kind of infrequent, tenant-level state change the context system exists for. And because the Router caches tenant context in memory, <b>that cache must be invalidated or refreshed</b>, or the Router keeps sending requests to the commercial runtime.</p>
+    <p>That makes it a correctness concern rather than a performance one, which is why invalidation is part of the design rather than a later optimisation.</p>
+    <span class="dr-key">Volunteering the cache-invalidation consequence shows you thought about the transition, not just the end states.</span></div></details>
 
-    <details class="drill"><summary><span class="dr-n">6</span><span class="dr-q">&ldquo;How did you get 178 teams to go along with it?&rdquo;</span><span class="dr-cue">Answer</span></summary>
-    <div class="dr-a"><p>Not by mandate &mdash; that fails at this scale, because every team can find a reason to defer. By making the platform path genuinely cheaper than the alternative: generated descriptors instead of hand-authored ones, a lifecycle they did not have to build, a transfer path they did not have to secure. Then sequencing by tier so nobody was blocked on a dependency, and publishing per-team conformance so progress was a number rather than a claim.</p>
-    <p>And treating repeated blockers as platform bugs. If forty teams hit the same obstacle, that is a missing feature, not forty teams being difficult.</p>
-    <span class="dr-key">&ldquo;I made it cheaper than the alternative&rdquo; is the answer. &ldquo;I got leadership to mandate it&rdquo; is the one that reads as not having solved the problem.</span></div></details>
+    <details class="drill"><summary><span class="dr-n">6</span><span class="dr-q">&ldquo;Why not Kubernetes?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+    <div class="dr-a"><p>Scaling uses AWS-native infrastructure and Auto Scaling. Replicas within a shard scale natively; changing the shard itself is a placement operation the Shard Manager owns.</p>
+    <p>Introducing an additional orchestration layer would have meant a second platform to operate inside every isolated environment, for a problem the existing infrastructure already solved. The restraint is the point &mdash; isolation multiplies environments, so every extra moving part is multiplied too.</p>
+    <span class="dr-key">&ldquo;We did not add a component we did not need&rdquo; is a legitimate and underused architectural answer.</span></div></details>
+
+    <details class="drill"><summary><span class="dr-n">7</span><span class="dr-q">&ldquo;Why centralise egress instead of letting products handle it?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+    <div class="dr-a"><p>Outbound data control is a cross-cutting security and compliance concern. Distributed across 178 teams, the guarantee is only as strong as the weakest implementation &mdash; and a policy that is too permissive produces no error, so you find out at an audit or an incident.</p>
+    <p>A central gateway means policy is evaluated in one place, applied consistently, and can be reviewed and changed once.</p>
+    <span class="dr-key">Describe it as policy-driven enforcement. Do not name an engine you have not verified.</span></div></details>
+
+    <details class="drill"><summary><span class="dr-n">8</span><span class="dr-q">&ldquo;Why couldn&rsquo;t a single team have built this?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+    <div class="dr-a"><p>Any one team could have isolated their own product. What no single team could do is establish that isolation belongs to the platform, define the abstractions &mdash; tenant context, routing, placement, shard lifecycle, egress enforcement &mdash; and get roughly 178 teams to adopt them in a dependency-respecting order while each had a reasonable case for being an exception.</p>
+    <p>The components were buildable by many people. The boundary decision and its adoption across the organisation is the part that required operating above any single team.</p>
+    <span class="dr-key">The cleanest Staff-versus-Senior articulation available in this story.</span></div></details>
   </div>
 
   <div class="insight">
-    <div class="label">&#127919; The single sentence to have ready</div>
-    <p><em>&ldquo;The whole point of Isolated Cloud, from the platform side, was to make
-    <strong>the platform</strong> aware of tenant isolation &mdash; not each service. Everything else
-    &mdash; shards, the shard manager, tenant context, splitting the service descriptor into a per-shard
-    isolated descriptor &mdash; is a consequence of that one decision.&rdquo;</em></p>
-    <p>If you say nothing else about your contribution, say that. It is the architecture, the scope and
-    the Staff-level judgement in one sentence.</p>
+    <div class="label">&#127919; The sentence to have ready</div>
+    <p><em>&ldquo;Centralise isolation as a platform capability, while keeping product business logic
+    largely unaware of the infrastructure isolation underneath.&rdquo;</em></p>
+    <p>If you say nothing else about your contribution, say that. Everything else &mdash; the control
+    plane, the Router, tenant context, the Shard Manager, shards and replicas, the shard configuration
+    model, the Egress Gateway &mdash; is a consequence of it.</p>
   </div>
 </div>
 <div class="part-banner"><span class="part-tag">Part 6</span><h2>The interview</h2></div>
 
-<div class="content" id="s26-tradeoffs">
-  <div class="chapter"><div class="ch-num">26</div><h2>The decisions, as trade-offs</h2></div>
+<div class="content" id="s28-tradeoffs">
+  <div class="chapter"><div class="ch-num">28</div><h2>The decisions, as trade-offs</h2></div>
 
   <p>Ten decisions in the form an interviewer wants: what else was available, what it cost, and how you
   would say it.</p>
@@ -3550,8 +3728,8 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   </div>
 </div>
 
-<div class="content" id="s27-pushback">
-  <div class="chapter"><div class="ch-num">27</div><h2>Interviewer pushback</h2></div>
+<div class="content" id="s29-pushback">
+  <div class="chapter"><div class="ch-num">29</div><h2>Interviewer pushback</h2></div>
 
   <p>Twelve questions a Staff+ interviewer actually asks, with a short answer, the follow-up you should
   expect, and how to go deeper.</p>
@@ -3619,8 +3797,8 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   </div>
 </div>
 
-<div class="content" id="s28-narrative">
-  <div class="chapter"><div class="ch-num">28</div><h2>The story, at four lengths</h2></div>
+<div class="content" id="s30-narrative">
+  <div class="chapter"><div class="ch-num">30</div><h2>The story, at four lengths</h2></div>
 
   <div class="warning">
     <strong>Before using any of these:</strong> they are written in the first person because that is how
@@ -3629,7 +3807,7 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     <strong>an invented metric is the fastest way to lose a Staff+ interview.</strong>
   </div>
 
-  <div class="warning"><strong>These describe the <em>system</em>.</strong> For the version that describes <em>your contribution</em> &mdash; the 178 services, the platform-versus-service decision, shards, tenant context and the descriptor split &mdash; use <a href="#s25-your-story">&sect;25, Your story</a>. In most interviews that is the one you want, and this one is the context you give first.</div>
+  <div class="warning"><strong>These describe the <em>system</em>.</strong> For the version that describes <em>your contribution</em> &mdash; the 178 teams, isolation as a platform capability, the Router / Shard Manager separation, shards and replicas &mdash; use <a href="#s27-your-story">&sect;27, Your story</a>. In most interviews that is the one you want, and this one is the context you give first.</div>
 
   <h3>60 seconds &mdash; &ldquo;your most impactful project&rdquo;</h3>
 
@@ -3685,8 +3863,8 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   as an observability metric.</p>
 </div>
 
-<div class="content" id="s29-cheatsheet">
-  <div class="chapter"><div class="ch-num">29</div><h2>One-page cheat sheet</h2></div>
+<div class="content" id="s31-cheatsheet">
+  <div class="chapter"><div class="ch-num">31</div><h2>One-page cheat sheet</h2></div>
 
   <div class="concl-grid">
     <div class="cc"><div class="cc-h">What it is</div><p>Atlassian Cloud deployed one customer at a time. Dedicated AWS OU and accounts, VPC, edge, domain, firewall, customer-managed keys. Jira, JSM, Confluence. Cloud Enterprise features plus Guard Premium. Available 2026.</p></div>

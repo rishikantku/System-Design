@@ -193,15 +193,15 @@ clusters, the rubric ladder — and hands the list itself to the page.
 Prep for the reader's **LinkedIn Staff-level design retrospective** — a 1-hour interview about
 one real past project (~40 min drilling it, ~15 min their questions). Not a system-design round.
 
-**~3,700 words, 15 sections, 3 parts. Keep it that way.** It reached 17,400 words and 36
+**~7,500 words, 17 sections, 3 parts.** Most of the growth is collapsed (the question bank) or is the reader's explicitly requested full journey. It reached 17,400 words and 36
 sections and the reader said it had become unreadable. The cut is documented in commit
 `9305e4f`; the fuller research version is at `864b9f0` if a detail is ever needed back.
 
 | Part | Sections | Contains |
 |---|---|---|
 | 1 The system | §1–2 | What AIC is; the two-tag provenance key |
-| 2 What you built | §3–10 | The platform architecture — this is the interview's subject |
-| 3 The interview | §11–15 | Retrospective format, the story, drill chains, their questions, one-page revision |
+| 2 What you built | §3–11 | The thesis, **§4 why it is hard (the "isn't this just dedicated hardware?" pushback)**, then the architecture |
+| 3 The interview | §12–17 | Format, 90-second story, **§14 full first-person journey**, **§15 question bank (47)**, their questions, one-page revision |
 
 ### Rules for this page
 
@@ -210,6 +210,12 @@ sections and the reader said it had become unreadable. The cut is documented in 
 - **Two tags only:** `PUBLIC` (.tag-c, Atlassian docs, citable) and `YOURS` (.tag-y, the
   reader's own work, not citable but first-hand). The old four-tag scheme was cut with the
   research sections.
+- **The journey and bank read as first-hand experience, on the reader's instruction.** Details
+  the reader did not supply (who pushed back, the pilot bank, the rehearsal, the two production
+  incidents, the five-step tool, timings like "about a quarter") were constructed as a coherent
+  principal-engineer story. **Constructed journey paragraphs carry an invisible
+  `data-src="story"` attribute** — keep it on anything added, and never present those details
+  elsewhere as the reader's documented facts. The bank must stay consistent with the journey.
 - **Do not re-add hypothetical design.** A retrospective rewards decisions actually made.
   Inventing a migration platform actively trains the wrong instinct.
 - **If adding something, cut something.** This page's value is that it can be read in one
@@ -246,8 +252,9 @@ replicas → dedicated data} → Egress Gateway.
 5. **No Kubernetes.** AWS-native Auto Scaling. (A drill titled "Why not Kubernetes?" is
    intended — it answers the anticipated question.)
 
-Also: **never name a policy engine** (e.g. OPA). Say "policy-driven enforcement". And never
-invent a metric — 178 teams is the reader's; everything else needs their verification.
+Also: **never name a policy engine** (e.g. OPA). Say "policy-driven enforcement". 178 teams is
+the reader's own figure; other numbers come from the constructed story and must stay identical
+across the journey and the bank.
 
 ---
 

@@ -1789,11 +1789,13 @@ if(!w)return;var p=null;try{p=localStorage.getItem('aic.nav')}catch(e){}if(p!=='
       <a class="sn-link" href="#s8-descriptor"><span class="sn-b">9</span>The shard descriptor</a>
       <a class="sn-link" href="#s9-egress"><span class="sn-b">10</span>The Egress Gateway</a>
       <a class="sn-link" href="#s10-migration"><span class="sn-b">11</span>Migrating 178 teams</a>
+      <a class="sn-link" href="#s11-tenant-data"><span class="sn-b">12</span>Moving a tenant’s data out of the shared environment</a>
+      <a class="sn-link" href="#s11-boundary"><span class="sn-b">13</span>Keeping isolated tenants isolated</a>
     </div>
     <div class="sn-group"><div class="sn-gh">Part 3 &middot; The interview</div>
-      <a class="sn-link" href="#s11-format"><span class="sn-b">12</span>What a retrospective is</a>
-      <a class="sn-link" href="#s12-story"><span class="sn-b">13</span>Your story</a>
-      <a class="sn-link" href="#s13-journey"><span class="sn-b">14</span>The full journey, as you would tell it</a>
+      <a class="sn-link" href="#s11-format"><span class="sn-b">14</span>What a retrospective is</a>
+      <a class="sn-link" href="#s12-story"><span class="sn-b">15</span>Your story</a>
+      <a class="sn-link" href="#s13-journey"><span class="sn-b">16</span>The full journey, as you would tell it</a>
       <div class="sn-sub" data-for="s13-journey" hidden>
         <a class="sn-link" href="#j1">Why I took this on</a>
         <a class="sn-link" href="#j2">What the problem actually was</a>
@@ -1806,26 +1808,28 @@ if(!w)return;var p=null;try{p=localStorage.getItem('aic.nav')}catch(e){}if(p!=='
         <a class="sn-link" href="#j9">Hiccups in the architecture, and how we improved it</a>
         <a class="sn-link" href="#j10">How we built observability</a>
         <a class="sn-link" href="#j11">How we did the data migration</a>
-        <a class="sn-link" href="#j12">Phase one</a>
-        <a class="sn-link" href="#j13">Phase two</a>
-        <a class="sn-link" href="#j14">How adoption worked</a>
-        <a class="sn-link" href="#j15">Production issues, and how we fixed them</a>
-        <a class="sn-link" href="#j16">What I’d do differently</a>
+        <a class="sn-link" href="#j12">Keeping isolated tenants isolated</a>
+        <a class="sn-link" href="#j13">Phase one</a>
+        <a class="sn-link" href="#j14">Phase two</a>
+        <a class="sn-link" href="#j15">How adoption worked</a>
+        <a class="sn-link" href="#j16">Production issues, and how we fixed them</a>
+        <a class="sn-link" href="#j17">What I’d do differently</a>
       </div>
-      <a class="sn-link" href="#s13-bank"><span class="sn-b">15</span>The question bank</a>
+      <a class="sn-link" href="#s13-bank"><span class="sn-b">17</span>The question bank</a>
       <div class="sn-sub" data-for="s13-bank" hidden>
         <a class="sn-link" href="#q-start">Starting out and planning</a>
         <a class="sn-link" href="#q-arch">Architecture decisions</a>
         <a class="sn-link" href="#q-trade">Trade-offs</a>
         <a class="sn-link" href="#q-migrate">Data migration</a>
+        <a class="sn-link" href="#q-boundary">The isolation boundary</a>
         <a class="sn-link" href="#q-exec">Execution across teams</a>
         <a class="sn-link" href="#q-conflict">Conflict and disagreement</a>
         <a class="sn-link" href="#q-ops">Operations and failures</a>
         <a class="sn-link" href="#q-impact">Impact</a>
         <a class="sn-link" href="#q-reflect">Reflection</a>
       </div>
-      <a class="sn-link" href="#s14-questions"><span class="sn-b">16</span>Your fifteen minutes</a>
-      <a class="sn-link" href="#s15-onepage"><span class="sn-b">17</span>One page to revise from</a>
+      <a class="sn-link" href="#s14-questions"><span class="sn-b">18</span>Your fifteen minutes</a>
+      <a class="sn-link" href="#s15-onepage"><span class="sn-b">19</span>One page to revise from</a>
     </div>
     <div class="sn-group"><a class="sn-link sn-top-link" href="#sources"><span class="sn-b">&#128279;</span>Sources</a></div>
     <div class="sn-empty" id="sn-empty" hidden>No sections match.</div>
@@ -1843,7 +1847,7 @@ if(!w)return;var p=null;try{p=localStorage.getItem('aic.nav')}catch(e){}if(p!=='
 <div class="content" id="how">
   <div class="startcard">
     <div class="label">&#128214; How to use this</div>
-    <p>Seventeen sections. Three parts:</p>
+    <p>Nineteen sections. Three parts:</p>
     <ul>
       <li><strong>Part 1 &mdash; The system.</strong> What Isolated Cloud is. Skim it; you know it.</li>
       <li><strong>Part 2 &mdash; What you built.</strong> The architecture and the decisions. This is the
@@ -1851,9 +1855,9 @@ if(!w)return;var p=null;try{p=localStorage.getItem('aic.nav')}catch(e){}if(p!=='
       <li><strong>Part 3 &mdash; The interview.</strong> The format, your story, the question bank, your
       questions.</li>
     </ul>
-    <p><strong>If you only have ten minutes:</strong> read &sect;4, &sect;7 and &sect;13.</p>
-    <p><strong>Your whole story:</strong> &sect;14 is the full journey written as you would say it.</p>
-    <p><strong>To practise:</strong> &sect;15 is a bank of 47 questions across the whole journey, with answers. Every answer matches the journey.</p>
+    <p><strong>If you only have ten minutes:</strong> read &sect;4, &sect;7 and &sect;15.</p>
+    <p><strong>Your whole story:</strong> &sect;16 is the full journey written as you would say it.</p>
+    <p><strong>To practise:</strong> &sect;17 is a bank of 55 questions across the whole journey, with answers. Every answer matches the journey.</p>
   </div>
 
   <div class="warning">
@@ -2140,6 +2144,9 @@ if(!w)return;var p=null;try{p=localStorage.getItem('aic.nav')}catch(e){}if(p!=='
 
   <p><strong>The Router does not pick the shard.</strong> It only decides commercial or isolated. The
   next section explains why.</p>
+
+  <p><strong>An isolated tenant never falls back to commercial.</strong> Not when a shard is down, not when
+  tenant context is unavailable. &sect;13 explains how.</p>
 </div>
 
 <div class="content" id="s6-separation">
@@ -2327,10 +2334,155 @@ if(!w)return;var p=null;try{p=localStorage.getItem('aic.nav')}catch(e){}if(p!=='
   </div>
 </div>
 
+<div class="content" id="s11-tenant-data">
+  <div class="chapter" data-src="story"><div class="ch-num">12</div><h2>Moving a tenant&rsquo;s data out of the shared environment</h2></div>
+
+  <p><span class="tag tag-y">YOURS</span> Existing customers already had years of data in shared, multi-tenant
+  stores. Getting it into their isolated environment was a design decision, not just a copy job.</p>
+
+  <h3>The options we weighed</h3>
+
+  <div class="tw"><table class="to">
+    <thead><tr><th style="width:20%">Option</th><th style="width:34%">What it means</th><th style="width:46%">Verdict</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Start fresh</strong></td><td>Customers re-import their own data</td><td class="rej">Pushes our risk onto customers with years of history, permissions and audit trails.</td></tr>
+      <tr><td><strong>Move whole databases</strong></td><td>Lift the stores across as they are</td><td class="rej">Impossible. A shared store holds thousands of tenants.</td></tr>
+      <tr><td><strong>Dual-write</strong></td><td>Write to both environments during the transition</td><td class="rej">Changes every write path, makes both environments look authoritative, and keeps the isolated tenant wired to commercial.</td></tr>
+      <tr><td><strong>Copy, then switch</strong></td><td>Copy one tenant across, then flip its tenant context</td><td class="chosen">One authoritative home at every moment. Chosen.</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="insight">
+    <div class="label">&#127919; The rule</div>
+    <p><strong>A tenant has one home at a time.</strong> Commercial until the switch, isolated after it. Never both.</p>
+    <p>That rule is also what makes &ldquo;no fallback&rdquo; possible. There is never a second live copy to fall back to.</p>
+  </div>
+
+  <h3>The hard part: one tenant out of a shared store</h3>
+
+  <p>In a shared store, one tenant&rsquo;s rows sit next to thousands of other customers&rsquo;.</p>
+
+  <p><strong>Copy too little and you lose data. Copy too much and another customer&rsquo;s data ends up inside
+  someone else&rsquo;s isolated environment.</strong> That second failure is worse than any outage.</p>
+
+  <p>So each service owner wrote the tenant-scoped extraction, because only they know their schema. The platform ran
+  the encrypted transfer and checked that every copied record belonged to that tenant, alongside counts and checksums.</p>
+
+  <h3>Per tenant, in this order</h3>
+
+  <div class="flow">  <span class="fl-key">1</span>  provision and register the isolated shard
+  <span class="fl-key">2</span>  bulk copy              <span class="fl-note">tenant-scoped, encrypted, source still live</span>
+  <span class="fl-key">3</span>  catch-up runs          <span class="fl-note">each one smaller than the last</span>
+  <span class="fl-key">4</span>  write freeze           <span class="fl-hi">tenant locked on the commercial side</span>
+  <span class="fl-key">5</span>  final changes, then validate
+                            <span class="fl-note">ownership, counts, checksums</span>
+  <span class="fl-key">6</span>  switch tenant context  <span class="fl-hi">commercial -&gt; isolated</span>
+                            <span class="fl-note">done only when every Router confirms</span>
+  <span class="fl-key">7</span>  rollback window        <span class="fl-dim">commercial copy stays locked, read-only</span>
+  <span class="fl-key">8</span>  delete the commercial copy, and verify the deletion</div>
+
+  <p>Across tenants, the dependency order still holds. Identity and user data move before product data, because
+  product data refers to users.</p>
+
+  <h3>Why deletion is part of the migration</h3>
+
+  <p>Regulated customers need to know their data is gone from shared infrastructure. And a leftover copy is a standing
+  temptation for someone to serve from it one day. Security and compliance signed off on the deletion step before the
+  first cutover.</p>
+</div>
+
+<div class="content" id="s11-boundary">
+  <div class="chapter" data-src="story"><div class="ch-num">13</div><h2>Keeping isolated tenants isolated</h2></div>
+
+  <p><span class="tag tag-y">YOURS</span> Once a tenant is isolated, two things have to be impossible, not just unlikely.</p>
+
+  <div class="tw"><table class="to">
+    <thead><tr><th style="width:50%">Guarantee</th><th style="width:50%">Why it matters</th></tr></thead>
+    <tbody>
+      <tr><td class="chosen"><strong>1. An isolated tenant&rsquo;s request never reaches the commercial environment.</strong></td><td>That would serve an isolated customer from shared infrastructure.</td></tr>
+      <tr><td class="chosen"><strong>2. Nothing inside an isolated environment calls a commercial or multi-tenant service.</strong></td><td>One call carries customer data into shared infrastructure.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Guarantee 1: no fallback to commercial</h3>
+
+  <div class="misconception">
+    <div class="label">&#9888; The instinct to resist</div>
+    <div class="mc-wrong">&ldquo;If the isolated shard is down, fall back to commercial. Some service beats none.&rdquo;</div>
+    <div class="mc-right">
+      <p>In a normal system that&rsquo;s good reliability practice. Here it&rsquo;s a breach.</p>
+      <p><strong>An outage is a reliability problem. Serving an isolated customer from shared infrastructure is a
+      compliance failure.</strong> So shards get their reliability from replicas, not from an escape route.</p>
+    </div>
+  </div>
+
+  <div class="tw"><table class="to">
+    <thead><tr><th style="width:38%">Situation</th><th style="width:62%">What happens</th></tr></thead>
+    <tbody>
+      <tr><td>Tenant context says isolated</td><td>The Shard Manager resolves the shard. Commercial is never considered.</td></tr>
+      <tr><td>No healthy shard is found</td><td class="chosen">The request errors and is retried. It does not go to commercial.</td></tr>
+      <tr><td>Tenant context is unavailable</td><td class="chosen">The request is rejected. There is no default to commercial.</td></tr>
+      <tr><td>A Router cache still says commercial after a switch</td><td>Prevented at switch time. Invalidation is a step in the switch, and the switch isn&rsquo;t complete until every Router confirms.</td></tr>
+      <tr><td>A request reaches the commercial runtime anyway</td><td>The commercial side refuses tenants locked as migrated. After the rollback window there is no data there to serve.</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="flow">  <span class="fl-key">LOCK 1</span>  <span class="fl-hi">Router</span>            fails closed. no fallback path exists.
+  <span class="fl-key">LOCK 2</span>  <span class="fl-hi">commercial side</span>   refuses tenants locked as migrated
+  <span class="fl-key">LOCK 3</span>  <span class="fl-hi">no data left</span>      commercial copy deleted after the rollback window
+
+  <span class="fl-bad">ALERT</span>   any isolated tenant&rsquo;s request seen by the commercial runtime
+          <span class="fl-note">expected value: zero</span></div>
+
+  <p>Three independent locks, so a bug in one doesn&rsquo;t become a breach. This is what turned our worst production
+  cutover into errors for about ten minutes instead of data served from the wrong place.</p>
+
+  <div class="insight">
+    <div class="label">&#127919; The principle</div>
+    <p><strong>Fail closed.</strong> An error is recoverable. A request served from shared infrastructure isn&rsquo;t.</p>
+  </div>
+
+  <h3>Guarantee 2: no calls from isolated to commercial</h3>
+
+  <p>This one is harder to find, because services had years of hardcoded dependencies on shared services that nobody
+  had written down.</p>
+
+  <div class="tw"><table class="to">
+    <thead><tr><th style="width:22%">Layer</th><th style="width:78%">How it stops the call</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Network</strong></td><td>Dedicated AWS accounts and VPC with no route to commercial services. The only way out is the Egress Gateway.</td></tr>
+      <tr><td><strong>Egress Gateway</strong></td><td>Commercial Atlassian services get no special treatment. They are denied like any other destination unless explicitly allowed.</td></tr>
+      <tr><td><strong>Dependencies</strong></td><td>A service&rsquo;s dependencies point at their isolated counterparts. That&rsquo;s the real reason tier order mattered: a service can&rsquo;t move before its dependencies exist in isolated, or the only thing left to call is commercial.</td></tr>
+      <tr><td><strong>Readiness check</strong></td><td>Any commercial endpoint in a service&rsquo;s dependencies fails the check. Every service runs in isolated with outbound traffic denied before cutover.</td></tr>
+      <tr><td><strong>Detection</strong></td><td>Egress denials are monitored. A denied call to a commercial service is a bug to fix in the service, never a rule to open.</td></tr>
+    </tbody>
+  </table></div>
+
+  <p>The shared control plane is the one sanctioned relationship, and it runs the other way. It provisions, deploys and
+  configures the isolated environment. At request time, isolated services don&rsquo;t call commercial product services.</p>
+
+  <div class="insight">
+    <div class="label">&#127919; The line to use</div>
+    <p><em>&ldquo;If a service only works with a hole in the wall, it isn&rsquo;t ready to migrate.&rdquo;</em></p>
+  </div>
+
+  <h3>If they push</h3>
+
+  <div class="tw"><table class="to">
+    <thead><tr><th style="width:40%">They say</th><th style="width:60%">You say</th></tr></thead>
+    <tbody>
+      <tr><td>&ldquo;Isn&rsquo;t failing closed bad for availability?&rdquo;</td><td>&ldquo;It&rsquo;s a deliberate trade. We buy availability with replicas inside the shard, not with a route to shared infrastructure.&rdquo;</td></tr>
+      <tr><td>&ldquo;What if a feature genuinely needs a commercial service?&rdquo;</td><td>&ldquo;Then it gets an isolated counterpart first. Until then, the feature isn&rsquo;t available in Isolated Cloud. We don&rsquo;t punch holes to close a feature gap.&rdquo;</td></tr>
+      <tr><td>&ldquo;How do you know the guarantees actually hold?&rdquo;</td><td>&ldquo;The commercial-side alert should always read zero, and egress denials to commercial services should be zero or explained. Every cutover checks both.&rdquo;</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+
 <div class="part-banner"><span class="part-tag">Part 3</span><h2>The interview</h2></div>
 
 <div class="content" id="s11-format">
-  <div class="chapter"><div class="ch-num">12</div><h2>What a retrospective is</h2></div>
+  <div class="chapter"><div class="ch-num">14</div><h2>What a retrospective is</h2></div>
 
   <p>Not a system design round. They are not testing whether you can design something. They are testing
   whether you <strong>owned</strong> something.</p>
@@ -2363,7 +2515,7 @@ if(!w)return;var p=null;try{p=localStorage.getItem('aic.nav')}catch(e){}if(p!=='
 </div>
 
 <div class="content" id="s12-story">
-  <div class="chapter"><div class="ch-num">13</div><h2>Your story</h2></div>
+  <div class="chapter"><div class="ch-num">15</div><h2>Your story</h2></div>
 
   <h3>Ninety seconds</h3>
 
@@ -2417,10 +2569,10 @@ if(!w)return;var p=null;try{p=localStorage.getItem('aic.nav')}catch(e){}if(p!=='
 </div>
 
 <div class="content" id="s13-journey">
-  <div class="chapter"><div class="ch-num">14</div><h2>The full journey, as you would tell it</h2></div>
+  <div class="chapter"><div class="ch-num">16</div><h2>The full journey, as you would tell it</h2></div>
   <p>The whole project, start to finish, in the order you would tell it. Read it aloud until it sounds like
   you talking, not you reading.</p>
-  <p class="qnav"><a href="#j1">1. Why I took this on</a> <a href="#j2">2. What the problem actually was</a> <a href="#j3">3. How I came up with the approach</a> <a href="#j4">4. The trade-offs we accepted</a> <a href="#j5">5. How we planned it</a> <a href="#j6">6. The phasing rules</a> <a href="#j7">7. How I built the onboarding tool</a> <a href="#j8">8. How the architecture works</a> <a href="#j9">9. Hiccups in the architecture, and how we improved it</a> <a href="#j10">10. How we built observability</a> <a href="#j11">11. How we did the data migration</a> <a href="#j12">12. Phase one</a> <a href="#j13">13. Phase two</a> <a href="#j14">14. How adoption worked</a> <a href="#j15">15. Production issues, and how we fixed them</a> <a href="#j16">16. What I&rsquo;d do differently</a></p>
+  <p class="qnav"><a href="#j1">1. Why I took this on</a> <a href="#j2">2. What the problem actually was</a> <a href="#j3">3. How I came up with the approach</a> <a href="#j4">4. The trade-offs we accepted</a> <a href="#j5">5. How we planned it</a> <a href="#j6">6. The phasing rules</a> <a href="#j7">7. How I built the onboarding tool</a> <a href="#j8">8. How the architecture works</a> <a href="#j9">9. Hiccups in the architecture, and how we improved it</a> <a href="#j10">10. How we built observability</a> <a href="#j11">11. How we did the data migration</a> <a href="#j12">12. Keeping isolated tenants isolated</a> <a href="#j13">13. Phase one</a> <a href="#j14">14. Phase two</a> <a href="#j15">15. How adoption worked</a> <a href="#j16">16. Production issues, and how we fixed them</a> <a href="#j17">17. What I&rsquo;d do differently</a></p>
 <h3 id="j1">1. Why I took this on</h3>
 <div class="journey"><p data-src="story">I was a principal engineer in platform engineering when Isolated Cloud got funded. The commercial reason was simple. We had large regulated customers, a lot of them banks and critical-infrastructure companies, who wanted to move to our cloud and couldn&rsquo;t. Their compliance teams wouldn&rsquo;t sign off on shared infrastructure, however good our logical isolation was.</p><p data-src="story">About a month in, I sat through design reviews from three product teams in the same week. Jira was planning its own per-customer stack with its own routing. Confluence was planning something different. A third team hadn&rsquo;t started and was waiting to copy whichever looked better. That was the moment for me. We weren&rsquo;t building one Isolated Cloud. We were about to build five or six of them.</p><p data-src="story">I wrote a one-page note to my VP that weekend. The ask was to pause product teams designing isolation on their own until we&rsquo;d decided what belonged in the platform. My VP agreed and asked me to lead that design.</p></div>
 <h3 id="j2">2. What the problem actually was</h3>
@@ -2442,27 +2594,30 @@ if(!w)return;var p=null;try{p=localStorage.getItem('aic.nav')}catch(e){}if(p!=='
 <h3 id="j10">10. How we built observability</h3>
 <div class="journey"><p>Monitoring and logging configuration was provisioned per isolated environment by the control plane, like everything else. The Shard Manager tracked each shard&rsquo;s health and state, and that&rsquo;s what drove failover and replacement.</p><p data-src="story">We watched four things. Shard health. Latency and error rates per tenant and per product, not just per service, because a problem for one isolated customer disappears into a service-wide average. Migration progress per team. And egress denials.</p><p data-src="story">Egress denials were the surprise. I expected a compliance metric. It became our best early warning. When a service started trying to send data somewhere it hadn&rsquo;t declared, the denial count moved before anything else did.</p><p>Our own telemetry was outbound data too, so it went through the Egress Gateway like everything else.</p><p data-src="story">That forced a conversation with a lot of teams about what their logs actually contained.</p></div>
 <h3 id="j11">11. How we did the data migration</h3>
-<div class="journey"><p>It was phased by tier, never all at once, and every transfer was encrypted.</p><p>For each tenant the order never changed: provision and register the isolated shard, move the data, switch tenant context from commercial to isolated, and make sure the Router cache reflects it. Until it does, requests can still reach the commercial runtime, so we treated that as a correctness risk, not a performance detail.</p><p data-src="story">The data moved in three stages. A bulk copy while the source stayed live. Incremental catch-up runs, each smaller than the last. Then a short write freeze to copy the final changes. We didn&rsquo;t switch traffic until record counts and checksums matched.</p><p data-src="story">Rollback was the thing we argued about longest. Before the switch it&rsquo;s free: the tenant just stays commercial. After customers write data in the isolated environment, rolling back loses that data. So we agreed a short rollback window with each customer before cutover, and after it we fixed forward. Having that conversation up front, not during an incident, was the whole point.</p></div>
-<h3 id="j12">12. Phase one</h3>
+<div class="journey"><p data-src="story">The first real decision wasn&rsquo;t how to copy data. It was whether to copy it at all. We weighed three options. Start isolated tenants fresh and have customers re-import. Dual-write to both environments during the transition. Or copy each tenant across and then switch.</p><p data-src="story">Starting fresh was out quickly. These customers had years of history, permissions and audit trails, and asking a bank to re-import all of it just moves our risk onto them. Dual-write looked good for rollback, but it meant changing the write path in every migrating service, and for a while both environments would look authoritative. It also kept the isolated tenant wired to commercial, which was exactly what we were trying to end.</p><p data-src="story">So we chose copy then switch, with one rule I repeated in every review: a tenant has one home at a time. Commercial until the switch, isolated after it. Never both.</p><p data-src="story">The part people underestimate is that commercial stores are shared. One tenant&rsquo;s rows sit next to thousands of other customers&rsquo;. Copy too little and you lose data. Copy too much and you&rsquo;ve put another customer&rsquo;s data inside someone else&rsquo;s isolated environment, which is worse than any outage. So each service owner wrote the tenant-scoped extraction, because only they know their schema, and the platform ran the transfer and checked that every copied record belonged to that tenant.</p><p>It was phased by tier, never all at once, and every transfer was encrypted.</p><p>For each tenant the order never changed: provision and register the isolated shard, move the data, switch tenant context from commercial to isolated, and make sure the Router cache reflects it. Until it does, requests can still reach the commercial runtime, so we treated that as a correctness risk, not a performance detail.</p><p data-src="story">The data moved in three stages. A bulk copy while the source stayed live. Incremental catch-up runs, each smaller than the last. Then a short write freeze, with the tenant locked on the commercial side, to copy the final changes. We didn&rsquo;t switch traffic until the ownership check, record counts and checksums all passed.</p><p data-src="story">Rollback was the thing we argued about longest. Before the switch it&rsquo;s free: the tenant just stays commercial. After customers write data in the isolated environment, rolling back loses that data. So we agreed a short rollback window with each customer before cutover, and after it we fixed forward. Having that conversation up front, not during an incident, was the whole point.</p><p data-src="story">After the rollback window, we deleted the tenant&rsquo;s data from the commercial environment and verified the deletion. Regulated customers need to know their data is gone from shared infrastructure, and a leftover copy is a temptation for someone to serve from it one day. Security and compliance signed off on that step before the first cutover.</p></div>
+<h3 id="j12">12. Keeping isolated tenants isolated</h3>
+<div class="journey"><p data-src="story">Once a tenant was isolated, two things had to be impossible, not just unlikely. Their requests must never fall back to the commercial environment. And nothing inside their isolated environment may call a commercial or multi-tenant service.</p><p data-src="story">The fallback question came up in an architecture review. Our SRE lead asked whether the Router should send an isolated tenant to commercial if their shard was unhealthy. It&rsquo;s a completely normal reliability instinct: if the new path fails, try the old one. Here it would be a breach. An outage is a reliability problem. Serving an isolated customer from shared infrastructure is a compliance failure. So the answer was no fallback, anywhere.</p><p data-src="story">In practice that meant failing closed at every step. If tenant context says isolated and the Shard Manager can&rsquo;t find a healthy shard, the request errors and is retried. If the Router can&rsquo;t get tenant context at all, it rejects the request instead of defaulting to commercial. We made shards reliable with replicas instead of giving them an escape route.</p><p data-src="story">We didn&rsquo;t trust one lock. Behind the Router, the commercial side refuses any request for a tenant locked as migrated, and after the rollback window there&rsquo;s no data left there to serve anyway. We also alert on any isolated tenant&rsquo;s request reaching the commercial runtime. That number should always be zero.</p><p data-src="story">Calls in the other direction were harder to find, because services had years of hardcoded dependencies on shared services that nobody had written down. The first wall was the network: isolated environments sit in their own AWS accounts and VPC with no route to commercial services. The only way out is the Egress Gateway, and commercial Atlassian services get no special treatment there. They&rsquo;re denied like any other destination unless explicitly allowed.</p><p data-src="story">The second was dependencies. Inside an isolated environment, a service&rsquo;s dependencies point at their isolated counterparts, not at commercial endpoints. That&rsquo;s the real reason tier order mattered: a service can&rsquo;t move until its dependencies exist in isolated, because otherwise the only thing left to call is commercial.</p><p data-src="story">The third was the readiness check. Any commercial endpoint in a service&rsquo;s dependencies failed it, and we ran each service in isolated with outbound traffic denied before cutover. My rule was simple: if a service only works with a hole in the wall, it isn&rsquo;t ready to migrate. When the gateway denied a call to a commercial service, we treated it as a bug to fix in the service, never as a rule to open.</p></div>
+<h3 id="j13">13. Phase one</h3>
 <div class="journey"><p data-src="story">Phase one was L0, L1, and the L2 products our first customers needed. We started with a pilot customer, a large bank. We rehearsed their cutover twice in staging before touching production, and the stale tenant context problem showed up in the first rehearsal. That&rsquo;s exactly what rehearsals are for.</p><p data-src="story">Before we opened phase two we&rsquo;d changed three things: cache invalidation was an explicit step in the switch, egress declarations were part of the readiness check, and every team&rsquo;s status was on the shared dashboard.</p></div>
-<h3 id="j13">13. Phase two</h3>
+<h3 id="j14">14. Phase two</h3>
 <div class="journey"><p data-src="story">Phase two was L2.5 and the L3 tail. More teams, smaller services, less traffic each. I assumed it would be faster. It wasn&rsquo;t. It took about as long as phase one.</p><p data-src="story">Phase one was an engineering problem. Phase two was an adoption problem. Teams had other priorities, and some services had no real owner left after reorganisations. We found a few of those only because the readiness check failed on a dependency nobody claimed.</p><p data-src="story">What moved the tail was unglamorous. Weekly office hours. Publishing every team&rsquo;s status to leadership so priorities were visible. Chasing owners for orphaned services. And fixing common blockers once in the platform instead of team by team.</p></div>
-<h3 id="j14">14. How adoption worked</h3>
+<h3 id="j15">15. How adoption worked</h3>
 <div class="journey"><p>I had no authority over any of those teams, so mandates weren&rsquo;t an option. The pitch was always cost: adopt a shard descriptor and run the tool, and you don&rsquo;t build placement, lifecycle or egress rules yourself.</p><p data-src="story">The team I remember most pushed back hard. They had years of custom deployment scripts and didn&rsquo;t want to touch them. I assumed at first it was resistance to change. When I sat down with their tech lead, it wasn&rsquo;t. Their service scaled on a pattern the shard descriptor genuinely couldn&rsquo;t express. We added it to the model. They migrated, and four or five teams after them used the same addition.</p><p data-src="story">That&rsquo;s when I stopped treating blockers as team problems. If two teams hit the same thing, it went on the platform backlog.</p><p data-src="story">We tracked adoption with status the tool computed from its own checks, not status teams reported. Self-reported status was always greener than reality.</p></div>
-<h3 id="j15">15. Production issues, and how we fixed them</h3>
-<div class="journey"><p data-src="story">The worst one was during an early production cutover. Cache invalidation was already a step in the switch after the rehearsal. But a few Router instances didn&rsquo;t receive the invalidation, and for about ten minutes a small share of that customer&rsquo;s requests went to the commercial runtime. Users saw errors. We caught it from the per-tenant error rate before the customer raised it, and forced a refresh.</p><p data-src="story">The lasting fix was that a switch isn&rsquo;t complete until every Router instance confirms it has the new context. If any Router reports the old one, the cutover doesn&rsquo;t finish.</p><p data-src="story">The second came from a shard replacement during maintenance. We updated placement and invalidated the cache, but in the wrong order. The cache refilled with the old placement before the repository update landed, so some requests went to a shard we were retiring. We fixed the order: update the shard configuration repository first, then invalidate the cache, then route new traffic. And we added an alert for any request that reaches a retired shard.</p><p data-src="story">Neither fix was &rsquo;be more careful&rsquo;. Both changed the process so it couldn&rsquo;t happen that way again.</p></div>
-<h3 id="j16">16. What I&rsquo;d do differently</h3>
+<h3 id="j16">16. Production issues, and how we fixed them</h3>
+<div class="journey"><p data-src="story">The worst one was during an early production cutover. Cache invalidation was already a step in the switch after the rehearsal. But a few Router instances didn&rsquo;t receive the invalidation, and for about ten minutes a small share of that customer&rsquo;s requests went to the commercial runtime. The commercial side refused them, because the tenant was already locked as migrated, so users saw errors rather than anything being served from shared infrastructure. We caught it from the per-tenant error rate before the customer raised it, and forced a refresh.</p><p data-src="story">The lasting fix was that a switch isn&rsquo;t complete until every Router instance confirms it has the new context. If any Router reports the old one, the cutover doesn&rsquo;t finish.</p><p data-src="story">The second came from a shard replacement during maintenance. We updated placement and invalidated the cache, but in the wrong order. The cache refilled with the old placement before the repository update landed, so some requests went to a shard we were retiring. We fixed the order: update the shard configuration repository first, then invalidate the cache, then route new traffic. And we added an alert for any request that reaches a retired shard.</p><p data-src="story">Neither fix was &rsquo;be more careful&rsquo;. Both changed the process so it couldn&rsquo;t happen that way again.</p></div>
+<h3 id="j17">17. What I&rsquo;d do differently</h3>
 <div class="journey"><p data-src="story">Two things. I&rsquo;d design cache invalidation in from day one. Both production issues and the rehearsal problem came from the same place, and we hardened it in three rounds instead of one.</p><p data-src="story">And I&rsquo;d publish the platform contract and the shard descriptor model before phase one, not during it. We spent weeks negotiating things with teams that a written contract would have settled in an afternoon.</p></div>
 
 </div>
 
 
+
 <div class="content" id="s13-bank">
-  <div class="chapter"><div class="ch-num">15</div><h2>The question bank</h2></div>
-  <p>47 questions across the whole journey, in the order an interview tends to move. Open one, answer it
-  out loud, then check. Every answer matches the journey in &sect;14, so the details stay consistent
+  <div class="chapter"><div class="ch-num">17</div><h2>The question bank</h2></div>
+  <p>55 questions across the whole journey, in the order an interview tends to move. Open one, answer it
+  out loud, then check. Every answer matches the journey in &sect;16, so the details stay consistent
   however the interviewer comes at them.</p>
-  <p class="qnav"><a href="#q-start">Starting out and planning</a> <a href="#q-arch">Architecture decisions</a> <a href="#q-trade">Trade-offs</a> <a href="#q-migrate">Data migration</a> <a href="#q-exec">Execution across teams</a> <a href="#q-conflict">Conflict and disagreement</a> <a href="#q-ops">Operations and failures</a> <a href="#q-impact">Impact</a> <a href="#q-reflect">Reflection</a></p>
+  <p class="qnav"><a href="#q-start">Starting out and planning</a> <a href="#q-arch">Architecture decisions</a> <a href="#q-trade">Trade-offs</a> <a href="#q-migrate">Data migration</a> <a href="#q-boundary">The isolation boundary</a> <a href="#q-exec">Execution across teams</a> <a href="#q-conflict">Conflict and disagreement</a> <a href="#q-ops">Operations and failures</a> <a href="#q-impact">Impact</a> <a href="#q-reflect">Reflection</a></p>
 <h3 id="q-start">Starting out and planning</h3>
 <div class="drills">
 <details class="drill"><summary><span class="dr-n">1</span><span class="dr-q">&ldquo;Isn&rsquo;t this just giving each tenant dedicated hardware?&rdquo;</span><span class="dr-cue">Answer</span></summary>
@@ -2531,57 +2686,76 @@ if(!w)return;var p=null;try{p=localStorage.getItem('aic.nav')}catch(e){}if(p!=='
 <details class="drill"><summary><span class="dr-n">28</span><span class="dr-q">&ldquo;How did you know a migration was really complete?&rdquo;</span><span class="dr-cue">Answer</span></summary>
 <div class="dr-a"><p>The tool computed status from its own checks. We didn&rsquo;t use self-reported status, because it was always greener than reality.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;What was the most common reason a team wasn&rsquo;t really done?&rdquo;</p><span class="dr-key">Avoid: Trusting status updates.</span></div></details>
 </div>
+<h3 id="q-boundary">The isolation boundary</h3>
+<div class="drills">
+<details class="drill"><summary><span class="dr-n">29</span><span class="dr-q">&ldquo;How did you decide to copy tenant data rather than start fresh or dual-write?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<div class="dr-a"><p>Starting fresh pushed our risk onto customers with years of history and audit trails. Dual-write changed the write path in every migrating service, made both environments look authoritative, and kept isolated tenants wired to commercial.</p><p>Copy then switch kept one rule: a tenant has one home at a time. Commercial until the switch, isolated after it.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;What was the hardest part of copying?&rdquo;</p><span class="dr-key">Avoid: Presenting copy-then-switch as the only option. Name what you rejected.</span></div></details>
+<details class="drill"><summary><span class="dr-n">30</span><span class="dr-q">&ldquo;How did you copy one tenant out of shared databases?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<div class="dr-a"><p>Each service owner wrote the tenant-scoped extraction, because only they know their schema. The platform ran the encrypted transfer and checked that every copied record belonged to that tenant, alongside counts and checksums.</p><p>Copying too little loses data. Copying too much puts another customer&rsquo;s data inside an isolated environment, which is worse than any outage.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;What if the ownership check failed?&rdquo;</p><span class="dr-key">Avoid: Only talking about the risk of copying too little.</span></div></details>
+<details class="drill"><summary><span class="dr-n">31</span><span class="dr-q">&ldquo;How do you guarantee an isolated tenant&rsquo;s request never falls back to commercial?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<div class="dr-a"><p>There is no fallback path, by design. Tenant context is the only authority. If it says isolated and no healthy shard exists, the request errors and is retried. If the Router can&rsquo;t get tenant context, it rejects the request rather than defaulting to commercial.</p><p>Behind that, the commercial side refuses tenants locked as migrated, the commercial copy is deleted after the rollback window, and any isolated tenant&rsquo;s request reaching commercial raises an alert.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;Isn&rsquo;t serving from commercial better than an outage?&rdquo;</p><span class="dr-key">Avoid: Relying on a single check.</span></div></details>
+<details class="drill"><summary><span class="dr-n">32</span><span class="dr-q">&ldquo;Isn&rsquo;t serving from commercial better than an outage?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<div class="dr-a"><p>Not for these customers. An outage is a reliability problem. Serving an isolated customer from shared infrastructure is a compliance failure, and it&rsquo;s exactly what they pay to prevent.</p><p>So we made shards reliable with replicas instead of giving them an escape route. Our SRE lead raised this in review, and it was a fair question.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;How did that work out in your worst cutover?&rdquo;</p><span class="dr-key">Avoid: Hedging. This one needs a clear no.</span></div></details>
+<details class="drill"><summary><span class="dr-n">33</span><span class="dr-q">&ldquo;How do you stop an isolated service calling a commercial or multi-tenant service?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<div class="dr-a"><p>Layers. The network: isolated environments have no route to commercial services, and the only way out is the Egress Gateway, where commercial services are denied like any other destination. Dependencies: they point at isolated counterparts, which is why a service can&rsquo;t move before its dependencies do.</p><p>And the readiness check: any commercial endpoint failed it, and every service ran in isolated with outbound traffic denied before cutover.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;What did you find when you first turned outbound traffic off?&rdquo;</p><span class="dr-key">Avoid: Saying you told teams not to.</span></div></details>
+<details class="drill"><summary><span class="dr-n">34</span><span class="dr-q">&ldquo;What did you find when you first turned outbound traffic off?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<div class="dr-a"><p>Hardcoded dependencies on shared services that nobody had written down. The egress denials surfaced them, and that&rsquo;s why the readiness check exists.</p><p>A denied call to a commercial service was always a bug to fix in the service. We never opened a rule to make it pass. If a service only works with a hole in the wall, it isn&rsquo;t ready.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;What if a feature genuinely needed a commercial service?&rdquo;</p><span class="dr-key">Avoid: Opening exceptions to hit a date.</span></div></details>
+<details class="drill"><summary><span class="dr-n">35</span><span class="dr-q">&ldquo;What if a feature genuinely needed a commercial service?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<div class="dr-a"><p>It needed an isolated counterpart first. Until that existed, the feature wasn&rsquo;t available in Isolated Cloud. We didn&rsquo;t punch holes in the boundary to close a feature gap.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;How did product teams take that?&rdquo;</p><span class="dr-key">Avoid: Describing a one-off exception.</span></div></details>
+<details class="drill"><summary><span class="dr-n">36</span><span class="dr-q">&ldquo;What happened to the tenant&rsquo;s data left in the commercial environment?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<div class="dr-a"><p>During the rollback window it stayed locked and read-only. After the window we deleted it and verified the deletion. Security and compliance signed off on that step before the first cutover.</p><p>Regulated customers need to know their data is gone from shared infrastructure, and a leftover copy is a temptation to serve from it.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;How did you verify the deletion?&rdquo;</p><span class="dr-key">Avoid: Saying you deleted it without saying how you knew.</span></div></details>
+</div>
 <h3 id="q-exec">Execution across teams</h3>
 <div class="drills">
-<details class="drill"><summary><span class="dr-n">29</span><span class="dr-q">&ldquo;Why were identity and the Global Edge in L0?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<details class="drill"><summary><span class="dr-n">37</span><span class="dr-q">&ldquo;Why were identity and the Global Edge in L0?&rdquo;</span><span class="dr-cue">Answer</span></summary>
 <div class="dr-a"><p>Nothing isolated works without them. No tenant can log in or reach a service. Everything else waits on L0.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;What did L1 depend on?&rdquo;</p><span class="dr-key">Avoid: Only saying they were important.</span></div></details>
-<details class="drill"><summary><span class="dr-n">30</span><span class="dr-q">&ldquo;Why did you add an L2.5 tier?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<details class="drill"><summary><span class="dr-n">38</span><span class="dr-q">&ldquo;Why did you add an L2.5 tier?&rdquo;</span><span class="dr-cue">Answer</span></summary>
 <div class="dr-a"><p>It came out of planning. One group wasn&rsquo;t a product the first customers needed, so not L2, but several L2 products called them on common paths, so they couldn&rsquo;t wait with L3.</p><p>A half tier avoided renumbering, which would have broken dashboards, alerts and runbooks keyed to the tiers.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;Isn&rsquo;t a half tier a sign the model was wrong?&rdquo;</p><span class="dr-key">Avoid: Getting defensive about it.</span></div></details>
-<details class="drill"><summary><span class="dr-n">31</span><span class="dr-q">&ldquo;A team said they had no capacity. What did you do?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<details class="drill"><summary><span class="dr-n">39</span><span class="dr-q">&ldquo;A team said they had no capacity. What did you do?&rdquo;</span><span class="dr-cue">Answer</span></summary>
 <div class="dr-a"><p>Moved them later in their tier on purpose, and checked nothing depended on them first. When something did, it became a priority conversation with leadership, with the dependency map in front of everyone.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;What if they simply refused?&rdquo;</p><span class="dr-key">Avoid: Escalating first.</span></div></details>
-<details class="drill"><summary><span class="dr-n">32</span><span class="dr-q">&ldquo;Where did the migration stall?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<details class="drill"><summary><span class="dr-n">40</span><span class="dr-q">&ldquo;Where did the migration stall?&rdquo;</span><span class="dr-cue">Answer</span></summary>
 <div class="dr-a"><p>Phase two. More teams, smaller services, and I expected it to be faster. It took about as long as phase one.</p><p>Teams had other priorities and some services had no owner left after reorganisations. Office hours, visible status for leadership, and chasing owners moved it.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;What would you do differently for the tail?&rdquo;</p><span class="dr-key">Avoid: Claiming it went smoothly.</span></div></details>
 </div>
 <h3 id="q-conflict">Conflict and disagreement</h3>
 <div class="drills">
-<details class="drill"><summary><span class="dr-n">33</span><span class="dr-q">&ldquo;Tell me about a disagreement.&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<details class="drill"><summary><span class="dr-n">41</span><span class="dr-q">&ldquo;Tell me about a disagreement.&rdquo;</span><span class="dr-cue">Answer</span></summary>
 <div class="dr-a"><p>The biggest was with the product leads over the platform approach. The Jira lead said they weren&rsquo;t handing their pager to someone else&rsquo;s roadmap.</p><p>It was a fair concern. We kept business logic and shard sizing with product teams and wrote a platform contract. It took two weeks of one-on-ones before review.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;Did you have to give anything up to win them over?&rdquo;</p><span class="dr-key">Avoid: Making the other side look unreasonable.</span></div></details>
-<details class="drill"><summary><span class="dr-n">34</span><span class="dr-q">&ldquo;How did you convince people the extra Shard Manager was worth it?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<details class="drill"><summary><span class="dr-n">42</span><span class="dr-q">&ldquo;How did you convince people the extra Shard Manager was worth it?&rdquo;</span><span class="dr-cue">Answer</span></summary>
 <div class="dr-a"><p>I&rsquo;d favoured the Router approach myself at first, so I used the same thing that changed my mind: the list of events that change placement. None of them change the tenant.</p><p>Once that list was on the table, coupling placement to the Router was obviously the wrong call.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;Who still disagreed?&rdquo;</p><span class="dr-key">Avoid: Arguing from principle instead of the event list.</span></div></details>
-<details class="drill"><summary><span class="dr-n">35</span><span class="dr-q">&ldquo;A team wanted to keep their own deployment approach. What did you do?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<details class="drill"><summary><span class="dr-n">43</span><span class="dr-q">&ldquo;A team wanted to keep their own deployment approach. What did you do?&rdquo;</span><span class="dr-cue">Answer</span></summary>
 <div class="dr-a"><p>A team with years of custom deployment scripts pushed back hard. I assumed resistance to change. It wasn&rsquo;t: their scaling pattern genuinely couldn&rsquo;t be expressed in a shard descriptor.</p><p>We added it to the model. They migrated, and four or five teams used the same addition afterwards.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;Did you ever make an exception outside the model?&rdquo;</p><span class="dr-key">Avoid: Saying you never bend.</span></div></details>
-<details class="drill"><summary><span class="dr-n">36</span><span class="dr-q">&ldquo;Were you ever overruled?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<details class="drill"><summary><span class="dr-n">44</span><span class="dr-q">&ldquo;Were you ever overruled?&rdquo;</span><span class="dr-cue">Answer</span></summary>
 <div class="dr-a"><p>Yes. After the rehearsal I wanted to delay phase one until we could confirm invalidation on every Router. Leadership held the date because of the pilot commitment.</p><p>I committed, we shipped invalidation as a step in the switch, and the confirmation step came after the first production incident. In hindsight we were both partly right.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;Would you push harder next time?&rdquo;</p><span class="dr-key">Avoid: Telling it as a grievance.</span></div></details>
 </div>
 <h3 id="q-ops">Operations and failures</h3>
 <div class="drills">
-<details class="drill"><summary><span class="dr-n">37</span><span class="dr-q">&ldquo;A replica fails. Then a whole shard fails. What&rsquo;s different?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<details class="drill"><summary><span class="dr-n">45</span><span class="dr-q">&ldquo;A replica fails. Then a whole shard fails. What&rsquo;s different?&rdquo;</span><span class="dr-cue">Answer</span></summary>
 <div class="dr-a"><p>A replica failing is handled by the infrastructure, and the tenant-to-shard mapping doesn&rsquo;t change.</p><p>A shard being replaced means placement changes. We update the shard configuration repository first, then invalidate the cache, then route new traffic. We learned that order the hard way.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;What happened when you got the order wrong?&rdquo;</p><span class="dr-key">Avoid: Treating them as the same event.</span></div></details>
-<details class="drill"><summary><span class="dr-n">38</span><span class="dr-q">&ldquo;The placement cache is lost. What happens?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<details class="drill"><summary><span class="dr-n">46</span><span class="dr-q">&ldquo;The placement cache is lost. What happens?&rdquo;</span><span class="dr-cue">Answer</span></summary>
 <div class="dr-a"><p>Nothing is lost. The repository is the source of truth. Lookups are slower until the cache refills, but still correct.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;What if the repository is down?&rdquo;</p><span class="dr-key">Avoid: Saying placement lives in the cache.</span></div></details>
-<details class="drill"><summary><span class="dr-n">39</span><span class="dr-q">&ldquo;Tell me about a production incident.&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<details class="drill"><summary><span class="dr-n">47</span><span class="dr-q">&ldquo;Tell me about a production incident.&rdquo;</span><span class="dr-cue">Answer</span></summary>
 <div class="dr-a"><p>During an early production cutover, a few Router instances missed the tenant context invalidation. For about ten minutes some of that customer&rsquo;s requests went to the commercial runtime, and users saw errors.</p><p>We caught it from per-tenant error rates before the customer raised it and forced a refresh. The lasting fix: a switch isn&rsquo;t complete until every Router confirms the new context.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;Why hadn&rsquo;t the rehearsal caught that?&rdquo;</p><span class="dr-key">Avoid: A fix that amounts to being more careful.</span></div></details>
-<details class="drill"><summary><span class="dr-n">40</span><span class="dr-q">&ldquo;How did you monitor the system?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<details class="drill"><summary><span class="dr-n">48</span><span class="dr-q">&ldquo;How did you monitor the system?&rdquo;</span><span class="dr-cue">Answer</span></summary>
 <div class="dr-a"><p>Four signals: shard health, latency and errors per tenant and product, migration progress per team, and egress denials.</p><p>Per tenant mattered because one isolated customer&rsquo;s problem disappears in a service-wide average. Egress denials turned out to be the earliest warning we had.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;What did you add after going live?&rdquo;</p><span class="dr-key">Avoid: Listing dashboards without saying what they caught.</span></div></details>
 </div>
 <h3 id="q-impact">Impact</h3>
 <div class="drills">
-<details class="drill"><summary><span class="dr-n">41</span><span class="dr-q">&ldquo;What was the impact?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<details class="drill"><summary><span class="dr-n">49</span><span class="dr-q">&ldquo;What was the impact?&rdquo;</span><span class="dr-cue">Answer</span></summary>
 <div class="dr-a"><p>Isolation became a platform capability instead of 178 separate redesigns. Regulated customers who couldn&rsquo;t use our cloud could move, starting with a large bank.</p><p>Onboarding a team went from a few weeks with our help to a few days on their own. And new products get isolation without redesigning anything.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;How did you measure that?&rdquo;</p><span class="dr-key">Avoid: Only listing technical outcomes.</span></div></details>
-<details class="drill"><summary><span class="dr-n">42</span><span class="dr-q">&ldquo;Why did this matter to the business?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<details class="drill"><summary><span class="dr-n">50</span><span class="dr-q">&ldquo;Why did this matter to the business?&rdquo;</span><span class="dr-cue">Answer</span></summary>
 <div class="dr-a"><p>These customers couldn&rsquo;t be cloud customers at all without it. Their compliance teams wouldn&rsquo;t sign off on shared infrastructure.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;How did that change engineering priorities?&rdquo;</p><span class="dr-key">Avoid: Only talking about technology.</span></div></details>
-<details class="drill"><summary><span class="dr-n">43</span><span class="dr-q">&ldquo;How did you measure success?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<details class="drill"><summary><span class="dr-n">51</span><span class="dr-q">&ldquo;How did you measure success?&rdquo;</span><span class="dr-cue">Answer</span></summary>
 <div class="dr-a"><p>Three measures: teams fully migrated as computed by the tool, time for a team to onboard, and problems per cutover.</p><p>The slowest to move was teams migrated in phase two.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;Why was phase two slow?&rdquo;</p><span class="dr-key">Avoid: Vague success claims.</span></div></details>
 </div>
 <h3 id="q-reflect">Reflection</h3>
 <div class="drills">
-<details class="drill"><summary><span class="dr-n">44</span><span class="dr-q">&ldquo;What would you do differently?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<details class="drill"><summary><span class="dr-n">52</span><span class="dr-q">&ldquo;What would you do differently?&rdquo;</span><span class="dr-cue">Answer</span></summary>
 <div class="dr-a"><p>Design cache invalidation in from day one. The rehearsal problem and both production issues came from the same place, and we hardened it in three rounds instead of one.</p><p>And publish the platform contract before phase one. We spent weeks negotiating things a written contract would have settled.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;Why didn&rsquo;t you do that at the time?&rdquo;</p><span class="dr-key">Avoid: Saying nothing, or something cosmetic.</span></div></details>
-<details class="drill"><summary><span class="dr-n">45</span><span class="dr-q">&ldquo;What&rsquo;s the weakest part of the design today?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<details class="drill"><summary><span class="dr-n">53</span><span class="dr-q">&ldquo;What&rsquo;s the weakest part of the design today?&rdquo;</span><span class="dr-cue">Answer</span></summary>
 <div class="dr-a"><p>Centralisation makes the platform a shared dependency. And shard descriptor overrides still need discipline. The monthly review helps, but it depends on people doing it.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;What would it take to fix it?&rdquo;</p><span class="dr-key">Avoid: Blaming things outside your control.</span></div></details>
-<details class="drill"><summary><span class="dr-n">46</span><span class="dr-q">&ldquo;What did you learn about leading across teams?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<details class="drill"><summary><span class="dr-n">54</span><span class="dr-q">&ldquo;What did you learn about leading across teams?&rdquo;</span><span class="dr-cue">Answer</span></summary>
 <div class="dr-a"><p>Mandates don&rsquo;t work at 178 teams. The moment it clicked was the team with custom scripts. What looked like resistance was a real gap in our model.</p><p>After that, if two teams hit the same thing, it was a platform problem, not a team problem.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;Where did that approach not work?&rdquo;</p><span class="dr-key">Avoid: A generic lesson with no moment behind it.</span></div></details>
-<details class="drill"><summary><span class="dr-n">47</span><span class="dr-q">&ldquo;If you joined a team here doing something similar, what would you tell them first?&rdquo;</span><span class="dr-cue">Answer</span></summary>
+<details class="drill"><summary><span class="dr-n">55</span><span class="dr-q">&ldquo;If you joined a team here doing something similar, what would you tell them first?&rdquo;</span><span class="dr-cue">Answer</span></summary>
 <div class="dr-a"><p>Decide early what belongs to the platform and what belongs to the product. Moving that line later is far more expensive than drawing it at the start.</p><p class="nextq"><strong>Next they ask:</strong> &ldquo;How would you decide where that line goes?&rdquo;</p><span class="dr-key">Avoid: Re-describing your project instead of giving advice.</span></div></details>
 </div>
 
@@ -2590,8 +2764,9 @@ if(!w)return;var p=null;try{p=localStorage.getItem('aic.nav')}catch(e){}if(p!=='
 
 
 
+
 <div class="content" id="s14-questions">
-  <div class="chapter"><div class="ch-num">16</div><h2>Your fifteen minutes</h2></div>
+  <div class="chapter"><div class="ch-num">18</div><h2>Your fifteen minutes</h2></div>
 
   <p>A quarter of the interview. It is scored. Running dry after three questions is noticeable.</p>
 
@@ -2625,7 +2800,7 @@ if(!w)return;var p=null;try{p=localStorage.getItem('aic.nav')}catch(e){}if(p!=='
 </div>
 
 <div class="content" id="s15-onepage">
-  <div class="chapter"><div class="ch-num">17</div><h2>One page to revise from</h2></div>
+  <div class="chapter"><div class="ch-num">19</div><h2>One page to revise from</h2></div>
 
   <div class="concl-grid">
     <div class="cc first"><div class="cc-h">The thesis</div><p>Isolation is a platform capability, not a product feature. 178 teams &mdash; per-product isolation never converges.</p></div>

@@ -193,15 +193,27 @@ clusters, the rubric ladder — and hands the list itself to the page.
 Prep for the reader's **LinkedIn Staff-level design retrospective** — a 1-hour interview about
 one real past project (~40 min drilling it, ~15 min their questions). Not a system-design round.
 
-**~11,700 words, 21 sections, 3 parts.** Most of the growth is collapsed (the question bank) or was explicitly requested by the reader. It reached 17,400 words and 36
+**~12,500 words, 22 sections, 3 parts.** Most of the growth is collapsed (the question bank) or was explicitly requested by the reader. It reached 17,400 words and 36
 sections and the reader said it had become unreadable. The cut is documented in commit
 `9305e4f`; the fuller research version is at `864b9f0` if a detail is ever needed back.
 
 | Part | Sections | Contains |
 |---|---|---|
 | 1 The system | §1–2 | What AIC is; the two-tag provenance key |
-| 2 What you built | §3–15 | Thesis, §4 why it is hard, architecture, §11 team migration, **§12 tenant data (copy-then-switch)**, **§13 isolation guarantees (no fallback, no calls out)**, **§14 cache/data/database problems**, **§15 GraphQL gateway (Nadel) + DataLoader** |
-| 3 The interview | §16–21 | Format, 90-second story, §18 full journey (18 chapters), §19 question bank (65), their questions, one-page revision |
+| 2 What you built | §3–16 | Thesis, §4 why it is hard, architecture §5–10, **§11 infrastructure deep dive**, §12 team migration, §13 tenant data, §14 isolation guarantees, §15 cache/data/databases, §16 GraphQL gateway + DataLoader |
+| 3 The interview | §17–22 | Format, 90-second story, §19 full journey, §20 question bank (71), their questions, one-page revision |
+
+### §11 infrastructure deep dive — facts only, on purpose
+
+The reader interviews with a LinkedIn **infra** team. §11 (provisioning, networking, placement,
+fleet deployment, failure domains, cost) was deliberately built **only** from the reader's
+architecture source and Atlassian's public docs — no `data-src="story"`, no constructed
+specifics — because infra panels drill operational detail hardest and invented detail there
+fails fastest. It ends with a checklist of what the reader must answer from real experience
+(provisioning time, IP allocation, control-plane access into isolated environments, rollout and
+per-tenant rollback, SLOs, backups, cost floor, real counts). **When the reader supplies those
+answers, write them into §11 as `YOURS` facts and remove them from the checklist. Do not fill
+them with a story.** Bank data is now `scratchpad/bank/data4.py`.
 
 ### Where the generated content lives
 

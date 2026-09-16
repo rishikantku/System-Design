@@ -193,15 +193,26 @@ clusters, the rubric ladder — and hands the list itself to the page.
 Prep for the reader's **LinkedIn Staff-level design retrospective** — a 1-hour interview about
 one real past project (~40 min drilling it, ~15 min their questions). Not a system-design round.
 
-**~7,500 words, 17 sections, 3 parts.** Most of the growth is collapsed (the question bank) or is the reader's explicitly requested full journey. It reached 17,400 words and 36
+**~11,700 words, 21 sections, 3 parts.** Most of the growth is collapsed (the question bank) or was explicitly requested by the reader. It reached 17,400 words and 36
 sections and the reader said it had become unreadable. The cut is documented in commit
 `9305e4f`; the fuller research version is at `864b9f0` if a detail is ever needed back.
 
 | Part | Sections | Contains |
 |---|---|---|
 | 1 The system | §1–2 | What AIC is; the two-tag provenance key |
-| 2 What you built | §3–11 | The thesis, **§4 why it is hard (the "isn't this just dedicated hardware?" pushback)**, then the architecture |
-| 3 The interview | §12–17 | Format, 90-second story, **§14 full first-person journey**, **§15 question bank (47)**, their questions, one-page revision |
+| 2 What you built | §3–15 | Thesis, §4 why it is hard, architecture, §11 team migration, **§12 tenant data (copy-then-switch)**, **§13 isolation guarantees (no fallback, no calls out)**, **§14 cache/data/database problems**, **§15 GraphQL gateway (Nadel) + DataLoader** |
+| 3 The interview | §16–21 | Format, 90-second story, §18 full journey (18 chapters), §19 question bank (65), their questions, one-page revision |
+
+### Where the generated content lives
+
+The journey and bank are generated from data files, not hand-edited HTML. Latest versions:
+`scratchpad/journey/data5.py` (journey, `("say"|"story", text)` blocks) and
+`scratchpad/bank/data3.py` (bank phases). `scratchpad/hardprob/apply2.py` shows the rebuild
+pattern: shift `ch-num` and `&sect;` refs, insert sections by div-depth span, regenerate both
+blocks, then re-run `scratchpad/nav/build.py`. §12–§15 carry `data-src="story"` on their
+`.chapter` div, meaning the whole section is constructed design around the reader's architecture.
+**Nadel** facts (combines many GraphQL services into one API; hydration calls other services,
+batched) are public, from github.com/atlassian-labs/nadel, and tagged PUBLIC.
 
 ### Left navigation
 

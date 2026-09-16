@@ -203,17 +203,29 @@ sections and the reader said it had become unreadable. The cut is documented in 
 | 2 What you built | §3–16 | Thesis, §4 why it is hard, architecture §5–10, **§11 infrastructure deep dive**, §12 team migration, §13 tenant data, §14 isolation guarantees, §15 cache/data/databases, §16 GraphQL gateway + DataLoader |
 | 3 The interview | §17–22 | Format, 90-second story, §19 full journey, §20 question bank (71), their questions, one-page revision |
 
-### §11 infrastructure deep dive — facts only, on purpose
+### §11 infrastructure deep dive
 
-The reader interviews with a LinkedIn **infra** team. §11 (provisioning, networking, placement,
-fleet deployment, failure domains, cost) was deliberately built **only** from the reader's
-architecture source and Atlassian's public docs — no `data-src="story"`, no constructed
-specifics — because infra panels drill operational detail hardest and invented detail there
-fails fastest. It ends with a checklist of what the reader must answer from real experience
-(provisioning time, IP allocation, control-plane access into isolated environments, rollout and
-per-tenant rollback, SLOs, backups, cost floor, real counts). **When the reader supplies those
-answers, write them into §11 as `YOURS` facts and remove them from the checklist. Do not fill
-them with a story.** Bank data is now `scratchpad/bank/data4.py`.
+The reader interviews with a LinkedIn **infra** team. §11 covers provisioning, networking (IP
+allocation, the one-way management channel), placement, fleet rollout and per-tenant rollback,
+failure domains and SLOs, backups under customer keys, cost, and production numbers.
+
+It was first built facts-only with a checklist; **at the reader's explicit request the checklist
+was replaced with constructed production answers**, marked `data-src="story"`. Keep those
+figures identical everywhere they appear (§11, the journey's "Running it in production" chapter,
+and the bank's Infrastructure group):
+
+| Figure | Value |
+|---|---|
+| Provisioning | ~2 days (pilot) → ~5 hours (phase two) |
+| IP blocks | /20 default, /19 large tenants, non-overlapping from one reserved range |
+| Rollout | commercial → wave 0 (3 Atlassian-owned) → wave 1 canaries, 24h bake → wave 2 |
+| Version skew | max two versions; security patches exempt from freezes |
+| Internal targets | 99.95% per environment, 99.99% shared entry path |
+| Backups | PITR ~5 min data at risk; shard restore 1–2 h; environment within a day |
+| Cost floor | smallest tenant ~4–6× commercial; right-sizing cut ~⅓ of baseline |
+| Production | ~a dozen customer environments; >100 shards each; 2 self-caused incidents in year one |
+
+Journey data is now `scratchpad/journey/data6.py`, bank `scratchpad/bank/data5.py`.
 
 ### Where the generated content lives
 

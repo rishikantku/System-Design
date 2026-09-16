@@ -1748,9 +1748,90 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
 .backlink:hover{background:#fff}
 .topbar{max-width:1080px;margin:0 auto;padding:18px 26px 0}
 @media (max-width:680px){.topbar{padding:14px 16px 0}}
+/*AIC-NAV-CSS*/
+#side-nav [hidden], #side-nav[hidden] { display: none !important; }
+html { scroll-padding-top: 18px; }
+#side-toggle.aic-float { position: fixed; top: 14px; left: 14px; z-index: 1450; margin: 0;
+  width: 42px; height: 42px; border-radius: 11px; background: #171728; box-shadow: 0 4px 14px rgba(0,0,0,.18);
+  transition: left .24s cubic-bezier(.4,0,.2,1); }
+#side-toggle.aic-float:hover { background: #26263f; }
+@media (min-width: 1200px) { html.nav-open #side-toggle.aic-float { left: 286px; } }
+.topbar { padding-left: 74px; }
+@media (max-width: 680px) { .topbar { padding-left: 70px; } }
+.sn-sub { margin: 1px 0 6px 21px; padding-left: 6px; border-left: 1px solid rgba(255,255,255,.12); }
+.sn-sub .sn-link { font-size: calc(12.4px * var(--fscale, 1)); padding: 5px 8px; color: #98a4b3; }
+.sn-sub .sn-link.is-active { background: rgba(38,166,154,.10); }
+/*/AIC-NAV-CSS*/
 </style>
 </head>
 <body>
+<!--AIC-NAV-EARLY--><script>(function(){var r=document.documentElement,w=false;try{w=window.matchMedia('(min-width:1200px)').matches}catch(e){}
+if(!w)return;var p=null;try{p=localStorage.getItem('aic.nav')}catch(e){}if(p!=='0')r.classList.add('nav-open');})();</script><!--/AIC-NAV-EARLY-->
+<!--AIC-NAV-->
+<button id="side-toggle" class="aic-float" type="button" aria-label="Open navigation" aria-controls="side-nav" aria-expanded="false"><span></span><span></span><span></span></button>
+<div id="side-backdrop"></div>
+<nav id="side-nav" aria-label="Page outline" aria-hidden="true">
+  <div class="sn-top"><input id="sn-filter" type="search" placeholder="Filter sections  ( / )" aria-label="Filter sections" autocomplete="off"><button id="sn-close" type="button" aria-label="Close navigation">&#10005;</button></div>
+  <div class="sn-scroll" id="sn-scroll">
+    <a class="sn-link sn-top-link" href="index.html"><span class="sn-b">&larr;</span>Back to the guide</a>
+    <a class="sn-link sn-top-link" href="#how"><span class="sn-b">&#9733;</span>How to use this page</a>
+    <div class="sn-group"><div class="sn-gh">Part 1 &middot; The system</div>
+      <a class="sn-link" href="#s1-what"><span class="sn-b">1</span>What Isolated Cloud is</a>
+      <a class="sn-link" href="#s2-sources"><span class="sn-b">2</span>What you can cite, and what you cannot</a>
+    </div>
+    <div class="sn-group"><div class="sn-gh">Part 2 &middot; What you built</div>
+      <a class="sn-link" href="#s3-idea"><span class="sn-b">3</span>The one idea</a>
+      <a class="sn-link" href="#s3b-hard"><span class="sn-b">4</span>Why this was hard, and not just dedicated hardware</a>
+      <a class="sn-link" href="#s4-planes"><span class="sn-b">5</span>Control plane and data plane</a>
+      <a class="sn-link" href="#s5-path"><span class="sn-b">6</span>The request path</a>
+      <a class="sn-link" href="#s6-separation"><span class="sn-b">7</span>Why Router and Shard Manager are separate</a>
+      <a class="sn-link" href="#s7-shards"><span class="sn-b">8</span>Shards and replicas</a>
+      <a class="sn-link" href="#s8-descriptor"><span class="sn-b">9</span>The shard descriptor</a>
+      <a class="sn-link" href="#s9-egress"><span class="sn-b">10</span>The Egress Gateway</a>
+      <a class="sn-link" href="#s10-migration"><span class="sn-b">11</span>Migrating 178 teams</a>
+    </div>
+    <div class="sn-group"><div class="sn-gh">Part 3 &middot; The interview</div>
+      <a class="sn-link" href="#s11-format"><span class="sn-b">12</span>What a retrospective is</a>
+      <a class="sn-link" href="#s12-story"><span class="sn-b">13</span>Your story</a>
+      <a class="sn-link" href="#s13-journey"><span class="sn-b">14</span>The full journey, as you would tell it</a>
+      <div class="sn-sub" data-for="s13-journey" hidden>
+        <a class="sn-link" href="#j1">Why I took this on</a>
+        <a class="sn-link" href="#j2">What the problem actually was</a>
+        <a class="sn-link" href="#j3">How I came up with the approach</a>
+        <a class="sn-link" href="#j4">The trade-offs we accepted</a>
+        <a class="sn-link" href="#j5">How we planned it</a>
+        <a class="sn-link" href="#j6">The phasing rules</a>
+        <a class="sn-link" href="#j7">How I built the onboarding tool</a>
+        <a class="sn-link" href="#j8">How the architecture works</a>
+        <a class="sn-link" href="#j9">Hiccups in the architecture, and how we improved it</a>
+        <a class="sn-link" href="#j10">How we built observability</a>
+        <a class="sn-link" href="#j11">How we did the data migration</a>
+        <a class="sn-link" href="#j12">Phase one</a>
+        <a class="sn-link" href="#j13">Phase two</a>
+        <a class="sn-link" href="#j14">How adoption worked</a>
+        <a class="sn-link" href="#j15">Production issues, and how we fixed them</a>
+        <a class="sn-link" href="#j16">What I’d do differently</a>
+      </div>
+      <a class="sn-link" href="#s13-bank"><span class="sn-b">15</span>The question bank</a>
+      <div class="sn-sub" data-for="s13-bank" hidden>
+        <a class="sn-link" href="#q-start">Starting out and planning</a>
+        <a class="sn-link" href="#q-arch">Architecture decisions</a>
+        <a class="sn-link" href="#q-trade">Trade-offs</a>
+        <a class="sn-link" href="#q-migrate">Data migration</a>
+        <a class="sn-link" href="#q-exec">Execution across teams</a>
+        <a class="sn-link" href="#q-conflict">Conflict and disagreement</a>
+        <a class="sn-link" href="#q-ops">Operations and failures</a>
+        <a class="sn-link" href="#q-impact">Impact</a>
+        <a class="sn-link" href="#q-reflect">Reflection</a>
+      </div>
+      <a class="sn-link" href="#s14-questions"><span class="sn-b">16</span>Your fifteen minutes</a>
+      <a class="sn-link" href="#s15-onepage"><span class="sn-b">17</span>One page to revise from</a>
+    </div>
+    <div class="sn-group"><a class="sn-link sn-top-link" href="#sources"><span class="sn-b">&#128279;</span>Sources</a></div>
+    <div class="sn-empty" id="sn-empty" hidden>No sections match.</div>
+  </div>
+</nav>
+<!--/AIC-NAV-->
 <div class="topbar"><a class="backlink" href="index.html">&larr; Back to the guide</a></div>
 <div class="cover">
   <div class="cover-eyebrow">Design retrospective &middot; Staff+ prep</div>
@@ -2585,5 +2666,74 @@ html.nav-open #side-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   </div>
 </div>
 <div class="footer"><p><a href="index.html">Back to the guide</a> &middot; <a href="questions-google.html">Google question bank</a></p><p style="margin-top:10px;opacity:.75">Independent study material. Not affiliated with or endorsed by Atlassian.</p></div>
+<!--AIC-NAV-JS--><script>
+(function(){
+  var root=document.documentElement, nav=document.getElementById('side-nav'), bd=document.getElementById('side-backdrop'),
+      tg=document.getElementById('side-toggle'), cl=document.getElementById('sn-close'),
+      f=document.getElementById('sn-filter'), sc=document.getElementById('sn-scroll'), empty=document.getElementById('sn-empty');
+  if(!nav) return;
+  function wide(){ try{ return window.matchMedia('(min-width:1200px)').matches; }catch(e){ return false; } }
+  function isOpen(){ return root.classList.contains('nav-open'); }
+  function save(v){ try{ localStorage.setItem('aic.nav', v?'1':'0'); }catch(e){} }
+  function sync(){ nav.setAttribute('aria-hidden', isOpen()?'false':'true'); tg.setAttribute('aria-expanded', isOpen()?'true':'false');
+                   tg.setAttribute('aria-label', isOpen()?'Close navigation':'Open navigation'); }
+  function setOpen(o, persist){ root.classList.toggle('nav-open', o); if(persist && wide()) save(o); sync(); if(o) spy(); }
+  tg.addEventListener('click', function(){ setOpen(!isOpen(), true); });
+  cl.addEventListener('click', function(){ setOpen(false, true); tg.focus(); });
+  bd.addEventListener('click', function(){ setOpen(false, false); });
+  nav.addEventListener('click', function(e){ var a=e.target.closest('a'); if(a && !wide()) setOpen(false, false); });
+  document.addEventListener('keydown', function(e){
+    var tag=(document.activeElement||{}).tagName||'';
+    if(e.key==='Escape' && isOpen() && !wide()){ setOpen(false,false); tg.focus(); }
+    if(e.key==='/' && !/INPUT|TEXTAREA|SELECT/.test(tag)){ e.preventDefault(); if(!isOpen()) setOpen(true,false); f.focus(); }
+  });
+  var lastWide=wide();
+  window.addEventListener('resize', function(){
+    var w=wide(); if(w===lastWide) return; lastWide=w;
+    if(!w){ setOpen(false,false); } else { var p=null; try{ p=localStorage.getItem('aic.nav'); }catch(e){} setOpen(p!=='0', false); }
+  });
+
+  var links=[].slice.call(nav.querySelectorAll('.sn-link'));
+  var subs=[].slice.call(nav.querySelectorAll('.sn-sub'));
+  function filter(){
+    var q=f.value.trim().toLowerCase(), any=false;
+    links.forEach(function(a){ var m=!q || a.textContent.toLowerCase().indexOf(q)>-1; a.hidden=!m; if(m) any=true; });
+    subs.forEach(function(s){
+      var vis=[].some.call(s.querySelectorAll('.sn-link'), function(a){ return !a.hidden; });
+      if(q){ s.hidden=!vis; if(vis && s.previousElementSibling) s.previousElementSibling.hidden=false; }
+      else { s.hidden=!s.classList.contains('is-open'); }
+    });
+    [].forEach.call(nav.querySelectorAll('.sn-group'), function(g){
+      g.hidden=![].some.call(g.querySelectorAll('.sn-link'), function(a){ return !a.hidden; }); });
+    empty.hidden=any;
+  }
+  f.addEventListener('input', filter);
+
+  var secs=[].slice.call(document.querySelectorAll('.content[id]')).filter(function(s){
+    return nav.querySelector('.sn-link[href="#'+s.id+'"]'); });
+  var ticking=false;
+  function spy(){
+    ticking=false; if(!secs.length) return;
+    var line=110, cur=secs[0];
+    for(var i=0;i<secs.length;i++){ if(secs[i].getBoundingClientRect().top<=line) cur=secs[i]; else break; }
+    links.forEach(function(a){ a.classList.remove('is-active'); });
+    var pl=nav.querySelector('.sn-link[href="#'+cur.id+'"]'); if(pl) pl.classList.add('is-active');
+    var filtering=!!f.value.trim();
+    subs.forEach(function(s){ var own=s.getAttribute('data-for')===cur.id; s.classList.toggle('is-open', own); if(!filtering) s.hidden=!own; });
+    var sub=nav.querySelector('.sn-sub[data-for="'+cur.id+'"]');
+    if(sub){
+      var sl=[].slice.call(sub.querySelectorAll('.sn-link')), hit=null;
+      sl.forEach(function(a,i){ var el=document.getElementById(a.getAttribute('href').slice(1)); if(el && el.getBoundingClientRect().top<=line) hit=i; });
+      if(hit!==null) sl[hit].classList.add('is-active');
+    }
+    if(!isOpen()) return;
+    var act=nav.querySelectorAll('.sn-link.is-active'), last=act[act.length-1];
+    if(last){ var r=last.getBoundingClientRect(), sr=sc.getBoundingClientRect();
+      if(r.top<sr.top+40 || r.bottom>sr.bottom-20) sc.scrollTop += (r.top - sr.top) - sr.height/3; }
+  }
+  window.addEventListener('scroll', function(){ if(!ticking){ ticking=true; requestAnimationFrame(spy); } }, {passive:true});
+  sync(); spy();
+})();
+</script><!--/AIC-NAV-JS-->
 </body>
 </html>

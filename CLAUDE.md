@@ -203,6 +203,16 @@ sections and the reader said it had become unreadable. The cut is documented in 
 | 2 What you built | §3–11 | The thesis, **§4 why it is hard (the "isn't this just dedicated hardware?" pushback)**, then the architecture |
 | 3 The interview | §12–17 | Format, 90-second story, **§14 full first-person journey**, **§15 question bank (47)**, their questions, one-page revision |
 
+### Left navigation
+
+Same look as the guide's sidebar (it reuses `#side-nav`, `.sn-*` from the shared stylesheet), but
+the page has no top nav, so it opens from a floating `#side-toggle.aic-float` button. Docked open
+at >=1200px (preference in `localStorage` key `aic.nav`), a drawer below that. Links are
+**generated from the page's own headings** by `scratchpad/nav/build.py`, which is idempotent
+(everything sits between `AIC-NAV` comment markers) — **re-run it after adding or renaming a
+section.** The §14 journey chapters and §15 bank groups appear as sub-links that expand for the
+section you are in. `/` focuses the filter; Escape closes the drawer.
+
 ### Rules for this page
 
 - **Plain English. Short sentences.** No "which is precisely why", "it is worth noting". Lead

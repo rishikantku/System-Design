@@ -13,6 +13,11 @@
 // Compiler Explorer is a donation-funded community service. This sends one short
 // request per Run and falls back rather than retrying, which keeps usage polite. If
 // you ever put this in front of real traffic, self-host instead.
+//
+// TIMEOUTS: 20 s for the first engine plus 15 s for the fallback fits inside the
+// 60 s maxDuration set in vercel.json. A Vercel function that outlives its limit is
+// killed mid-request, so the caller would get a bare 504 and the fallback would
+// never run - which is why these are not left at their earlier, larger values.
 
 const CE = 'https://godbolt.org/api/compiler/dotnet100csharpcoreclr/compile';
 const JUDGE0 = 'https://ce.judge0.com';
@@ -39,7 +44,7 @@ async function viaCompilerExplorer(program, started) {
         filters: { execute: true },
       },
     }),
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(20_000),
   });
 
   if (!r.ok) throw new Error(`compiler explorer ${r.status}`);
@@ -84,7 +89,7 @@ async function viaJudge0(program, started) {
         wall_time_limit: 15,
         memory_limit: 256000,
       }),
-      signal: AbortSignal.timeout(25_000),
+      signal: AbortSignal.timeout(15_000),
     }
   );
 

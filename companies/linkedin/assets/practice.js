@@ -84,7 +84,7 @@
               '<span class="tag hi">' + esc(p.diff) + '</span>' +
               '<span class="pr-ev">' + esc(p.evidence) + '</span></div>' +
             '</div>' +
-            '<a class="pr-vid" href="../../video/build-coding/' + p.video + '" target="_blank" rel="noopener">Watch lesson &rarr;</a>' +
+            videoLink(p) +
           '</div>' +
           '<div class="pr-statement">' + p.statement +
             '<details class="pr-hint"><summary>Hint</summary><div>' + esc(p.hint) + '</div></details>' +
@@ -102,6 +102,19 @@
 
     document.getElementById('pr-code').value = code;
     probeEngine();
+  }
+
+  /* The built videos are ~5 GB and deliberately not in git, so they exist only
+     on the machine that built them. Offer the link there, and say so elsewhere. */
+  function videoLink(p) {
+    var local = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (local) {
+      return '<a class="pr-vid" href="../../video/build-coding/' + p.video +
+             '" target="_blank" rel="noopener">Watch lesson &rarr;</a>';
+    }
+    return '<span class="pr-vid off" title="The lesson videos are not deployed - ' +
+           'run the workspace locally, or watch them on YouTube">Lesson ' + esc(p.lesson) +
+           ' (local only)</span>';
   }
 
   /* ---------------------------------------------------------------- engine probe */

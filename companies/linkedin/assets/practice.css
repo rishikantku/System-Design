@@ -26,6 +26,7 @@
 .pr-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .pr-ev{font-size:12px;color:var(--muted)}
 .pr-vid{font-size:13px;font-weight:600;white-space:nowrap}
+.pr-vid.off{color:var(--muted);font-weight:500;cursor:help}
 .pr-statement{margin:14px 0;padding:14px 16px;background:var(--bgcool);border-radius:10px;
   border:1px solid var(--line);font-size:14.5px;line-height:1.6}
 .pr-statement p{margin:0 0 8px}

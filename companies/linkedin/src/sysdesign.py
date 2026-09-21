@@ -4,7 +4,8 @@ import research as R
 from sysdesign_data import DESIGNS as _DESIGNS, CATALOGUE
 from sysdesign_official import OFFICIAL_DESIGNS
 from sysdesign_infra import INFRA_DESIGNS
-DESIGNS = OFFICIAL_DESIGNS + INFRA_DESIGNS + _DESIGNS
+from sysdesign_gaps import GAP_DESIGNS
+DESIGNS = OFFICIAL_DESIGNS + INFRA_DESIGNS + GAP_DESIGNS + _DESIGNS
 
 STEPS = [
  ('1 · Clarify', 'Ask until the problem is bounded. Five questions, not twenty.', 'What is in scope, what is explicitly out'),

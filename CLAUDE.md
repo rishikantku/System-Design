@@ -361,7 +361,28 @@ sub-questions as the deep dives).
 deliberately left for them to fill: **culture** (a team culture they built) and **mentorship** (a
 named person they grew). The Isolated Cloud retrospective is a platform story, not a team-lead story.
 
-### The research layer — `src/research.py`
+### The research layer — two passes, kept separate
+
+`src/research.py` is **pass 1** (21 Sep 2026): the loop shape, 15 sources, the themes that drive each round page's
+"what reports say" section. It also holds the official pack (`OFFICIAL_*`).
+
+`src/research2.py` is **pass 2** (22 Sep 2026): a question hunt across more sources, with stricter rules, rendered by
+`src/researchpage.py` into **`05-research.html`** — a page that updates independently of the prep content.
+
+- A question is `reported` **only** if a candidate described being asked it, or the reader supplied it. Guides and
+  "top questions" lists go in `GENERAL`; my own readings go in `INFERENCE`. Never blur the three.
+- Fields per question: LeetCode name/number/URL, report date, level, location, round, follow-ups, variations,
+  constraints, expected complexity, sources, independent report count, recurrence, confidence, and `covers`
+  (the workspace item id, or `None` → it shows as a gap).
+- `HIGH` = several independent recent reports **or** reader-supplied first-party; `MEDIUM` = one strong recent report;
+  `LOW` = single/thin/old. Copies of one original report never count twice.
+- **The reader's own list of past LinkedIn questions is the strongest signal in the file.** It drove
+  `src/coding_linkedin.py` — 13 worked problems including the keyed n-ary tree merge, minimum degree of connection
+  (bidirectional BFS), compact tree, valid triangle and the booths problem.
+- Sources that block fetching (LeetCode, Glassdoor, 1Point3Acres) are read via search summaries and graded down; that
+  limitation is stated on the page rather than hidden.
+
+#### Pass 1 detail
 
 One web-research pass (21 Sep 2026) over 15 sources: Hello Interview, Coditioning, Exponent
 (question bank + a ≈Mar 2026 candidate report), Taro (India Staff, May 2025), Blind (Senior SWE

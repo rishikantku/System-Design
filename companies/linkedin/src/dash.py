@@ -66,6 +66,14 @@ def build():
         % (counts.get('coding', 0), counts.get('ai', 0), counts.get('design', 0), counts.get('hm', 0)),
     ], 'g3')
 
+    research_cta = card(
+        '<p class="lead">A second, deeper research pass ran on 22 September, hunting for questions candidates actually reported '
+        'rather than what guides recommend — and folding in your own list of past LinkedIn questions.</p>'
+        '<p><b>42 reported questions</b> across coding, AI coding and system design, each with source, date, level, location, '
+        'follow-ups, confidence and whether this workspace covers it.</p>'
+        '<p><a class="tbtn pri" href="05-research.html">Open the research page →</a></p>',
+        title='Pass 2 · the master question database')
+
     conf_key = note(
         '<b>A</b> — first-hand report with specifics, 2025–2026. &nbsp; '
         '<b>B</b> — aggregator or guide summarising candidate reports, or a thin first-hand report. &nbsp; '
@@ -236,7 +244,7 @@ def build():
             why='Computed from what you have actually completed') +
         sec('today', "Today's preparation", '<div id="todayplan" class="card"><p>Loading your plan…</p></div>',
             kicker='Focus', why='Generated from your weakest areas and the research priorities') +
-        sec('intel', 'Recent interview intelligence', kpis + conf_key + grid([recurring, new_patterns], 'g2'),
+        sec('intel', 'Recent interview intelligence', kpis + conf_key + research_cta + grid([recurring, new_patterns], 'g2'),
             kicker='Research', why='Last updated %s' % R.DATE) +
         sec('qdb', 'Question database', qdb, kicker='Every reported question',
             why='%d questions · filter by round, year, recurrence, confidence' % len(R.Q)) +

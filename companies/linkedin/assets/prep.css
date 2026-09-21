@@ -236,3 +236,8 @@ summary .rt-tags{display:flex;gap:6px;flex-wrap:wrap}
   .top-in{gap:8px}
 }
 @media print{.side,.top,.track,.mock .bar-row{display:none}.main{padding:0}.stage>.sb{display:block !important}}
+
+/* research master database: keep the question column readable */
+#mdb td:nth-child(2){min-width:330px}
+#mdb td:first-child{white-space:nowrap;font-weight:600}
+#mdb details.acc>summary{padding:7px 12px;font-size:13.5px}

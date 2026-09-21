@@ -5,7 +5,8 @@ from coding_patterns import PATTERNS
 from coding_problems import PROBLEMS as _PROBLEMS, BANK
 from coding_official import OFFICIAL_PROBLEMS
 from coding_drills import DRILLS as CODING_DRILLS
-PROBLEMS = OFFICIAL_PROBLEMS + CODING_DRILLS + _PROBLEMS
+from coding_linkedin import LINKEDIN_PROBLEMS
+PROBLEMS = OFFICIAL_PROBLEMS + LINKEDIN_PROBLEMS + CODING_DRILLS + _PROBLEMS
 
 PRIO_LABEL = {'p0': 'P0 · do first', 'p1': 'P1 · then these', 'p2': 'P2 · if time'}
 LEVEL_LABEL = {'warm': 'Warm-up', 'med': 'Interview level', 'hard': 'Hard'}
@@ -184,6 +185,60 @@ def build():
                'Handling interruptions'),
         title='Communication during coding')
 
+    fundamentals = grid([
+        card(table(['Question', 'The answer that satisfies an infra interviewer'], [
+            ['**TCP vs UDP**',
+             'TCP: connection, ordered, retransmits, flow and congestion control, head-of-line blocking. UDP: datagrams, no '
+             'ordering or delivery guarantee, no congestion control unless you add it. Pick UDP when late data is worthless '
+             '(voice, video, telemetry) or when you will build your own reliability (QUIC). Mention the handshake cost: one '
+             'round trip for TCP, plus one or two for TLS, which is why connection reuse matters so much.'],
+            ['**Where does head-of-line blocking bite?**',
+             'One lost TCP segment stalls every stream on that connection — the reason HTTP/2 multiplexing still suffers and '
+             'HTTP/3 moved to QUIC over UDP.'],
+            ['**Paging and virtual memory**',
+             'Each process sees a virtual address space; the MMU maps pages to physical frames, with the TLB caching '
+             'translations. A page fault fetches from disk (or the page cache). Thrashing is when the working set exceeds RAM '
+             'and you spend all your time faulting — the reason a JVM heap larger than RAM is catastrophic rather than slow.'],
+            ['**Stack vs heap**',
+             'Stack: per-thread, LIFO, allocation is a pointer bump, freed on return, fixed size (so deep recursion overflows). '
+             'Heap: shared, dynamic lifetime, allocation costs more and fragments, reclaimed by GC or free(). In C# this maps '
+             'to structs versus classes, with escape analysis and `Span<T>` as the usual "keep it off the heap" tools.'],
+            ['**What is the page cache, and why do I care?**',
+             'The OS caches file pages in free RAM, so sequential reads from a warm file are near-memory speed. It is why '
+             'log-structured systems (Kafka) are fast without their own cache, and why `free -m` showing little free memory is '
+             'normal rather than alarming.'],
+            ['**Context switch cost**',
+             'Roughly a microsecond of direct cost plus cache and TLB pollution that can cost far more. It is the argument for '
+             'thread pools sized near the core count, and for async IO over thread-per-request.'],
+        ]), title='Operating systems and networking'),
+        card(table(['Question', 'The answer'], [
+            ['**Latency numbers worth knowing**',
+             'L1 ~1 ns · main memory ~100 ns · SSD random read ~100 µs · same-datacentre round trip ~0.5 ms · spinning disk seek '
+             '~10 ms · cross-continent round trip ~80–100 ms. Say them as ratios, not decimals: memory is a thousand times '
+             'faster than an SSD read, which is a hundred times faster than crossing an ocean.'],
+            ['**Process vs thread vs async**',
+             'Processes have isolated address spaces (safety, expensive IPC); threads share memory (cheap sharing, data races); '
+             'async reuses one thread across many waits (no thread per connection, but one blocking call poisons the pool).'],
+            ['**What makes a lock expensive?**',
+             'Not the instruction — the contention. An uncontended lock is tens of nanoseconds; a contended one parks the '
+             'thread and costs a context switch. Hence striping, per-core structures, and read-mostly designs.'],
+            ['**Memory model / visibility**',
+             'Without synchronisation, one thread may never see another\'s write. `volatile` gives ordering and visibility, not '
+             'atomicity; `Interlocked` gives atomicity; a lock gives both plus mutual exclusion. This is the vocabulary behind '
+             '"make it thread-safe".'],
+            ['**Why is my p99 bad when my average is fine?**',
+             'Queueing, GC pauses, tail amplification across fan-out, and retries. With 100 parallel calls at p99 = 10 ms, the '
+             'slowest of the batch dominates — hedged requests or reduced fan-out are the fixes.'],
+            ['**Disk durability**',
+             'A write is not durable until fsync returns; buffered writes live in the page cache. This is the difference between '
+             '"we wrote it" and "we will not lose it", and it is exactly the write-ahead-log conversation in the design round.'],
+        ]), title='Concurrency, latency and durability'),
+    ], 'g2') + note(
+        'A Taro report (Senior SWE, Infrastructure, October 2025) describes a LinkedIn technical screen that was mostly these: '
+        'TCP versus UDP, paging, stack versus heap — plus one coding question. Single report, so do not over-weight it; but for '
+        'a **Systems and Infrastructure** role these are cheap to revise and embarrassing to fumble.',
+        'warn', 'Why this section exists')
+
     # ---------------- mocks ----------------
     mocks = ''
     mock_sets = [
@@ -274,6 +329,8 @@ def build():
         sec('bank', 'Extra problem bank', note(
             'Not written up — these are reps. Tick them off as you solve them; they count towards your readiness score.', '') + bank,
             kicker='Volume', why='%d problems' % len(BANK)) +
+        sec('fundamentals', 'Systems fundamentals refresher', fundamentals,
+            kicker='Infra screen', why='Reported in a 2025 infrastructure screen · cheap to revise') +
         sec('craft', 'Complexity, edge cases, quality, communication',
             grid([complexity, edges], 'g2') + grid([quality, comms], 'g2'), kicker='The other 40%') +
         sec('mock', 'Mock coding rounds', note(

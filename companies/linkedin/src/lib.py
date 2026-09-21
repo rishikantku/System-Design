@@ -172,6 +172,8 @@ def page(filename, title, subtitle, body, round_id='', round_name='', crumb_tail
   {nav_links}
   {nav_html}
   {auto}
+  <h4>Research</h4>
+  <a href="05-research.html">◆ Recent interview research</a>
   <h4>Data</h4>
   <a href="#" data-export>Copy progress JSON</a>
   <a href="#" data-reset>Reset progress</a>

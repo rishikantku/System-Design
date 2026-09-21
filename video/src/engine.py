@@ -10,6 +10,7 @@ KIND = {  # colour per component kind
  'cp':'#a78bfa', 'dp':'#2dd4bf', 'shared':'#fbbf24', 'com':'#94a3b8',
  'deny':'#f87171', 'ok':'#34d399', 'info':'#60a5fa', 'neutral':'#e2e8f0'}
 
+BRAND = 'Isolated Cloud &middot; Staff interview prep'   # courses may override
 SLIDES = []      # (id, chapter_label, html)
 SEGMENTS = []    # dicts
 CHAPTERS = []    # (title, first segment index)
@@ -44,7 +45,7 @@ def new_slide(inner, cls='', title=None, kicker=None):
     if title:
         k = kicker or _state['chapter']
         head = f'<div class="kicker">{esc(k)}</div><h1>{rich(title)}</h1>'
-    foot = f'<div class="foot"><span>{esc(_state["chapter"])}</span><div class="prog"><i></i></div><span class="brand">Isolated Cloud &middot; Staff interview prep</span></div>'
+    foot = f'<div class="foot"><span>{esc(_state["chapter"])}</span><div class="prog"><i></i></div><span class="brand">{BRAND}</span></div>'
     SLIDES.append((sid, f'<section class="slide {cls}" id="{sid}">{head}<div class="stage">{inner}</div>{foot if cls!="chapter" else ""}</section>'))
     return sid
 

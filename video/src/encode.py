@@ -4,6 +4,7 @@ import io, json, os, re, subprocess, hashlib, sys
 from concurrent.futures import ThreadPoolExecutor
 HERE = os.path.dirname(os.path.abspath(__file__))
 B = os.path.abspath(os.path.join(HERE, '..', 'build'))
+B = os.environ.get('BUILD', B)   # per-lesson builds override this
 FR, AU, SG = [os.path.join(B, d) for d in ('frames', 'audio', 'segs')]
 for d in (FR, AU, SG): os.makedirs(d, exist_ok=True)
 VOICE, RATE = os.environ.get('VOICE', 'Samantha'), os.environ.get('RATE', '172')

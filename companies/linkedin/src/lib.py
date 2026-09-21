@@ -172,6 +172,8 @@ def page(filename, title, subtitle, body, round_id='', round_name='', crumb_tail
   {nav_links}
   {nav_html}
   {auto}
+  <h4>Course</h4>
+  <a href="06-coding-course.html">◆ Video coding course</a>
   <h4>Research</h4>
   <a href="05-research.html">◆ Recent interview research</a>
   <h4>Data</h4>

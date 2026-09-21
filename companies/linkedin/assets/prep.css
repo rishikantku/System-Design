@@ -241,3 +241,12 @@ summary .rt-tags{display:flex;gap:6px;flex-wrap:wrap}
 #mdb td:nth-child(2){min-width:330px}
 #mdb td:first-child{white-space:nowrap;font-weight:600}
 #mdb details.acc>summary{padding:7px 12px;font-size:13.5px}
+
+/* ---- video course page ---- */
+.dim{color:var(--muted);font-size:12.5px}
+a.dim{color:var(--muted);text-decoration:underline}
+.t-course td:nth-child(2),.t-course td:nth-child(4){white-space:nowrap;font:600 13px 'JetBrains Mono',monospace}
+.t-course td:nth-child(5){white-space:nowrap}
+.t-course td:nth-child(5) a{font-weight:600}
+.t-planned td:first-child{width:34%}
+@media (max-width:820px){.t-course td:nth-child(4){display:none}.t-course th:nth-child(4){display:none}}

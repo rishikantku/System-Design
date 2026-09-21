@@ -17,6 +17,19 @@ export default async function (page) {
       while (g.scrollHeight > g.clientHeight + 1 && fs > 19) { fs -= 1; set(); }
       sl.style.display = 'none';
     });
+    // fit code blocks: shrink the listing until every line fits its box
+    document.querySelectorAll('.slide').forEach(sl => {
+      const box = sl.querySelector('.codebox'); if (!box) return;
+      const pre = box.querySelector('pre.cl'); if (!pre) return;
+      sl.style.display = 'block'; sl.style.opacity = 1;
+      let fs = 27;
+      const set = () => { pre.style.fontSize = fs + 'px'; };
+      set();
+      while ((pre.scrollHeight > box.clientHeight + 1 || pre.scrollWidth > box.clientWidth + 1) && fs > 13) {
+        fs -= 1; set();
+      }
+      sl.style.display = 'none';
+    });
   });
   const hash = await page.evaluate(() => location.hash);
   const q = Object.fromEntries(hash.slice(1).split('&').filter(Boolean).map(kv => kv.split('=')));

@@ -89,3 +89,25 @@ code{font-family:'JetBrains Mono',monospace;font-size:.88em;background:rgba(255,
 .arr.hl path{stroke-width:7;filter:drop-shadow(0 0 10px var(--c))}
 .pkt{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;display:none;background:#fff;
   box-shadow:0 0 0 6px var(--c,#fbbf24),0 0 40px 10px var(--c,#fbbf24)}
+
+/* ---------------- coding course: lesson header ---------------- */
+.lesson-head .lhead{position:absolute;left:110px;right:110px;top:150px}
+.lh-num{font:700 22px 'JetBrains Mono',monospace;letter-spacing:3px;text-transform:uppercase;color:#60a5fa;margin-bottom:18px}
+.lesson-head h1.lh-t{position:static}
+.lh-t{font-size:78px;line-height:1.08;font-weight:800;letter-spacing:-2px;margin-bottom:44px;max-width:1500px}
+.lh-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 60px;max-width:1500px}
+.lh-row{display:flex;align-items:baseline;gap:18px;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:10px}
+.lh-k{font:700 20px 'JetBrains Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:#7d8aa3;min-width:280px}
+.lh-v{font-size:30px;font-weight:700}
+.lh-v.k-ok{color:#34d399}.lh-v.k-shared{color:#fbbf24}.lh-v.k-com{color:#94a3b8}
+.lh-v.k-info{color:#60a5fa}.lh-v.k-dp{color:#2dd4bf}
+
+/* ---------------- coding course: code slides ---------------- */
+.codeslide .codebox{position:absolute;left:90px;right:90px;top:20px;bottom:40px;overflow:hidden}
+pre.cl{font-family:'JetBrains Mono',monospace;font-size:27px;line-height:1.5;margin:0;color:#c9d4e6}
+pre.cl .ln{display:block;padding:1px 16px;border-radius:8px;opacity:.5;transition:none;white-space:pre}
+pre.cl .ln.hl{opacity:1;background:rgba(96,165,250,.16);box-shadow:inset 3px 0 0 #60a5fa}
+pre.cl i{font-style:normal}
+pre.cl i.ck{color:#7fb3ff}pre.cl i.ct{color:#5ad7c0}pre.cl i.cs{color:#ffd483}
+pre.cl i.cc{color:#7d8aa3;font-style:italic}
+pre.cl i{position:static !important}

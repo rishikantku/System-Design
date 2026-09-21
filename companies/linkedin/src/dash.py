@@ -66,6 +66,20 @@ def build():
         % (counts.get('coding', 0), counts.get('ai', 0), counts.get('design', 0), counts.get('hm', 0)),
     ], 'g3')
 
+    # ---- video coding course -------------------------------------------------
+    import course as _C
+    _reg = _C._registry()
+    _built = [l for l in _reg.LESSONS if _C._video(l)]
+    _mins = sum(l['mins'] for l in _reg.LESSONS)
+    course_cta = card(
+        '<p class="lead">A narrated video course for the coding round, built from the researched question distribution '
+        '&mdash; one short video per pattern, not one long file.</p>'
+        '<p><b>%d lessons written</b> across chapters 1&ndash;3 (trees, graphs, and how the round works), about %d minutes, '
+        '%d already rendered to video. Every lesson runs the same eighteen beats and every solution is in C#.</p>'
+        '<p><a class="tbtn pri" href="06-coding-course.html">Open the video course &rarr;</a></p>'
+        % (len(_reg.LESSONS), _mins, len(_built)),
+        title='Video coding course')
+
     research_cta = card(
         '<p class="lead">A second, deeper research pass ran on 22 September, hunting for questions candidates actually reported '
         'rather than what guides recommend — and folding in your own list of past LinkedIn questions.</p>'
@@ -244,6 +258,8 @@ def build():
             why='Computed from what you have actually completed') +
         sec('today', "Today's preparation", '<div id="todayplan" class="card"><p>Loading your plan…</p></div>',
             kicker='Focus', why='Generated from your weakest areas and the research priorities') +
+        sec('course', 'Video coding course', course_cta, kicker='Learn',
+            why='Chapters 1\u20133 built \u00b7 one video per pattern') +
         sec('intel', 'Recent interview intelligence', kpis + conf_key + research_cta + grid([recurring, new_patterns], 'g2'),
             kicker='Research', why='Last updated %s' % R.DATE) +
         sec('qdb', 'Question database', qdb, kicker='Every reported question',

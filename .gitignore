@@ -3,3 +3,12 @@
 
 # Extracted text from the book
 ddia*.txt
+
+# Video build output — frames, audio, segments and the encoded MP4s.
+# ~5 GB per course build, all reproducible from video/*/: plan, render, encode.
+video/build/
+video/build-coding/
+
+# Python bytecode
+__pycache__/
+*.pyc

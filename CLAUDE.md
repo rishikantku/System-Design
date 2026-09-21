@@ -331,6 +331,72 @@ and a "done" item with confidence ≤ 2 is capped at 0.8.
 Claude* button copies a prompt asking for SCORE / WHAT WAS STRONG / WHAT IS MISSING / STAFF-LEVEL
 SIGNAL / HOW TO IMPROVE / LIKELY FOLLOW-UP. The pages never pretend to grade.
 
+### `video/coding/` — the LinkedIn coding video course
+
+One narrated MP4 **per lesson**, twelve to eighteen minutes, so a pattern can be revised without
+scrubbing a five-hour file. Built on the same slide engine as the AIC course (`video/src/`), with
+a per-lesson build directory instead of one shared `build/`.
+
+```
+video/coding/index.py          LESSONS registry (id, chapter, module, title, file, mins,
+                               pattern, relevance, reports, latest, confidence) + CHAPTERS + PLANNED
+video/coding/lib.py            lesson scaffolding on top of engine.py — see the block list below
+video/coding/lessons/*.py      one module per lesson; imports `from lib import *` and just runs
+video/coding/run.py            python3 run.py plan|render|encode|all <id,id,…  or  chapter id>
+video/build-coding/<id>/       deck.html · plan.json · frames/ · audio/ · segs/ · <file>.mp4 + .srt
+```
+
+**`run.py` takes one comma-separated argument, not a list of arguments.** `run.py encode a b c`
+silently encodes only `a`. It is `run.py encode a,b,c`.
+
+**Every lesson runs the same eighteen beats**, in order: question · interview context · how to
+think · naive · why not good enough · key observation · optimal · why it works · walkthrough ·
+worked example · edge cases · C# code · code walkthrough · time · space · follow-ups · how the
+interviewer may modify it · how to respond. The scaffolding in `lib.py`:
+
+| Helper | Produces |
+|---|---|
+| `lesson_header(num, title, pattern, relevance, reports, latest, confidence, mins, narration)` | The opening card carrying **LinkedIn relevance / Reported / Latest report / Pattern / Confidence**. `relevance` accepts any label; unknown ones fall back to a neutral chip |
+| `beat(label, title, body_html, narration, kicker, step)` | One narrated beat |
+| `think(prompt, secs, before, after)` | The pause-and-think point. Every lesson has at least one — the reveal is what the course is for |
+| `code_slide(title, code, [(lines, narration), …])` | The C# listing with per-line highlighting driven by `data-hl` |
+| `followups(reported, staff, narr_reported, narr_staff)` | Two columns: **REPORTED follow-up** vs **POSSIBLE staff-level follow-up**. Never merge them |
+| `interview_script(lines, narration)` | "How to say it in the interview" — the sentences, spread across the narration groups |
+| `tree`, `graph`, `array_row`, `hl_cells`, `pointer`, `kv_table` | Diagram builders over `engine.Diagram` |
+
+**`code_slide` paginates at 17 lines.** A 1080p code slide holds about 17 lines at 27px. Longer
+listings are split across consecutive slides at a *narration-block boundary*, keeping the original
+line numbers so the highlight ranges still line up; the second slide's title gains "— continued".
+This was found the hard way: five lessons had shipped or rendered with the last third of the
+listing clipped by `overflow:hidden`, narration playing over code that was not on screen. The
+renderer also shrinks a listing that still does not fit (27px → 13px floor), but that is the
+safety net, not the mechanism — shrinking 37 lines onto one slide is unreadable anyway.
+
+**Audit for it rather than trusting it**, because the clipping is silent:
+
+```js
+document.querySelectorAll('.slide').forEach(sl => {
+  const box = sl.querySelector('.codebox'); if (!box) return;
+  const pre = box.querySelector('pre.cl'); sl.style.display = 'block';
+  if (pre.scrollHeight > box.clientHeight) console.log(sl.id, pre.scrollHeight - box.clientHeight);
+  sl.style.display = 'none';
+});
+```
+
+**Verification loop, same as the AIC course:** plan → render → pick the last frame of each slide
+out of `plan.json` → `ffmpeg xstack` a contact sheet → read the image. Coordinates that look fine
+in the source collide on screen.
+
+**Narration is Sarvam `ritu` (`bulbul:v3`), same voice as the AIC course.** The key is passed only
+as `SARVAM_API_KEY` in the environment and must never be written into a file. A `402 Payment
+Required` from the TTS call means the account is out of credits, not a code fault — renders still
+work, only `encode` fails.
+
+**The course index page is generated, not hand-written.** `companies/linkedin/src/course.py` reads
+`video/coding/index.py` directly and marks a lesson READY only when its MP4 exists on disk, so the
+page cannot claim a video that was never built. It is `06-coding-course.html`, linked from the
+sidebar of every workspace page and from a card on the dashboard.
+
 ### The official prep pack — authoritative
 
 The recruiter sent **`Staff SI Onsite Prep - CWAI (1).pdf`** ("LinkedIn Interview Preparation,

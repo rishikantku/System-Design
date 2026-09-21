@@ -4,7 +4,8 @@ import research as R
 from coding_patterns import PATTERNS
 from coding_problems import PROBLEMS as _PROBLEMS, BANK
 from coding_official import OFFICIAL_PROBLEMS
-PROBLEMS = OFFICIAL_PROBLEMS + _PROBLEMS
+from coding_drills import DRILLS as CODING_DRILLS
+PROBLEMS = OFFICIAL_PROBLEMS + CODING_DRILLS + _PROBLEMS
 
 PRIO_LABEL = {'p0': 'P0 · do first', 'p1': 'P1 · then these', 'p2': 'P2 · if time'}
 LEVEL_LABEL = {'warm': 'Warm-up', 'med': 'Interview level', 'hard': 'Hard'}

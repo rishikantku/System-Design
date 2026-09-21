@@ -3,7 +3,8 @@ from lib import *
 import research as R
 from sysdesign_data import DESIGNS as _DESIGNS, CATALOGUE
 from sysdesign_official import OFFICIAL_DESIGNS
-DESIGNS = OFFICIAL_DESIGNS + _DESIGNS
+from sysdesign_infra import INFRA_DESIGNS
+DESIGNS = OFFICIAL_DESIGNS + INFRA_DESIGNS + _DESIGNS
 
 STEPS = [
  ('1 · Clarify', 'Ask until the problem is bounded. Five questions, not twenty.', 'What is in scope, what is explicitly out'),

@@ -320,7 +320,7 @@ coding, AI coding, system design, hiring manager. Five pages plus shared assets:
 | `04-hiring-manager.html` | 12-story bank **built only from `specialization-aic.html`**, 20 behavioural questions, craftsmanship round, Why-LinkedIn worksheet, 3 mocks |
 | `assets/prep.css`, `assets/prep.js` | Shared visual language and the state engine |
 | `assets/manifest.js` | Generated: every trackable item with round, topic, weight. The dashboard computes readiness from this plus localStorage |
-| `src/*.py` | The generators. `python3 src/build.py` rewrites all five pages and the manifest |
+| `src/*.py` | The generators. `python3 src/build.py` rewrites all five pages and the manifest. `coding_official.py` + `coding_drills.py` (Staff Coding), `aicoding_drills.py` (CWAI DS&A drills), `sysdesign_official.py` + `sysdesign_infra.py` (design) hold the content added after the pack arrived |
 
 **State model.** Everything is stored in `localStorage` under `lp.v1` (`items`, `mocks`, `log`).
 Chromium shares `file://` storage across the folder, so the dashboard sees what the round pages
@@ -348,6 +348,10 @@ the `*.pdf` rule. Its contents are encoded in `src/research.py` as `OFFICIAL_ROL
 | Host Leader | Five focus areas: **communication, culture, influence, mentorship, conflict** |
 | Coding with AI (CWAI) | Fundamentals + intentional AI use + critical evaluation of output + iteration + communication. **Using AI is expected**; you own the solution |
 | Staff Coding | **Modularity and extensibility**, and **finding and fixing bugs**; pointers, edge cases, abstraction. No AI. Example question: **Firefighting Strategy** |
+
+**Coverage after the pack** (Sep 2026): Staff Coding 18 patterns + 22 worked problems (8 of them bug-hunt or extensibility drills) + 33 reps; CWAI 8 DS&A drills run the AI way + 22 AI-engineering concepts + 11 exercises; Design 14 interactive designs including 5 SI classics (replicated KV, stream processing, CDC, OLAP serving, coordination); Host Leader 12 stories + 19 questions.
+
+**The CWAI correction worth remembering:** the round is *ordinary coding with an assistant*, not building AI systems. The first build of `02-ai-coding.html` was AI-engineering only; `aicoding_drills.py` is what actually prepares for the module (plan → prompt → verify → defend, with the specific defects assistants produce per problem).
 
 Both example questions are worked in full: `src/coding_official.py` (Firefighting Strategy, plus a
 bug-hunt drill and an extensibility drill) and `src/sysdesign_official.py` (Bit.ly, with the four

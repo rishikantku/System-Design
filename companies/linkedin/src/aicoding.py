@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from lib import *
 import research as R
+from aicoding_drills import DRILLS
 
 # ---------------------------------------------------------------- fundamentals
 FUND = [
@@ -815,6 +816,36 @@ def build():
                             tag('new', 'progressive'), label=s['title'],
                             statuses=[('solved', 'Ran it'), ('revise', 'Needs revision'), ('failed', 'Struggled')])
 
+
+    # ---------------- CWAI drills: ordinary DS&A, run the AI-round way ----------------
+    drill_html = ('<div class="filters" data-filter-scope="#drills > details">'
+                  '<input class="search" placeholder="Search drills…"><span class="count"></span></div><div id="drills">')
+    for d in DRILLS:
+        did = 'ai.drill.' + d['id']
+        reg('ai', did, d['topic'], d['title'], weight=2, kind='drill')
+        stages = [
+            stage('Problem', '<p class="lead">%s</p>' % rich(d['problem']), '%d minutes' % d['mins']),
+            stage('Clarify first', '<ul>%s</ul>' % ''.join('<li>%s</li>' % rich(c) for c in d['clarify']),
+                  'before you touch the assistant'),
+            stage('Your plan — write it before prompting',
+                  note(d['plan'], 'warn', 'The structure is yours, not the assistant\'s')),
+            stage('Prompts worth using', note('Copy the shape, not the words. Notice that each one keeps a decision for you and '
+                                              'delegates the typing.', '') +
+                  '<ul>%s</ul>' % ''.join('<li><code>%s</code></li>' % esc(x.strip('"')) for x in d['prompts'])),
+            stage('Verify — the tests you run yourself', '<ul>%s</ul>' % ''.join('<li>%s</li>' % rich(v) for v in d['verify'])),
+            stage('Reference solution (C#)', code(d['code'])),
+            stage('What assistants get wrong here',
+                  note('These are the specific defects to look for in generated code for this problem. Catching one out loud is '
+                       'worth more than finishing early.', 'bad') +
+                  '<ul>%s</ul>' % ''.join('<li>%s</li>' % rich(t) for t in d['traps'])),
+            stage('Follow-ups', '<ul>%s</ul>' % ''.join('<li>%s</li>' % rich(f) for f in d['follow'])),
+            stage('Self-evaluation', '<ul>%s</ul>' % ''.join('<li>%s</li>' % rich(e) for e in d['evalpts'])),
+        ]
+        drill_html += practice(did, titled(d['title'], d['topic']), stages,
+                               tag('p0', '%d min' % d['mins']), label=d['title'],
+                               statuses=[('solved', 'Did it with AI'), ('revise', 'Needs revision'), ('failed', 'Struggled')])
+    drill_html += '</div>'
+
     mocks = ''
     for mid, title, q, rub, secs in MOCKS:
         mocks += card(mock_block(reg('ai', 'ai.mock.' + mid, 'Mock interviews', title, weight=3, kind='mock'),
@@ -854,9 +885,16 @@ def build():
             kicker='Research first', why='%d catalogued reports · updated %s' % (len(rep), R.DATE)) +
         sec('evaluated', 'How the AI coding round appears to be evaluated', evaluated + dos, kicker='Rubric') +
         sec('workflow', 'The workflow to rehearse', playbook + ss, kicker='Habits', why='Prompt · verify · productionise') +
+        sec('drills', 'CWAI drills — ordinary problems, run the AI way', note(
+            'The pack says this module is <b>"one or more coding problems involving common data structures, algorithms, and '
+            'problem-solving techniques"</b> — ordinary coding, with an assistant in the pad. These drills are that. Each one '
+            'gives you the plan to make before prompting, prompts worth copying, the tests to run yourself, and the specific '
+            'defects assistants produce on that problem.', 'warn', 'This is the core of the round') + drill_html,
+            kicker='Practice', why='%d drills · plan → prompt → verify → defend' % len(DRILLS)) +
         sec('fundamentals', 'AI engineering fundamentals', note(
             'Engineering-first: each concept has an interview angle and the gotcha that separates someone who has built this from '
-            'someone who has read about it.', '') + fund_html,
+            'someone who has read about it. <b>Note the scope:</b> the pack describes CWAI as ordinary coding with an assistant, so '
+            'this section is not CWAI practice — it is depth for the design round and for a team that builds ML platforms.', '') + fund_html,
             kicker='Knowledge', why='%d concepts' % len(FUND)) +
         sec('exercises', 'Coding exercises', note(
             'Every exercise follows the round\'s shape: requirement → clarify → design → code → failure modes → the follow-ups the '

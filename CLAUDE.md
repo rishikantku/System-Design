@@ -301,6 +301,66 @@ Also: **never name a policy engine** (e.g. OPA). Say "policy-driven enforcement"
 the reader's own figure; other numbers come from the constructed story and must stay identical
 across the journey and the bank.
 
+## 2e. `companies/` — per-company interview workspaces
+
+`companies/index.html` is the level between the guide and a company. Today it lists two:
+the **LinkedIn Staff full-loop workspace** and the existing Google question bank.
+
+### `companies/linkedin/` — the Staff full-loop workspace
+
+The reader **cleared the LinkedIn design retrospective** and is preparing for the four-round loop:
+coding, AI coding, system design, hiring manager. Five pages plus shared assets:
+
+| File | Holds |
+|---|---|
+| `index.html` | Dashboard: readiness rings, today's plan, **recent interview intelligence**, the question database, "what recent interviews are telling us", sources |
+| `01-coding.html` | 18 patterns with C# templates, 14 worked problems (9-stage progressive reveal), 33-problem bank, complexity/edge-case/quality/communication checklists, 3 mocks |
+| `02-ai-coding.html` | The AI-enabled round: reported format and rubric, 22 AI-engineering concepts, 11 C# exercises, 2 progressive-requirement simulations, 2 mocks |
+| `03-system-design.html` | 16-step framework, numbers, staff lens, 8 interactive designs (the page asks before it tells), catalogue linking the guide's 26 designs, 3 mocks |
+| `04-hiring-manager.html` | 12-story bank **built only from `specialization-aic.html`**, 20 behavioural questions, craftsmanship round, Why-LinkedIn worksheet, 3 mocks |
+| `assets/prep.css`, `assets/prep.js` | Shared visual language and the state engine |
+| `assets/manifest.js` | Generated: every trackable item with round, topic, weight. The dashboard computes readiness from this plus localStorage |
+| `src/*.py` | The generators. `python3 src/build.py` rewrites all five pages and the manifest |
+
+**State model.** Everything is stored in `localStorage` under `lp.v1` (`items`, `mocks`, `log`).
+Chromium shares `file://` storage across the folder, so the dashboard sees what the round pages
+write — verified. `LP.stats(round)` weights items: solved = 1, revise/slow/hint = 0.5, failed = 0.25,
+and a "done" item with confidence ≤ 2 is capped at 0.8.
+
+**Mock mode is a chat handoff.** The page runs the question, timer and notes; the *Grade this with
+Claude* button copies a prompt asking for SCORE / WHAT WAS STRONG / WHAT IS MISSING / STAFF-LEVEL
+SIGNAL / HOW TO IMPROVE / LIKELY FOLLOW-UP. The pages never pretend to grade.
+
+### The research layer — `src/research.py`
+
+One web-research pass (21 Sep 2026) over 15 sources: Hello Interview, Coditioning, Exponent
+(question bank + a ≈Mar 2026 candidate report), Taro (India Staff, May 2025), Blind (Senior SWE
+Infra, Sep 2025 + levelling threads), LeetCode Discuss (Staff, Jun 2025), Glassdoor, Prepfully,
+DesignGurus, company-tag datasets.
+
+- Every question carries `d` (date), `role`, `loc`, `src`, `rec` (high/medium/one-off) and `conf`
+  (**A** first-hand recent · **B** aggregator or thin first-hand · **C** single/undated/older).
+- **Never present C as confirmed**, and never phrase any of it as a prediction. The dashboard says
+  "recent candidates reported X, so X is a preparation signal".
+- To refresh: add entries to `Q`, update `THEMES`/`LOOP`, bump `DATE`, rebuild. Old entries stay so
+  passes can be compared.
+
+**What the research changed** (documented on the dashboard): rate limiter leads the design list;
+every AI exercise ends in concurrency + productionisation; debug-then-extend drills exist because
+that is the reported AI-round arc; graphs/nested-tree patterns are P0; migration-at-scale and
+career-arc are the first two HM stories; a craftsmanship section exists at all.
+
+### Rules for this workspace
+
+- **Personal experience comes only from `specialization-aic.html`.** The HM page tags it
+  `Your experience`; general interview knowledge is tagged `General knowledge`. Do not invent
+  projects, metrics or motivations — "Why LinkedIn" is a worksheet the reader fills in, deliberately.
+- **C# for all code**, unless the reader asks otherwise.
+- `rich()` escapes HTML but lets `<b> <i> <br> <code> <small>` through; anything richer belongs in a
+  raw block. Accordion titles use `titled()` + `raw=True` or they render escaped markup.
+- Keep `assets/prep.js` dependency-free and defensive: `localStorage` is wrapped in try/catch.
+- Verify with the browser skill at 390px and 1440px; the pages currently have zero overflow at both.
+
 ---
 
 ## 3. Source material

@@ -1,0 +1,91 @@
+/* Practice runner. Extends the workspace look in assets/prep.css. */
+
+.pr-wrap{display:grid;grid-template-columns:252px minmax(0,1fr);gap:20px;align-items:start}
+
+/* ---- problem list ---- */
+.pr-list{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;
+  position:sticky;top:68px;max-height:calc(100vh - 96px);overflow-y:auto}
+.pr-list-h{font:700 11.5px 'JetBrains Mono',monospace;letter-spacing:.8px;text-transform:uppercase;
+  color:var(--muted);padding:12px 14px;border-bottom:1px solid var(--line);background:var(--bgcool)}
+.pr-item{display:flex;gap:9px;align-items:flex-start;width:100%;text-align:left;background:none;
+  border:0;border-bottom:1px solid var(--line);padding:10px 13px;cursor:pointer;font:inherit}
+.pr-item:hover{background:var(--bgcool)}
+.pr-item.on{background:var(--info-bg)}
+.pr-item.on b{color:var(--accent)}
+.pr-item span{display:block;min-width:0}
+.pr-item b{display:block;font-size:13.5px;font-weight:600;line-height:1.3}
+.pr-item em{display:block;font-style:normal;font-size:11.5px;color:var(--muted);margin-top:2px}
+.pr-dot{width:8px;height:8px;border-radius:50%;background:var(--line);margin-top:5px;flex:0 0 8px}
+.pr-dot.ok{background:var(--green)}
+.pr-dot.bad{background:var(--red)}
+
+/* ---- problem ---- */
+.pr-main{min-width:0}
+.pr-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.pr-head h3{margin:0 0 7px;font-size:21px}
+.pr-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pr-ev{font-size:12px;color:var(--muted)}
+.pr-vid{font-size:13px;font-weight:600;white-space:nowrap}
+.pr-statement{margin:14px 0;padding:14px 16px;background:var(--bgcool);border-radius:10px;
+  border:1px solid var(--line);font-size:14.5px;line-height:1.6}
+.pr-statement p{margin:0 0 8px}
+.pr-statement p:last-of-type{margin-bottom:0}
+.pr-hint{margin-top:10px;font-size:13.5px}
+.pr-hint summary{cursor:pointer;color:var(--accent);font-weight:600}
+.pr-hint div{margin-top:7px;color:var(--soft)}
+
+/* ---- controls ---- */
+.pr-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0 9px}
+.pr-run{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:9px 16px;
+  font:600 14px inherit;cursor:pointer}
+.pr-run:hover{filter:brightness(1.07)}
+.pr-run:disabled{opacity:.55;cursor:default}
+.pr-run kbd{font:600 11px 'JetBrains Mono',monospace;opacity:.8;margin-left:5px}
+.pr-reset{background:#fff;border:1px solid var(--line);border-radius:8px;padding:9px 13px;
+  font:500 13.5px inherit;color:var(--soft);cursor:pointer}
+.pr-reset:hover{border-color:var(--muted)}
+.pr-engine{font-size:12px;color:var(--muted);flex:1 1 240px;min-width:0}
+.pr-engine.ok{color:var(--green)}
+.pr-engine.warn{color:#b26a00}
+.pr-engine code{font-size:11.5px;background:var(--warn-bg);padding:1px 4px;border-radius:4px}
+
+/* ---- editor ---- */
+.pr-code{width:100%;min-height:330px;resize:vertical;padding:14px 16px;border:1px solid var(--line);
+  border-radius:10px;background:#0f1729;color:#e6edf7;tab-size:4;
+  font:13.5px/1.65 'JetBrains Mono',monospace;white-space:pre;overflow:auto}
+.pr-code:focus{outline:2px solid var(--accent);outline-offset:-1px}
+
+/* ---- results ---- */
+.pr-out{margin-top:14px}
+.pr-idle{color:var(--muted);font-size:13.5px;padding:14px 0}
+.pr-sum{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:11px 15px;border-radius:9px;font-size:15px;margin-bottom:10px}
+.pr-sum.ok{background:var(--ok-bg);color:var(--green)}
+.pr-sum.bad{background:var(--bad-bg);color:var(--red)}
+.pr-sum span{font-size:12.5px;opacity:.85;font-weight:500}
+.pr-tab{width:100%;border-collapse:collapse;font-size:13px}
+.pr-tab th{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);color:var(--muted);
+  font:600 11.5px 'JetBrains Mono',monospace;letter-spacing:.5px;text-transform:uppercase}
+.pr-tab td{padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+.pr-tab code{font-size:12px;word-break:break-word}
+.pr-tab tr.ok .pr-ic{color:var(--green)}
+.pr-tab tr.bad{background:var(--bad-bg)}
+.pr-tab tr.bad .pr-ic{color:var(--red)}
+.pr-tab tr.err{background:var(--warn-bg)}
+.pr-tab tr.err .pr-ic{color:#b26a00}
+.pr-ic{font-weight:700;width:22px;text-align:center}
+.pr-err{background:var(--bad-bg);border-radius:9px;padding:13px 16px;font-size:13.5px}
+.pr-err b{color:var(--red)}
+.pr-err pre{margin:8px 0 0;white-space:pre-wrap;font:12.5px/1.6 'JetBrains Mono',monospace;
+  color:var(--soft);overflow-x:auto}
+.pr-err p{margin:7px 0 0;color:var(--soft)}
+.pr-print{margin-top:10px;font-size:13px}
+.pr-print summary{cursor:pointer;color:var(--muted)}
+.pr-print pre{margin:7px 0 0;padding:10px 12px;background:var(--bgcool);border-radius:8px;
+  font:12.5px/1.6 'JetBrains Mono',monospace;white-space:pre-wrap;overflow-x:auto}
+
+@media (max-width:900px){
+  .pr-wrap{grid-template-columns:1fr}
+  .pr-list{position:static;max-height:260px}
+  .pr-code{min-height:260px;font-size:13px}
+}

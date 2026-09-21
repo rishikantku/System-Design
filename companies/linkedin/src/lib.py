@@ -140,7 +140,8 @@ ROUNDS = [('coding', '01', 'Staff Coding', '01-coding.html'),
           ('hm', '04', 'Host Leader', '04-hiring-manager.html')]
 
 def page(filename, title, subtitle, body, round_id='', round_name='', crumb_tail='',
-         hero_chips=None, nav_html='', autonav=True, extra_head='', tail_js=''):
+         hero_chips=None, nav_html='', autonav=True, extra_head='', tail_js='',
+         tail_scripts=None):
     chips = ''.join('<span class="chip %s">%s</span>' % (c, esc(t)) for c, t in (hero_chips or []))
     nav_links = ''.join(
         '<a href="%s"%s>%s %s</a>' % (f, ' class="on"' if r == round_id else '', n, t)
@@ -174,6 +175,7 @@ def page(filename, title, subtitle, body, round_id='', round_name='', crumb_tail
   {auto}
   <h4>Course</h4>
   <a href="06-coding-course.html">◆ Video coding course</a>
+  <a href="07-practice.html">◆ Code practice</a>
   <h4>Research</h4>
   <a href="05-research.html">◆ Recent interview research</a>
   <h4>Data</h4>
@@ -194,6 +196,7 @@ progress is stored in this browser only.</div>
 </main></div>
 <script src="assets/manifest.js"></script>
 <script src="assets/prep.js"></script>
+{''.join('<script src="%s"></script>' % s for s in (tail_scripts or []))}
 {('<script>' + tail_js + '</script>') if tail_js else ''}
 </body></html>'''
     with open(os.path.join(OUT, filename), 'w', encoding='utf-8') as f:

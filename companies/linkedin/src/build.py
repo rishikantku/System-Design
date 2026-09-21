@@ -3,7 +3,7 @@ import importlib, sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import lib, research as R
 
-MODULES = ['coding', 'aicoding', 'sysdesign', 'hm', 'researchpage', 'course', 'dash', 'companies']   # dash last: it reads nothing, but keep order stable
+MODULES = ['coding', 'aicoding', 'sysdesign', 'hm', 'researchpage', 'course', 'practice', 'dash', 'companies']   # dash last: it reads nothing, but keep order stable
 built = []
 for m in MODULES:
     try:

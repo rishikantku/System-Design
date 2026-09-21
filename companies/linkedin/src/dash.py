@@ -4,18 +4,18 @@ import research as R
 
 def build():
     ROUND_CARDS = [
-        ('coding', '01', 'Coding', '01-coding.html',
-         'Patterns, a worked problem engine and timed mocks. C# throughout.',
-         'Trees · graphs · sliding window · design-y data structures'),
-        ('ai', '02', 'AI Coding', '02-ai-coding.html',
-         'The AI-enabled round: debug → extend → harden, with production follow-ups.',
-         'Caches · intervals · malformed data · concurrency · prompting'),
-        ('design', '03', 'System Design', '03-system-design.html',
-         'Interactive designs that ask you questions first, then reveal the architecture.',
-         'Rate limiter · scheduler · autosuggest · index · queue · abuse'),
-        ('hm', '04', 'Hiring Manager', '04-hiring-manager.html',
-         'Story bank from your own material, behavioural drills, craftsmanship round.',
-         'Migration at scale · conflict · quality · career arc'),
+        ('coding', '01 · 60 MIN', 'Staff Coding', '01-coding.html',
+         'Modularity, extensibility, and finding and fixing bugs — the pack\'s own framing. No AI in this module.',
+         'Official example: Firefighting Strategy · bug-fix and extensibility drills · patterns in C#'),
+        ('ai', '02 · 60 MIN', 'Coding with AI (CWAI)', '02-ai-coding.html',
+         'CoderPad AI Assist. You are expected to use AI, and to own every line it produces.',
+         'Fundamentals + intentional AI use · validation · iteration · communication'),
+        ('design', '03 · 60 MIN', 'Systems & Infrastructure Design', '03-system-design.html',
+         'Whiteboard design of infrastructure systems, scored on completeness, decisions and reasoning.',
+         'Official example: Bit.ly · rate limiter · scheduler · index · queue · autosuggest'),
+        ('hm', '04 · 60 MIN', 'Host Leader', '04-hiring-manager.html',
+         'Deep dive on your background and leadership: communication, culture, influence, mentorship, conflict.',
+         'Story bank from your own material · two gaps flagged honestly'),
     ]
     cards = []
     for rid, num, name, f, desc, topics in ROUND_CARDS:
@@ -48,7 +48,7 @@ def build():
         rich(R.LOOP['summary']) +
         table(['Round', 'What is reported', 'Source'], loop_rows) +
         '<ul>%s</ul>' % ''.join('<li>%s</li>' % rich(n) for n in R.LOOP['notes']),
-        title='The loop as recent candidates describe it')
+        title='The loop as recent candidates describe it (community reports)')
 
     # ---------------- research intelligence ----------------
     counts = {}
@@ -193,7 +193,43 @@ def build():
         '</ul>' % (tag('exp', 'Your experience'), tag('gen', 'General knowledge')),
         title='How to use this workspace')
 
+    mod_cards = []
+    for m in R.OFFICIAL_MODULES:
+        page_for = {'design': '03-system-design.html', 'hm': '04-hiring-manager.html',
+                    'ai': '02-ai-coding.html', 'coding': '01-coding.html'}[m['id']]
+        ex = ''
+        if m['example']:
+            ex = '<div class="note good" style="margin-top:10px"><span class="lbl">Example in the pack</span><b>%s</b></div>' % esc(m['example']['title'])
+        mod_cards.append(
+            '<a class="card round" href="%s"><div class="num">%d MINUTES%s</div><div class="rt">%s</div>'
+            '<div class="rd">%s</div>%s<div class="meta" style="margin-top:10px">Scored on: %s</div></a>' % (
+                page_for, m['mins'], ' · AI ASSISTED' if m['ai'] else '', esc(m['name']),
+                esc(m['what'][:205] + ('…' if len(m['what']) > 205 else '')), ex,
+                esc(', '.join(x.replace('**', '') .split(' — ')[0] for x in m['evaluated'][:4]))))
+
+    role = R.OFFICIAL_ROLE
+    official = (
+        note('Your recruiter sent <b>"Staff SI Onsite Prep — CWAI"</b> (LinkedIn Interview Preparation, Staff Virtual Onsite, '
+             'Systems and Infrastructure). Everything in this section comes from that pack and is authoritative. The community '
+             'research further down is a complement, not a substitute — where they disagree, the pack wins.', 'good',
+             'Official source · %s' % R.OFFICIAL_DATE) +
+        grid(mod_cards, 'g2') +
+        grid([
+            card('<p>%s</p><p><b>They want:</b> %s</p><div class="tags">%s</div>%s' % (
+                 rich(role['what']), rich(role['wants']),
+                 ''.join('<span class="tag gen">%s</span>' % esc(o) for o in role['oss']),
+                 note(role['note'], '')),
+                 title='The role: %s' % role['title']),
+            card(table(['', 'From the pack'], [[a, b] for a, b in R.OFFICIAL_LOGISTICS]),
+                 title='Logistics and reminders'),
+        ], 'g2') +
+        card('<p>The pack links these. They are worth ten minutes each, and the CoderPad ones are worth more than that:</p><ul>%s</ul>'
+             % ''.join('<li><b>%s</b> <span class="src">— %s</span></li>' % (esc(a), esc(b)) for a, b in R.OFFICIAL_RESOURCES),
+             title='Resources the pack points you to'))
+
     body = (
+        sec('onsite', 'The official onsite — four modules', official,
+            kicker='From LinkedIn', why='Staff Virtual Onsite · Systems & Infrastructure') +
         sec('status', 'Status and loop', grid([status, loop], 'g2'), kicker='LinkedIn · Staff Engineer',
             why='Screening cleared · four rounds to go') +
         sec('readiness', 'Readiness dashboard', grid(cards, 'g2'), kicker='Progress',
@@ -269,7 +305,7 @@ def build():
     return page('index.html', 'LinkedIn — Staff Engineer full loop',
                 'Four rounds, one workspace: coding, AI coding, system design and hiring manager — built on your own material and on what candidates have recently reported.',
                 body, round_id='', round_name='LinkedIn loop', crumb_tail='',
-                hero_chips=[('done', '✓ Retrospective cleared'), ('', 'Coding'), ('', 'AI Coding'),
-                            ('', 'System Design'), ('', 'Hiring Manager'),
+                hero_chips=[('done', '✓ Retrospective cleared'), ('', 'Staff Coding'), ('', 'Coding with AI'),
+                            ('', 'Systems & Infra Design'), ('', 'Host Leader'),
                             ('', 'Research updated %s' % R.DATE)],
                 tail_js=tail)

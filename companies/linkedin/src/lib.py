@@ -134,10 +134,10 @@ def mock_block(item_id, question, round_name, rubric, secs=300, extra=''):
                          ''.join('<option value="%d">%d/10</option>' % (i, i) for i in range(1, 11)))
 
 # ---------------------------------------------------------------- page shell
-ROUNDS = [('coding', '01', 'Coding', '01-coding.html'),
-          ('ai', '02', 'AI Coding', '02-ai-coding.html'),
-          ('design', '03', 'System Design', '03-system-design.html'),
-          ('hm', '04', 'Hiring Manager', '04-hiring-manager.html')]
+ROUNDS = [('coding', '01', 'Staff Coding', '01-coding.html'),
+          ('ai', '02', 'Coding with AI', '02-ai-coding.html'),
+          ('design', '03', 'Systems &amp; Infra Design', '03-system-design.html'),
+          ('hm', '04', 'Host Leader', '04-hiring-manager.html')]
 
 def page(filename, title, subtitle, body, round_id='', round_name='', crumb_tail='',
          hero_chips=None, nav_html='', autonav=True, extra_head='', tail_js=''):
@@ -195,6 +195,29 @@ progress is stored in this browser only.</div>
     with open(os.path.join(OUT, filename), 'w', encoding='utf-8') as f:
         f.write(doc)
     return filename
+
+import research as R
+
+def official_module(mid):
+    m = next(x for x in R.OFFICIAL_MODULES if x['id'] == mid)
+    ex = ''
+    if m['example']:
+        ex = ('<h4>The example question printed in the pack</h4>'
+              '<div class="note good"><span class="lbl">%s</span>%s<ul>%s</ul></div>' % (
+                  esc(m['example']['title']), rich(m['example']['prompt']),
+                  ''.join('<li>%s</li>' % rich(x) for x in m['example']['subs'])))
+    return card(
+        '<p class="lead">%s</p>'
+        '<h4>What they evaluate</h4><ul>%s</ul>'
+        '<h4>What to expect</h4><ul>%s</ul>'
+        '<h4>How to run it</h4><ul>%s</ul>%s'
+        '<div class="src">Source: %s · %s</div>' % (
+            rich(m['what']),
+            ''.join('<li>%s</li>' % rich(x) for x in m['evaluated']),
+            ''.join('<li>%s</li>' % rich(x) for x in m['expect']),
+            ''.join('<li>%s</li>' % rich(x) for x in m['how']), ex,
+            esc(R.OFFICIAL_SRC), esc(R.OFFICIAL_DATE)),
+        title='%s · %d minutes%s' % (m['name'], m['mins'], ' · AI assisted' if m['ai'] else ''))
 
 def write_manifest(research_summary):
     MANIFEST['research'] = research_summary

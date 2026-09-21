@@ -826,7 +826,30 @@ def build():
         'test fixtures. I rejected its `ConcurrentDictionary` suggestion because it only protects the map, not the recency list. '
         'In production I would shard by key hash and accept per-shard LFU." — owns the design, prices the trade-off, and thinks past the interview.')
 
+    official = official_module('ai') + grid([
+        card('<ul>'
+             '<li><b>You are expected to use AI.</b> The pack says so: it is not optional in this module, though there is no '
+             'expectation that AI solves every part or that you maximise its use.</li>'
+             '<li><b>It runs in CoderPad AI Assist</b> — a conversational assistant in the pad. Watch the demo video the pack '
+             'links before the day.</li>'
+             '<li><b>It is not a prompt-engineering test.</b> They are scoring when you reach for AI, how you steer it, how you '
+             'judge its output, and when you rely on your own reasoning instead.</li>'
+             '<li><b>You own the final solution.</b> Understand it, validate it, explain it, correct it.</li>'
+             '<li><b>No prescribed workflow.</b> Reason first then accelerate, or explore with AI then refine — either is fine '
+             'if it is deliberate.</li>'
+             '</ul>', title='The CWAI framework, in LinkedIn\'s words'),
+        card(note('My web research said CoderPad with a model picker, and one 2026 candidate reported HackerRank with a built-in '
+                  'assistant. <b>The pack is authoritative: CoderPad AI Assist.</b> Treat the HackerRank report as a variation '
+                  'other teams may run, and ask your recruiter to confirm which modules are AI-assisted — the pack says they will '
+                  'tell you.', 'warn', 'Where the research and the pack differ') +
+             note('The pack also confirms the shape of the other rounds: <b>AI is not permitted</b> in the non-CWAI modules. '
+                  'Practise Staff Coding without an assistant.', ''),
+             title='Reconciling the research with the pack'),
+    ], 'g2')
+
     body = (
+        sec('official', 'The official module', official,
+            kicker='From LinkedIn', why='Authoritative — this overrides the community research below') +
         sec('reports', 'What is reported about this round', facts + rep_html,
             kicker='Research first', why='%d catalogued reports · updated %s' % (len(rep), R.DATE)) +
         sec('evaluated', 'How the AI coding round appears to be evaluated', evaluated + dos, kicker='Rubric') +
@@ -845,8 +868,8 @@ def build():
             kicker='Pressure', why='%d scenarios' % len(SCENARIOS)) +
         sec('mock', 'Mock AI coding rounds', mocks, kicker='Simulation', why='Timed · graded in chat'))
 
-    return page('02-ai-coding.html', 'AI Coding round',
+    return page('02-ai-coding.html', 'Coding with AI (CWAI)',
                 'The AI-enabled round as recent candidates describe it: a familiar problem, an assistant in the panel, and follow-ups that pivot to concurrency and production.',
-                body, round_id='ai', round_name='AI Coding', crumb_tail='02 AI Coding',
+                body, round_id='ai', round_name='Coding with AI', crumb_tail='02 Coding with AI',
                 hero_chips=[('', '%d concepts' % len(FUND)), ('', '%d exercises' % len(EX)),
                             ('', '%d simulations' % len(SCENARIOS)), ('', '2 mocks'), ('', 'C#')])

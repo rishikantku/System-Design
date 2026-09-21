@@ -2,7 +2,9 @@
 from lib import *
 import research as R
 from coding_patterns import PATTERNS
-from coding_problems import PROBLEMS, BANK
+from coding_problems import PROBLEMS as _PROBLEMS, BANK
+from coding_official import OFFICIAL_PROBLEMS
+PROBLEMS = OFFICIAL_PROBLEMS + _PROBLEMS
 
 PRIO_LABEL = {'p0': 'P0 · do first', 'p1': 'P1 · then these', 'p2': 'P2 · if time'}
 LEVEL_LABEL = {'warm': 'Warm-up', 'med': 'Interview level', 'hard': 'Hard'}
@@ -224,7 +226,35 @@ def build():
         ['**L5 · Pressure**', 'You keep the thread while being interrupted and requirements change mid-solution', 'Mock 2 and 3 with the timer running and no notes'],
     ])
 
+    official = official_module('coding') + grid([
+        card('<p>The pack describes this module as <b>day-to-day coding once the design and implementation strategy are '
+             'settled</b> — not a pure algorithm sprint. Two sentences carry the weight:</p>'
+             '<div class="note"><span class="lbl">Quoted from the pack</span>'
+             '"The focus of this interview should be on the <b>modularity and extensibility</b> of the code that you write, as '
+             'well as <b>finding and fixing bugs</b> and other errors. Many of these sessions involve <b>pointers, edge cases, '
+             'abstraction</b>, or all of the above."</div>'
+             '<p>So the scoring is elegance (object-oriented, simple rather than clever), maintainability (documentation, '
+             'reusability), a high quality bar (testing and boundary conditions), and clear communication.</p>'
+             '<ul><li><b>Expect to extend or repair code</b>, not only to write it from scratch — the first three problems below '
+             'are built for exactly that.</li>'
+             '<li><b>Any language, including pseudocode</b>, is explicitly allowed. C# is fine.</li>'
+             '<li><b>No AI in this module.</b> AI is only in CWAI.</li></ul>',
+             title='What this module actually is'),
+        card('<p>The pack ends with three reminders. They are worth treating as instructions:</p>'
+             '<ul>'
+             '<li><b>Brush up on abstraction, recursion, HashMaps, edge cases and corner cases.</b></li>'
+             '<li><b>Reiterate the question</b> to confirm what you heard is what the interviewer meant.</li>'
+             '<li><b>Spend a short period clarifying requirements before assuming anything.</b></li>'
+             '</ul>' +
+             note('The first item is a map of the module: abstraction (design seams), recursion (and when to use an explicit '
+                  'stack instead), HashMaps (the workhorse), and edge cases — which is what "finding and fixing bugs" means in '
+                  'practice.', 'good', 'Read it as a syllabus'),
+             title='The pack\'s own reminders'),
+    ], 'g2')
+
     body = (
+        sec('official', 'The official module', official,
+            kicker='From LinkedIn', why='Authoritative — this overrides the community research below') +
         sec('reports', 'What recent reports say about this round', rep_html,
             kicker='Research first', why='%d catalogued coding reports · updated %s' % (len(rep), R.DATE)) +
         sec('priority', 'Priority map — what to study first', prio + note(
@@ -251,8 +281,8 @@ def build():
             kicker='Simulation', why='3 mocks · timed') +
         sec('levels', 'Progressive difficulty', ladder, kicker='Ladder'))
 
-    return page('01-coding.html', 'Coding round',
+    return page('01-coding.html', 'Staff Coding',
                 'Patterns, worked problems and timed mocks in C#, prioritised by what LinkedIn candidates have recently reported.',
-                body, round_id='coding', round_name='Coding', crumb_tail='01 Coding',
+                body, round_id='coding', round_name='Staff Coding', crumb_tail='01 Staff Coding',
                 hero_chips=[('', '%d patterns' % len(PATTERNS)), ('', '%d worked problems' % len(PROBLEMS)),
                             ('', '%d extra reps' % len(BANK)), ('', '3 mocks'), ('', 'C#')])

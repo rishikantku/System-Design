@@ -306,3 +306,117 @@ LOOP = dict(
   notes=['Several 2026 reports mention two interviewers per round, one leading and one shadowing. [exp-exp]',
          'Down-levelling Staff → Senior is discussed often on Blind; LinkedIn Staff is described as L5.5+ and the decision is attributed to leadership signal. [blind-lv]',
          'Both Meta-style and LinkedIn AI rounds offer a practice environment beforehand — ask your recruiter for it. [hi-fmt]'])
+
+# ---------------------------------------------------------------------------
+# OFFICIAL — from the LinkedIn prep pack the recruiter sent:
+# "Staff SI Onsite Prep - CWAI (1).pdf" (LinkedIn Interview Preparation,
+# Staff Virtual Onsite, Systems & Infrastructure). This is authoritative and
+# overrides the web research wherever they disagree.
+# ---------------------------------------------------------------------------
+OFFICIAL_DATE = 'received 21 September 2026'
+OFFICIAL_SRC = 'LinkedIn recruiter pack — "Staff SI Onsite Prep - CWAI", Systems & Infrastructure'
+
+OFFICIAL_ROLE = dict(
+ title='Staff Systems & Infrastructure Engineer',
+ what='Building next-generation infrastructure platforms: massively scalable data storage and replication '
+      'systems, a cutting-edge search platform, an application and service delivery platform, Big Data and '
+      'Machine Learning platforms.',
+ wants='Distributed technologies, algorithms, great API and systems-design sensibilities, and code that '
+       'performs at extreme scale with high reliability.',
+ oss=['Kafka', 'Samza', 'Brooklin', 'Azkaban', 'Gobblin', 'Pinot', 'Hadoop', 'Spark', 'Iceberg', 'TensorFlow'],
+ note='The pack names these open-source projects as work LinkedIn SI teams pioneered or contribute to. '
+      'That is the flavour of the design round: infrastructure platforms, not consumer product features.')
+
+OFFICIAL_MODULES = [
+ dict(id='design', name='Systems and Infrastructure Design', mins=60, ai=False,
+   what='You are given a system design problem and asked to design a solution meeting functional and '
+        'non-functional requirements.',
+   evaluated=['Completeness of your solution', 'Quality of your design decisions',
+              'Reasoning about scalability, performance, reliability, fault tolerance and extensibility'],
+   expect=['Break a complex problem into logical components and explain how they interact',
+           'Describe the solution from high-level architecture down to implementation choices',
+           'As the design evolves, discuss data structures and algorithms, concurrency, multithreading, storage '
+           'systems, networking, caching, partitioning, replication and consistency — where they justify a decision'],
+   how=['Ask clarifying questions', 'State your assumptions', 'Think out loud', 'Discuss trade-offs',
+        '"There are no perfect answers" — they want to see how you reason through ambiguity and adapt as '
+        'new requirements emerge'],
+   example=dict(title='Bit.ly',
+     prompt='Design a system to take user-provided URLs and transform them to shortened URLs that redirect '
+            'back to the original. Describe how the system works.',
+     subs=['How would you allocate the shorthand URLs?',
+           'How would you store the shorthand-to-original URL mapping?',
+           'How would you implement the redirect servers?',
+           'Keep click stats. How would you store the stats?'])),
+ dict(id='hm', name='Host Leader', mins=60, ai=False,
+   what='A hiring leader who can tell you about teams, engineering culture and the future of LinkedIn. The focus '
+        'is a deep dive into your background and your leadership skills, with concrete examples of past projects '
+        'where you had challenges, made decisions, and accomplished something.',
+   evaluated=['**Communication** — how you communicate and influence technical decisions within your team and '
+              'across an organisation',
+              '**Culture** — how you have built a team culture; does it involve taking intelligent risks and '
+              'learning from mistakes?',
+              '**Influence** — how you identify opportunities for improvement (technology or process) and get '
+              'buy-in across the organisation or company',
+              '**Mentorship** — your mentorship style; how you grow and mentor engineers at team level or larger',
+              '**Conflict** — resolving conflicts and difficult situations constructively'],
+   expect=['Concrete examples, not philosophy', 'Challenges, decisions, accomplishments'],
+   how=['Bring specific projects', 'Be ready to go deep on your own background'],
+   example=None),
+ dict(id='ai', name='Coding with AI (CWAI)', mins=60, ai=True,
+   what='Solve software engineering problems using strong computer-science fundamentals while effectively '
+        'incorporating AI into your development workflow. One or more coding problems involving common data '
+        'structures, algorithms and problem-solving techniques.',
+   evaluated=['Apply strong engineering fundamentals to solve technical problems',
+              'Use AI intentionally to support and accelerate your workflow',
+              'Critically evaluate AI-generated output rather than accepting it at face value',
+              'Identify issues, make improvements and iterate when appropriate',
+              'Clearly communicate technical decisions and trade-offs',
+              'Deliver solutions that are correct, maintainable and well-reasoned'],
+   expect=['Designing an appropriate solution', 'Writing clean and correct code',
+           'Validating your implementation', 'Communicating your technical decisions throughout',
+           '**You are expected to use AI** — it is not optional in this module',
+           '**You own the final solution**: understand it, validate it, explain it, fix it'],
+   how=['Conducted in **CoderPad using its built-in AI Assist feature** — a conversational assistant',
+        'Use it to explore approaches, generate or refine code, debug, create test cases, iterate',
+        'No prescribed workflow: reason first then accelerate, or explore with AI then refine yourself',
+        'It is **not** a prompt-engineering test',
+        'The interviewer may interrupt to ask about your thought process and how you are using AI'],
+   example=None),
+ dict(id='coding', name='Staff Coding', mins=60, ai=False,
+   what='Day-to-day coding after the design and implementation strategy are settled. The focus is the '
+        '**modularity and extensibility** of the code you write, and **finding and fixing bugs and other errors**. '
+        'Many sessions involve pointers, edge cases, abstraction, or all of the above.',
+   evaluated=['Coding skill', 'Elegant code: object-oriented, simple rather than clever',
+              'Maintainable: appropriate documentation, reusable', 'High quality bar: testing and boundary conditions',
+              'Clear communication'],
+   expect=['Expect to extend or fix code, not only to produce an algorithm',
+           'Any programming language, including pseudocode'],
+   how=['Brush up on abstraction, recursion, HashMaps, edge cases, corner cases',
+        'Reiterate the question to confirm you understood what the interviewer meant',
+        'Spend a short period clarifying requirements before assuming anything'],
+   example=dict(title='Firefighting Strategy',
+     prompt='You are a firefighting chief putting out wildfires. Input: a grid of integers where 1 means fire and '
+            '0 means no fire. Extinguishing one fire (one unit of water) also extinguishes every fire connected to '
+            'it horizontally or vertically. Output: the best firefighting order as a list of coordinates — the '
+            'minimum number of water units, attacking the largest group first, then the next largest, and so on.',
+     subs=['Connectivity is horizontal and vertical only, never diagonal',
+           'For grid [[1,1,1],[1,0,0],[1,0,1]] the answer is a cell in the five-cell group (for example (0,0)), then (2,2)',
+           'Return an order, not just a count'])),
+]
+
+OFFICIAL_LOGISTICS = [
+ ('Format', 'Virtual onsite. Four one-hour modules.'),
+ ('Whiteboard', 'Your choice: the Zoom whiteboard feature, screen share with a tool such as Excalidraw, or a physical whiteboard.'),
+ ('Agenda', 'The coordinator sends a detailed agenda at least one day before the interview.'),
+ ('Language', 'Any programming language, including pseudocode (the pack says so explicitly).'),
+ ('AI tooling', 'CoderPad AI Assist, in the CWAI module only. Your recruiter confirms which modules are AI-assisted.'),
+ ('Reminders from the pack', 'Abstraction, recursion, HashMaps, edge cases, corner cases. Reiterate the question. Clarify before assuming.'),
+]
+
+OFFICIAL_RESOURCES = [
+ ('System Design Process', 'linked in the pack'), ('Grokking System Design Interview', 'linked in the pack'),
+ ('Coding with AI FAQs', 'linked in the pack'), ('CoderPad AI-Assist feature + demo video', 'linked in the pack'),
+ ('LeetCode, TopCoder, HackerRank', 'linked in the pack'),
+ ('Coursera Algorithms Part 1 & 2', 'linked in the pack'),
+ ('LinkedIn Engineering blog, open-source projects, GitHub', 'linked in the pack'),
+]

@@ -331,6 +331,32 @@ and a "done" item with confidence ≤ 2 is capped at 0.8.
 Claude* button copies a prompt asking for SCORE / WHAT WAS STRONG / WHAT IS MISSING / STAFF-LEVEL
 SIGNAL / HOW TO IMPROVE / LIKELY FOLLOW-UP. The pages never pretend to grade.
 
+### The official prep pack — authoritative
+
+The recruiter sent **`Staff SI Onsite Prep - CWAI (1).pdf`** ("LinkedIn Interview Preparation,
+Staff Virtual Onsite, Systems & Infrastructure"). It sits in the repo root and is git-ignored by
+the `*.pdf` rule. Its contents are encoded in `src/research.py` as `OFFICIAL_ROLE`,
+`OFFICIAL_MODULES`, `OFFICIAL_LOGISTICS` and `OFFICIAL_RESOURCES`, and every page opens with an
+**"The official module"** section rendered by `lib.official_module()`.
+
+**The pack overrides the web research wherever they disagree** — say so on the page when they do
+(the AI round is CoderPad AI Assist, not the HackerRank variant one candidate reported).
+
+| Module (60 min each) | What the pack says it scores |
+|---|---|
+| Systems and Infrastructure Design | Completeness, quality of decisions, reasoning about scalability/performance/reliability/fault tolerance/extensibility. Example question in the pack: **Bit.ly**, with four named sub-questions |
+| Host Leader | Five focus areas: **communication, culture, influence, mentorship, conflict** |
+| Coding with AI (CWAI) | Fundamentals + intentional AI use + critical evaluation of output + iteration + communication. **Using AI is expected**; you own the solution |
+| Staff Coding | **Modularity and extensibility**, and **finding and fixing bugs**; pointers, edge cases, abstraction. No AI. Example question: **Firefighting Strategy** |
+
+Both example questions are worked in full: `src/coding_official.py` (Firefighting Strategy, plus a
+bug-hunt drill and an extensibility drill) and `src/sysdesign_official.py` (Bit.ly, with the four
+sub-questions as the deep dives).
+
+**Two honest gaps** the pack exposed in the reader's material, flagged on the Host Leader page and
+deliberately left for them to fill: **culture** (a team culture they built) and **mentorship** (a
+named person they grew). The Isolated Cloud retrospective is a platform story, not a team-lead story.
+
 ### The research layer — `src/research.py`
 
 One web-research pass (21 Sep 2026) over 15 sources: Hello Interview, Coditioning, Exponent

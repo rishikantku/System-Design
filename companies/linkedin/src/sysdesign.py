@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 from lib import *
 import research as R
-from sysdesign_data import DESIGNS, CATALOGUE
+from sysdesign_data import DESIGNS as _DESIGNS, CATALOGUE
+from sysdesign_official import OFFICIAL_DESIGNS
+DESIGNS = OFFICIAL_DESIGNS + _DESIGNS
 
 STEPS = [
  ('1 · Clarify', 'Ask until the problem is bounded. Five questions, not twenty.', 'What is in scope, what is explicitly out'),
@@ -190,7 +192,21 @@ def build():
         ['**L5 · Pressure**', 'Requirements change mid-design and you adapt without losing coherence', 'Mock 1 with interruptions, or ask me to run it adversarially'],
     ])
 
+    role = R.OFFICIAL_ROLE
+    official = (official_module('design') + grid([
+        card('<p>%s</p><p><b>What they want:</b> %s</p><div class="tags">%s</div>%s' % (
+              rich(role['what']), rich(role['wants']),
+              ''.join('<span class="tag gen">%s</span>' % esc(o) for o in role['oss']),
+              note(role['note'], '')), title='The role you are interviewing for: %s' % role['title']),
+        card(table(['', 'From the pack'], [[a, b] for a, b in R.OFFICIAL_LOGISTICS]) +
+             note('Practise on the surface you will use. If you pick Excalidraw or the Zoom whiteboard, draw two of these designs '
+                  'on it end to end before the day — box-drawing under time pressure is a skill of its own.', 'warn', 'Whiteboard'),
+             title='Logistics, from the pack'),
+    ], 'g2'))
+
     body = (
+        sec('official', 'The official module', official,
+            kicker='From LinkedIn', why='Authoritative — this overrides the community research below') +
         sec('reports', 'What recent reports say about this round', rep_html + probe,
             kicker='Research first', why='%d catalogued design reports · updated %s' % (len(rep), R.DATE)) +
         sec('framework', 'The framework and the numbers', framework + numbers, kicker='Method') +
@@ -203,8 +219,8 @@ def build():
         sec('mock', 'Mock design rounds', mocks, kicker='Simulation', why='3 mocks · timed · graded in chat') +
         sec('levels', 'Progressive difficulty', ladder, kicker='Ladder'))
 
-    return page('03-system-design.html', 'System Design round',
+    return page('03-system-design.html', 'Systems and Infrastructure Design',
                 'Interactive designs that ask before they tell, prioritised by what LinkedIn candidates recently reported, with a staff-level lens on every one.',
-                body, round_id='design', round_name='System Design', crumb_tail='03 System Design',
+                body, round_id='design', round_name='Systems and Infrastructure Design', crumb_tail='03 Systems & Infrastructure Design',
                 hero_chips=[('', '%d practice designs' % len(DESIGNS)), ('', '16-step framework'),
                             ('', '%d linked designs' % len(CATALOGUE)), ('', '3 mocks')])

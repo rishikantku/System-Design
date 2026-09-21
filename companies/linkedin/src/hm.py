@@ -130,6 +130,47 @@ STORIES = [
   signal='Ties an architecture decision to a market the company could not otherwise serve.'),
 ]
 
+
+# The five areas the pack says the Host Leader scores, mapped to the story bank.
+FOCUS = [
+ ('Communication',
+  'How you communicate and influence technical decisions inside your team and across an organisation.',
+  ['thesis', 'jira'],
+  'The one-page note to the VP, and two weeks of one-on-ones before the formal review. Both are communication as a '
+  'deliberate instrument, not as a personality trait.',
+  None),
+ ('Culture',
+  'How you have built a team culture — including taking intelligent risks and learning from mistakes.',
+  ['incident1', 'incident2'],
+  'Your material has the *learning from mistakes* half: rehearsals before the first cutover, blameless fixes that changed '
+  'the process rather than the people, the monthly override review. The intelligent-risk half is there too — holding the '
+  'pilot date after being overruled, and shipping with three locks instead of waiting for perfect invalidation.',
+  'The pack asks how you **built a team culture**. Your retrospective is about a platform, not a team you led. Prepare one '
+  'concrete example in your own words: a norm you introduced, who adopted it, and what changed. Do not stretch the Isolated '
+  'Cloud material to cover this.'),
+ ('Influence',
+  'How you identify opportunities for improvement — in technology or process — and get buy-in across the organisation.',
+  ['thesis', 'migration', 'scripts'],
+  'This is your strongest area, and the reported "5,000 teams, how do you get them to migrate" question lands here. Lead '
+  'with: adoption cheaper than resistance, sequencing so nobody is blocked, computed status, and a repeated blocker becoming '
+  'a platform problem.',
+  None),
+ ('Mentorship',
+  'Your mentorship style, and how you grow engineers at team level or larger.',
+  ['scripts'],
+  'The systemic version is in your material: office hours during the tail migration, someone from your team working alongside '
+  'the early adopters, and turning a team\'s blocker into a platform fix.',
+  'The pack asks about **your mentorship style** and growing individuals. Have one named person and one specific change in '
+  'their behaviour ready, in your own words — this is the second gap the pack exposes.'),
+ ('Conflict',
+  'Whether you resolve conflicts and difficult situations constructively.',
+  ['jira', 'sre', 'overruled', 'scripts'],
+  'Four different kinds, which is unusually strong: a peer lead with a fair objection, an SRE lead proposing something you '
+  'had to refuse, leadership overruling you, and a team that looked obstructive and was not. Pick by what the interviewer '
+  'asks for, and always make the other side reasonable.',
+  None),
+]
+
 # ---------------------------------------------------------------- behavioural questions
 def Q(id, q, tests, story, structure, strong, follow, challenges, avoid, signal, level='L3', src=None):
     return dict(id=id, q=q, tests=tests, story=story, structure=structure, strong=strong,
@@ -502,7 +543,28 @@ def build():
             ['Scope', 'My team, my service', '178 teams, no authority, and the line between platform and product'],
         ]), title='Senior versus Staff — what decides the level')
 
+    focus_rows = ''
+    for name, what, sids, have, gap in FOCUS:
+        stories = ' · '.join(next(x['title'] for x in STORIES if x['id'] == sid) for sid in sids)
+        focus_rows += acc(titled(name, 'what they score'),
+            '<p class="lead">%s</p><p><b>What you have:</b> %s</p>'
+            '<p><b>Stories to use:</b> %s</p>%s' % (
+                rich(what), rich(have), esc(stories),
+                note(gap, 'warn', 'Gap — needs your own example') if gap else
+                note('Covered by your existing material.', 'good', 'Covered')),
+            tag('exp', 'covered') if not gap else tag('p0', 'gap'), raw=True)
+
+    official = official_module('hm') + card(
+        '<p>The pack names five focus areas. Everything else in this round is a way of getting at them, so prepare by area '
+        'rather than by question.</p>' + focus_rows +
+        note('Two of the five — <b>Culture</b> and <b>Mentorship</b> — are not fully covered by your Isolated Cloud material, '
+             'because that project is about a platform and an organisation rather than a team you managed. Those two need '
+             'examples in your own words. I have deliberately not written them for you.', 'warn', 'Where your material runs out'),
+        title='The five focus areas, mapped to your stories')
+
     body = (
+        sec('official', 'The official module', official,
+            kicker='From LinkedIn', why='Authoritative — this overrides the community research below') +
         sec('reports', 'What recent reports say about this round', rep_html + follow_patterns,
             kicker='Research first', why='%d catalogued HM reports · updated %s' % (len(rep), R.DATE)) +
         sec('stories', 'Your story bank', note(
@@ -519,8 +581,8 @@ def build():
         sec('level', 'Senior versus Staff', levelling, kicker='Levelling') +
         sec('mock', 'Mock hiring-manager rounds', mocks, kicker='Simulation', why='3 mocks · timed · graded in chat'))
 
-    return page('04-hiring-manager.html', 'Hiring Manager round',
+    return page('04-hiring-manager.html', 'Host Leader',
                 'Your story bank, the behavioural drills that use it, the craftsmanship round, and the scope signal that decides your level.',
-                body, round_id='hm', round_name='Hiring Manager', crumb_tail='04 Hiring Manager',
+                body, round_id='hm', round_name='Host Leader', crumb_tail='04 Host Leader',
                 hero_chips=[('', '%d stories from your own work' % len(STORIES)), ('', '%d questions' % len(QUESTIONS)),
                             ('', 'Craftsmanship round'), ('', '3 mocks')])

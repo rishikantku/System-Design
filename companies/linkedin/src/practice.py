@@ -428,6 +428,8 @@ H.CaseCheck("single target", "a valid order", delegate {
 ]
 
 
+import leetcode as LC
+
 from practice_more import MORE
 PROBLEMS = PROBLEMS + MORE
 
@@ -435,9 +437,12 @@ PROBLEMS = PROBLEMS + MORE
 def build():
     data = []
     for p in PROBLEMS:
-        data.append({k: p[k] for k in
-                     ('id', 'title', 'lesson', 'chapter', 'diff', 'evidence', 'pattern',
-                      'statement', 'hint', 'stub', 'harness', 'types', 'video', 'wrap')})
+        row = {k: p[k] for k in
+               ('id', 'title', 'lesson', 'chapter', 'diff', 'evidence', 'pattern',
+                'statement', 'hint', 'stub', 'harness', 'types', 'video', 'wrap')}
+        href, num, exact, lc_note = LC.entry(LC.PRACTICE, p['id'])
+        row['lc'] = {'url': href, 'num': num, 'exact': exact, 'note': lc_note}
+        data.append(row)
 
     payload = 'var PRELUDE = %s;\nvar PROBLEMS = %s;\n' % (
         json.dumps(PRELUDE), json.dumps(data))

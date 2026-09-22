@@ -6,6 +6,7 @@ from coding_problems import PROBLEMS as _PROBLEMS, BANK
 from coding_official import OFFICIAL_PROBLEMS
 from coding_drills import DRILLS as CODING_DRILLS
 from coding_linkedin import LINKEDIN_PROBLEMS
+import leetcode as LC
 PROBLEMS = OFFICIAL_PROBLEMS + LINKEDIN_PROBLEMS + CODING_DRILLS + _PROBLEMS
 
 PRIO_LABEL = {'p0': 'P0 · do first', 'p1': 'P1 · then these', 'p2': 'P2 · if time'}
@@ -105,6 +106,7 @@ def build():
         reported = 'yes' if any(k in pr['why'].lower() for k in ['reported', 'tag list']) else 'no'
         meta = tag({'warm': 'p2', 'med': 'p1', 'hard': 'p0'}[pr['level']], LEVEL_LABEL[pr['level']])
         if reported == 'yes': meta += tag('new', 'reported')
+        meta += LC.chip(LC.CODING, pr['id'])        # run it on the real judge
         block = practice(pid, titled(pr['title'], pr['topic']),
                          [note(pr['why'], '', 'Why this problem')] + stages, meta, label=pr['title'])
         prob_html += block.replace('<details class="acc"',

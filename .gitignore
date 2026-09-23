@@ -8,6 +8,7 @@ ddia*.txt
 # ~5 GB per course build, all reproducible from video/*/: plan, render, encode.
 video/build/
 video/build-coding/
+video/build-design/
 
 # Python bytecode
 __pycache__/

@@ -84,7 +84,7 @@
               '<span class="tag hi">' + esc(p.diff) + '</span>' +
               '<span class="pr-ev">' + esc(p.evidence) + '</span></div>' +
             '</div>' +
-            videoLink(p) +
+            '<div class="pr-links">' + leetLink(p) + videoLink(p) + '</div>' +
           '</div>' +
           '<div class="pr-statement">' + p.statement +
             '<details class="pr-hint"><summary>Hint</summary><div>' + esc(p.hint) + '</div></details>' +
@@ -104,6 +104,20 @@
     probeEngine();
   }
 
+  /* LeetCode is where you can run these anywhere. Exact matches link straight
+     through; near relatives say so rather than pretending to be the same question. */
+  function leetLink(p) {
+    var lc = p.lc || {};
+    if (lc.url) {
+      var label = lc.exact ? 'Run on LeetCode ' + lc.num : 'LeetCode ' + lc.num + ' (closest)';
+      return '<a class="pr-lc" href="' + lc.url + '" target="_blank" rel="noopener" title="' +
+             esc(lc.note || 'Opens on LeetCode, where you can run it against their judge') +
+             '">' + label + ' \u2197</a>';
+    }
+    if (lc.note) return '<span class="pr-lc none" title="' + esc(lc.note) + '">not on LeetCode</span>';
+    return '';
+  }
+
   /* The built videos are ~5 GB and deliberately not in git, so they exist only
      on the machine that built them. Offer the link there, and say so elsewhere. */
   function videoLink(p) {
@@ -121,14 +135,9 @@
   function probeEngine() {
     var el = document.getElementById('pr-engine');
     if (!el) return;
-    if (location.protocol === 'file:') {
-      el.className = 'pr-engine warn';
-      el.innerHTML = 'No runner: open via <code>python3 companies/linkedin/runner.py</code> ' +
-                     'or the deployed site';
-      return;
-    }
     el.className = 'pr-engine';
-    el.textContent = 'engine: checking…';
+    el.innerHTML = 'Runs on your machine via <code>python3 companies/linkedin/runner.py</code>. ' +
+                   'Anywhere else, use the LeetCode link.';
   }
 
   function showEngine(r) {
@@ -172,11 +181,12 @@
       .then(function (r) { return r.json().catch(function () { throw new Error('runner returned non-JSON (status ' + r.status + ')'); }); })
       .then(function (r) { show(r, Date.now() - t0); })
       .catch(function (e) {
-        var hint = location.protocol === 'file:'
-          ? 'This page was opened from a file, so there is no runner. Start it with ' +
-            '<code>python3 companies/linkedin/runner.py</code> and use the localhost URL it prints.'
-          : 'Could not reach the runner. ' + esc(e.message);
-        out.innerHTML = '<div class="pr-err"><b>No runner</b><p>' + hint + '</p></div>';
+        var lc = (byId(current) || {}).lc || {};
+        out.innerHTML = '<div class="pr-err"><b>No local runner</b>' +
+          '<p>Code runs on your own machine, not on the deployed site. Start it with ' +
+          '<code>python3 companies/linkedin/runner.py</code> and open the localhost URL it prints.' +
+          (lc.url ? ' Or <a href="' + lc.url + '" target="_blank" rel="noopener">run it on LeetCode</a>.' : '') +
+          '</p></div>';
       })
       .then(function () {
         running = false;

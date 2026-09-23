@@ -6,12 +6,14 @@ Each problem supplies a C# stub and a harness; the page assembles
 
     PRELUDE + types + "class Solution { <your code> }" + "Main { <harness> }"
 
-and posts it to /api/run, which is the local dotnet runner or the Vercel function.
+and posts it to the local runner (companies/linkedin/runner.py), which compiles it
+with the reader's own dotnet. There is no hosted execution: away from that machine the
+page offers the LeetCode link instead.
 The harness prints one @@T line per case, which the page renders as a results table.
 
-Everything is C# 7.0-compatible on purpose: the free remote engine is Mono pinned to
-that spec, so "is not null", target-typed "new()" and switch expressions would not
-compile there. Locally (dotnet 10) anything goes.
+Harness code stays conservative C# (no "is not null", no target-typed "new()") so it
+compiles on older toolchains too. Your own solutions can use whatever your dotnet
+supports.
 """
 import json, os
 import lib
@@ -452,17 +454,16 @@ def build():
     body = sec('how', 'How this works',
         card(rich(
           'Pick a problem, write C# in the editor, press **Run** (or &#8984;&#8629;). The page '
-          'assembles a complete program &mdash; your `Solution` class plus a generated test harness '
-          '&mdash; and sends it to a compiler.\n\n'
-          '**Locally** that is your own dotnet, which means real compiler errors and full modern C#. '
-          'Start it with:\n')) +
+          'assembles a complete program &mdash; your code plus a generated test harness &mdash; '
+          'compiles it with **your own dotnet**, and shows each case with what it expected and '
+          'what it got. The tests include the edge cases the matching lesson calls out.\n\n'
+          'Execution is local, so start the runner and use the URL it prints:\n')) +
         '<div class="codeblock"><pre>python3 companies/linkedin/runner.py</pre></div>' +
         note(rich(
-          '**On the deployed site** there is no .NET, so code runs on a free public engine '
-          '(Judge0, Mono) that is pinned to the **C# 7.0** specification. `is not null`, '
-          'target-typed `new()` and switch expressions will not compile there &mdash; they are fine '
-          'locally. The engine in use is shown next to the Run button.'), kind='warn',
-          label='Two engines, one caveat'),
+          '**Anywhere else &mdash; including the deployed site &mdash; there is no compiler.** '
+          'Every problem carries a **LeetCode link** instead, which runs against their judge and '
+          'needs nothing installed. A few questions are LinkedIn-only and have no LeetCode '
+          'equivalent; those say so.'), kind='', label='Away from your machine'),
         kicker='Practice', why='Write it, run it, see which edge case you missed')
 
     body += ('<section class="sec" id="sec-run"><div class="sec-h"><div>'
@@ -474,6 +475,7 @@ def build():
     return lib.page('07-practice.html', 'Code practice',
         'Write and run C# against the reported LinkedIn questions, with the edge cases from each lesson as tests.',
         body, crumb_tail='Code practice', autonav=False,
-        hero_chips=[('', '%d problems' % len(PROBLEMS)), ('', 'C#'), ('', 'runs locally or on Vercel')],
+        hero_chips=[('', '%d problems' % len(PROBLEMS)), ('', 'C#'),
+                    ('', 'runs locally, or on LeetCode')],
         extra_head='<link rel="stylesheet" href="assets/practice.css">',
         tail_scripts=['assets/problems.js', 'assets/practice.js'])

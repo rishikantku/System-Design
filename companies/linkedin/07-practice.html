@@ -24,6 +24,7 @@
   <h4>Course</h4>
   <a href="06-coding-course.html">◆ Video coding course</a>
   <a href="07-practice.html">◆ Code practice</a>
+  <a href="08-worked-questions.html">◆ Worked questions</a>
   <h4>Research</h4>
   <a href="05-research.html">◆ Recent interview research</a>
   <h4>Data</h4>
@@ -36,12 +37,12 @@
   <span class="kicker" style="color:#8ec5ff">Code practice</span>
   <h1>Code practice</h1>
   <p class="sub">Write and run C# against the reported LinkedIn questions, with the edge cases from each lesson as tests.</p>
-  <div class="chips"><span class="chip ">24 problems</span><span class="chip ">C#</span><span class="chip ">runs locally or on Vercel</span></div>
+  <div class="chips"><span class="chip ">24 problems</span><span class="chip ">C#</span><span class="chip ">runs locally, or on LeetCode</span></div>
 </div>
-<section class="sec" id="sec-how"><div class="sec-h"><div><span class="kicker">Practice</span><h2 id="how">How this works</h2></div><span class="why">Write it, run it, see which edge case you missed</span></div><div class="card ">Pick a problem, write C# in the editor, press <b>Run</b> (or &amp;#8984;&amp;#8629;). The page assembles a complete program &amp;mdash; your <code>Solution</code> class plus a generated test harness &amp;mdash; and sends it to a compiler.
+<section class="sec" id="sec-how"><div class="sec-h"><div><span class="kicker">Practice</span><h2 id="how">How this works</h2></div><span class="why">Write it, run it, see which edge case you missed</span></div><div class="card ">Pick a problem, write C# in the editor, press <b>Run</b> (or &amp;#8984;&amp;#8629;). The page assembles a complete program &amp;mdash; your code plus a generated test harness &amp;mdash; compiles it with <b>your own dotnet</b>, and shows each case with what it expected and what it got. The tests include the edge cases the matching lesson calls out.
 
-<b>Locally</b> that is your own dotnet, which means real compiler errors and full modern C#. Start it with:
-</div><div class="codeblock"><pre>python3 companies/linkedin/runner.py</pre></div><div class="note warn"><span class="lbl">Two engines, one caveat</span><b>On the deployed site</b> there is no .NET, so code runs on a free public engine (Judge0, Mono) that is pinned to the <b>C# 7.0</b> specification. <code>is not null</code>, target-typed <code>new()</code> and switch expressions will not compile there &amp;amp;mdash; they are fine locally. The engine in use is shown next to the Run button.</div></section><section class="sec" id="sec-run"><div class="sec-h"><div><span class="kicker">Runner</span><h2 id="run">Problems</h2></div><span class="why">24 problems from the reported set &middot; C# &middot; tests include the edge cases each lesson names</span></div><div id="practice"></div></section>
+Execution is local, so start the runner and use the URL it prints:
+</div><div class="codeblock"><pre>python3 companies/linkedin/runner.py</pre></div><div class="note "><span class="lbl">Away from your machine</span><b>Anywhere else &amp;amp;mdash; including the deployed site &amp;amp;mdash; there is no compiler.</b> Every problem carries a <b>LeetCode link</b> instead, which runs against their judge and needs nothing installed. A few questions are LinkedIn-only and have no LeetCode equivalent; those say so.</div></section><section class="sec" id="sec-run"><div class="sec-h"><div><span class="kicker">Runner</span><h2 id="run">Problems</h2></div><span class="why">24 problems from the reported set &middot; C# &middot; tests include the edge cases each lesson names</span></div><div id="practice"></div></section>
 <div class="foot">Built from your own prep material plus public interview reports · research last updated 21 September 2026 ·
 progress is stored in this browser only.</div>
 </main></div>

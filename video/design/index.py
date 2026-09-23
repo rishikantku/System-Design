@@ -50,6 +50,32 @@ LESSONS = [
                     latest='September 2025', level='Senior SWE and unspecified',
                     conf='HIGH &mdash; upgraded in research pass 3',
                     sources='Blind &times;2, Glassdoor')),
+
+ # ---------------- chapter 3: distributed infrastructure ----------------
+ dict(id='s3l1-search', chapter='m3', module='s3l1_search',
+      title='Design a distributed search index',
+      file='LinkedIn-Design-3.1-Distributed-Search', mins=30,
+      pattern='Inverted index &middot; sharding &middot; scatter-gather &middot; near-real-time',
+      evidence=dict(reports='1 first-hand report, with real detail',
+                    latest='12 May 2025', level='Staff Engineer',
+                    conf='HIGH', sources='Taro &mdash; Staff loop, India')),
+
+ dict(id='s3l2-scheduler', chapter='m3', module='s3l2_scheduler',
+      title='Design a distributed job scheduler',
+      file='LinkedIn-Design-3.2-Job-Scheduler', mins=30,
+      pattern='Time-ordered work &middot; exactly-once &middot; leases &middot; clock skew',
+      evidence=dict(reports='1 first-hand report from an Infrastructure loop',
+                    latest='30 Sep 2025', level='Senior SWE, Infrastructure',
+                    conf='HIGH', sources='Blind &mdash; Infrastructure interview')),
+
+ dict(id='s3l3-queue', chapter='m3', module='s3l3_queue',
+      title='Design a Kafka-like distributed message queue',
+      file='LinkedIn-Design-3.3-Message-Queue', mins=32,
+      pattern='Partitioned log &middot; replication &middot; consumer groups &middot; delivery semantics',
+      evidence=dict(reports='2 independent reports',
+                    latest='June 2025', level='Staff SWE',
+                    conf='HIGH &mdash; and LinkedIn wrote Kafka',
+                    sources='LeetCode Discuss, Blind ID3 thread')),
 ]
 
 CHAPTERS = {
@@ -59,13 +85,13 @@ CHAPTERS = {
  'm2': dict(num=2, title='The reported LinkedIn questions',
             why='The three with the strongest evidence: the question LinkedIn published '
                 'itself, and the two with three independent candidate reports each.'),
+ 'm3': dict(num=3, title='Distributed infrastructure',
+            why='The three remaining HIGH-confidence questions, and the ones closest to the '
+                'Infrastructure round: search, scheduling and the log. All three are lower-stack '
+                'than the product questions, which is what infra candidates report facing.'),
 }
 
-# Built after the pilot is reviewed, in research-priority order.
 PLANNED = [
- ('Distributed inverted index / search', 'HIGH · Staff report, May 2025'),
- ('Job scheduler', 'HIGH · Senior Infra report, Sep 2025'),
- ('Kafka-like message queue', 'HIGH · 2 reports · the house speciality'),
  ('News feed', 'MEDIUM · recurring via aggregators'),
  ('Rate limiter', 'MEDIUM · recent single report'),
  ('In-memory cache with configurable eviction', 'MEDIUM · straddles the coding round'),

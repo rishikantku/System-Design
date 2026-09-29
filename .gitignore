@@ -19,3 +19,5 @@ companies/linkedin/client_secret.json
 video/coding/client_secret.json
 video/coding/upload-token.json
 video/coding/upload-state.json
+companies/linkedin/src/cs/**/bin/
+companies/linkedin/src/cs/**/obj/

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """05-research.html — the research layer, updated independently of the prep content."""
+import lib
 from lib import *
 import research as R1
 import research2 as R2
@@ -43,9 +44,9 @@ def build():
         'your own collection. Preparation guides, "top LinkedIn questions" articles and recruiter advice are never counted as '
         'reports — they sit in the <a href="#sec-general">general topics</a> section instead.</p>'
         + table(['Label', 'Means'], [
-            ['%s <b>HIGH</b>' % tag('hi', 'conf'), 'Several independent recent reports, or supplied by you first-hand'],
-            ['%s <b>MEDIUM</b>' % tag('med', 'conf'), 'One strong recent report, or several older ones'],
-            ['%s <b>LOW</b>' % tag('low', 'conf'), 'Single report, thin detail, or old'],
+            [lib.Raw('%s <b>HIGH</b>' % tag('hi', 'conf')), 'Several independent recent reports, or supplied by you first-hand'],
+            [lib.Raw('%s <b>MEDIUM</b>' % tag('med', 'conf')), 'One strong recent report, or several older ones'],
+            [lib.Raw('%s <b>LOW</b>' % tag('low', 'conf')), 'Single report, thin detail, or old'],
             ['<b>recurring</b>', 'Two or more <i>independent</i> sources — copies of the same original report do not count twice'],
             ['<b>single</b>', 'One source. Useful practice, not a pattern'],
         ]), title='How to read this'),
@@ -93,7 +94,7 @@ def build():
             (q['q'][:28].lower().replace(' ', '-').replace('`', '')), rnd, _year(q), q['conf'], q['rec'],
             'staff' if 'Staff' in q['level'] else ('senior' if 'Senior' in q['level'] else 'other'),
             'india' if 'India' in q['loc'] else ('us' if 'United States' in q['loc'] or 'US' in q['loc'] else 'other'),
-            ROUND_LABEL[rnd], esc(q['q']), lc, fu, extra, covered, q['reports'], _src_links(q['src']),
+            ROUND_LABEL[rnd], rich(q['q']), lc, fu, extra, covered, q['reports'], _src_links(q['src']),
             esc(q['date']), esc(q['level']), esc(q['loc']), esc(q['pattern']),
             tag(CONF_CLS[q['conf']], q['conf']), tag('new' if q['rec'] == 'recurring' else 'low', q['rec']))
 
@@ -120,7 +121,7 @@ def build():
         for i, q in enumerate(items, 1):
             lcs = ' <span class="src">(LC %d)</span>' % q['lc'][1] if q['lc'] else ''
             li += '<li><b>%s</b>%s — %s %s %s</li>' % (
-                esc(q['q']), lcs, esc(q['pattern']),
+                rich(q['q']), lcs, esc(q['pattern']),
                 tag(CONF_CLS[q['conf']], q['conf']), tag('new' if q['rec'] == 'recurring' else 'low', q['rec']))
         return card('<p>%s</p><ol>%s</ol>' % (rich(note_text), li), title=title)
 
@@ -155,9 +156,9 @@ def build():
         '<b>%d of %d are covered</b> — most of them because your own list drove the new Staff Coding problems.</p>' % (
             len(covered), len(ALL)) +
         table(['Status', 'Questions', 'Action'], [
-            ['%s <b>Covered</b>' % tag('hi', 'ok'), '%d' % len(covered),
+            [lib.Raw('%s <b>Covered</b>' % tag('hi', 'ok')), '%d' % len(covered),
              'Worked in full in the round pages, with follow-ups and self-evaluation'],
-            ['%s <b>Not covered</b>' % tag('p0', 'gap'), '%d' % len(missing),
+            [lib.Raw('%s <b>Not covered</b>' % tag('p0', 'gap')), '%d' % len(missing),
              'Listed below with what I did about each'],
         ]) +
         '<h4>What was missing, and what I added</h4>' +

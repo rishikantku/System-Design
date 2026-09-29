@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import lib
 from lib import *
 import research as R
 
@@ -73,10 +74,10 @@ def build():
     _mins = sum(l['mins'] for l in _reg.LESSONS)
     course_cta = card(
         '<p class="lead">A narrated video course for the coding round, built from the researched question distribution '
-        '&mdash; one short video per pattern, not one long file.</p>'
-        '<p><b>%d lessons written</b> across chapters 1&ndash;3 (trees, graphs, and how the round works), about %d minutes, '
+        '— one short video per pattern, not one long file.</p>'
+        '<p><b>%d lessons written</b> across chapters 1–3 (trees, graphs, and how the round works), about %d minutes, '
         '%d already rendered to video. Every lesson runs the same eighteen beats and every solution is in C#.</p>'
-        '<p><a class="tbtn pri" href="06-coding-course.html">Open the video course &rarr;</a></p>'
+        '<p><a class="tbtn pri" href="06-coding-course.html">Open the video course →</a></p>'
         % (len(_reg.LESSONS), _mins, len(_built)),
         title='Video coding course')
 
@@ -89,8 +90,8 @@ def build():
         title='Pass 2 · the master question database')
 
     conf_key = note(
-        '<b>A</b> — first-hand report with specifics, 2025–2026. &nbsp; '
-        '<b>B</b> — aggregator or guide summarising candidate reports, or a thin first-hand report. &nbsp; '
+        '<b>A</b> — first-hand report with specifics, 2025–2026.   '
+        '<b>B</b> — aggregator or guide summarising candidate reports, or a thin first-hand report.   '
         '<b>C</b> — single source, undated or older, or a category inferred from guides. '
         'Nothing here is confirmed by LinkedIn. Recent candidates reported these; that makes them preparation signals, not predictions.',
         'warn', 'How to read confidence')
@@ -123,7 +124,7 @@ def build():
             '<tr data-id="qdb-%d" data-round="%s" data-year="%s" data-rec="%s" data-conf="%s" data-loc="%s" data-prep="no">'
             '<td><b>%s</b></td>'
             '<td><b>%s</b><div class="src" style="margin-top:4px">%s</div>'
-            '<details class="acc" style="margin:8px 0 0"><summary><span class="sq">Follow-ups &amp; what to practise</span></summary>'
+            '<details class="acc" style="margin:8px 0 0"><summary><span class="sq">Follow-ups & what to practise</span></summary>'
             '<div class="body">%s<p style="margin-top:8px"><b>Pattern:</b> %s<br><b>Practise:</b> %s</p></div></details></td>'
             '<td>%s</td><td>%s<div class="src">%s</div></td><td>%s</td><td>%s</td>'
             '<td><button class="sbtn qprep" data-qid="qdb-%d">Mark practised</button></td></tr>'
@@ -226,7 +227,7 @@ def build():
             '<a class="card round" href="%s"><div class="num">%d MINUTES%s</div><div class="rt">%s</div>'
             '<div class="rd">%s</div>%s<div class="meta" style="margin-top:10px">Scored on: %s</div></a>' % (
                 page_for, m['mins'], ' · AI ASSISTED' if m['ai'] else '', esc(m['name']),
-                esc(m['what'][:205] + ('…' if len(m['what']) > 205 else '')), ex,
+                lib.plain(m['what'][:205] + ('…' if len(m['what']) > 205 else '')), ex,
                 esc(', '.join(x.replace('**', '') .split(' — ')[0] for x in m['evaluated'][:4]))))
 
     role = R.OFFICIAL_ROLE
@@ -311,7 +312,7 @@ def build():
         var html = '<p class="lead">A focused session built from your weakest areas right now. Work top to bottom.</p><ul class="plan">';
         out.forEach(function(o){
           html += '<li><span class="t">'+o.mins+' min — '+ROUND_NAMES[o.r]+'</span> <span class="src">('+o.pct+'% ready · weakest: '+
-                  (o.topic||'—')+')</span><br>'+o.what+' &nbsp;<a href="'+LP.manifest.rounds[o.r].file+'">open →</a></li>';
+                  (o.topic||'—')+')</span><br>'+o.what+'  <a href="'+LP.manifest.rounds[o.r].file+'">open →</a></li>';
         });
         html += '<li><span class="t">15 min — Revision</span><br>'+
                 (revise.length? revise.length+' item(s) marked "needs revision" or "failed" across the workspace — redo them from scratch.'

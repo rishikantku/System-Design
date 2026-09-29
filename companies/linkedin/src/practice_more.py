@@ -157,7 +157,7 @@ H.Case("negatives", -8, delegate {
  _P(id='compact-tree', title='Compact a tree', lesson='2.4', chapter='Ch 2',
     diff='Medium', evidence='LinkedIn phone-screen write-up', pattern='Bottom-up rebuild',
     video='c2l4-nested-sum/LinkedIn-Coding-2.4-Nested-And-Compact.mp4', types=COMPACT,
-    statement='<p><b>The reported wording was ambiguous</b> &mdash; the lesson is about asking which '
+    statement='<p><b>The reported wording was ambiguous</b> — the lesson is about asking which '
               'meaning is wanted. Here is one precise version to implement:</p>'
               '<p>A node is <i>structural</i> when its <code>Payload</code> is null. Collapse every '
               'structural node that has exactly one child, merging its label into that child as '
@@ -273,7 +273,7 @@ H.Case("20k operations still correct", true, delegate {
               '<p><code>Insert(val)</code> adds a value and returns whether it was newly present. '
               '<code>Remove(val)</code> removes <i>one</i> occurrence and returns whether anything '
               'was removed. <code>GetRandom()</code> returns a value where <b>every element</b> is '
-              'equally likely &mdash; so with [4,4,9], 4 must come back two thirds of the time.</p>',
+              'equally likely — so with [4,4,9], 4 must come back two thirds of the time.</p>',
     hint='A hash set cannot be indexed. Keep a dense array and remove by swapping with the last element.',
     stub='''public class RandomizedCollection {
 
@@ -407,8 +407,8 @@ H.Case("busiest key survives", 1, delegate { return m.Get(1); });'''),
     diff='Hard', evidence='Your list, first-hand', pattern='Prefix sums · fixed window',
     video='c6l2-booths/LinkedIn-Coding-6.2-Booths-Experience-Factor.mp4',
     statement='<p>A row of booths, each holding some drones and some robots. The experience factor '
-              'of a range is <b>(drones in it) &times; (robots in it)</b>.</p>'
-              '<p>The original question was ambiguous &mdash; the lesson is about naming that. Here '
+              'of a range is <b>(drones in it) × (robots in it)</b>.</p>'
+              '<p>The original question was ambiguous — the lesson is about naming that. Here '
               'is the well-defined version: return the largest factor over any range of '
               '<b>exactly k</b> consecutive booths.</p>',
     hint='Slide a window of width k over both quantities at once. And the product overflows int.',
@@ -432,7 +432,7 @@ H.Case("overflows int", 1000000000000L, delegate { return new Solution().BestOfW
     statement='<p>Among n people there may be one celebrity: known by <b>everyone else</b>, and '
               'knowing <b>nobody</b>. You may only call <code>Knows(a, b)</code>, and calls are '
               'expensive. Return the celebrity, or &minus;1 if there is none.</p>'
-              '<p>The tests also check your <b>call count</b> &mdash; a quadratic solution fails '
+              '<p>The tests also check your <b>call count</b> — a quadratic solution fails '
               'the last case even though it returns the right answer.</p>',
     hint='Every call eliminates exactly one candidate, whichever way it answers. Then verify the survivor.',
     stub='''public class Solution : Relation {
@@ -487,7 +487,7 @@ H.CaseCheck("uses O(n) calls, not O(n^2)", "under 3n calls", delegate {
               '<i>"now make it thread-safe."</i></p>'
               '<p>Implement a small counter cache that is correct under concurrent use. '
               '<code>Add(key)</code> increments a key, <code>Get(key)</code> reads it, and '
-              '<code>Total()</code> returns the sum of all counts &mdash; which must never observe '
+              '<code>Total()</code> returns the sum of all counts — which must never observe '
               'a half-finished update.</p>',
     hint='Name the invariant before reaching for a primitive. A concurrent collection makes each ACCESS atomic, not each OPERATION.',
     stub='''public class SafeCounters {

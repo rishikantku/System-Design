@@ -318,9 +318,10 @@ coding, AI coding, system design, hiring manager. Five pages plus shared assets:
 | `02-ai-coding.html` | The AI-enabled round: reported format and rubric, 22 AI-engineering concepts, 11 C# exercises, 2 progressive-requirement simulations, 2 mocks |
 | `03-system-design.html` | 16-step framework, numbers, staff lens, 8 interactive designs (the page asks before it tells), catalogue linking the guide's 26 designs, 3 mocks |
 | `04-hiring-manager.html` | 12-story bank **built only from `specialization-aic.html`**, 20 behavioural questions, craftsmanship round, Why-LinkedIn worksheet, 3 mocks |
+| `09-question-bank.html` | **The InterviewDB set.** 17 questions, each run through the same 14 parts, all C#. Has its own subsection below |
 | `assets/prep.css`, `assets/prep.js` | Shared visual language and the state engine |
 | `assets/manifest.js` | Generated: every trackable item with round, topic, weight. The dashboard computes readiness from this plus localStorage |
-| `src/*.py` | The generators. `python3 src/build.py` rewrites all five pages and the manifest. `coding_official.py` + `coding_drills.py` (Staff Coding), `aicoding_drills.py` (CWAI DS&A drills), `sysdesign_official.py` + `sysdesign_infra.py` (design) hold the content added after the pack arrived |
+| `src/*.py` | The generators. `python3 src/build.py` rewrites **every** page and the manifest. `coding_official.py` + `coding_drills.py` (Staff Coding), `aicoding_drills.py` (CWAI DS&A drills), `sysdesign_official.py` + `sysdesign_infra.py` (design) hold the content added after the pack arrived |
 
 **State model.** Everything is stored in `localStorage` under `lp.v1` (`items`, `mocks`, `log`).
 Chromium shares `file://` storage across the folder, so the dashboard sees what the round pages
@@ -396,6 +397,100 @@ work, only `encode` fails.
 `video/coding/index.py` directly and marks a lesson READY only when its MP4 exists on disk, so the
 page cannot claim a video that was never built. It is `06-coding-course.html`, linked from the
 sidebar of every workspace page and from a card on the dashboard.
+
+### `09-question-bank.html` — the InterviewDB set
+
+The reader bought access to interviewdb.io and supplied **17 LinkedIn coding questions** with
+their original wording. This page works each one end to end. It is what the backlog table on
+`08-worked-questions.html` said it was waiting for, and it resolves several of that page's
+guesses — *Tree Fusion* really was a keyed tree merge, *Word Transformation* really was Word
+Ladder, *Interval Tree* really was the covered-size structure. *Alive Cache*, *Number of
+Clouds*, *Minimize Points Distance* and *Config Validator* are still unrecovered; that table
+stays.
+
+**Every question runs the same fourteen parts, in this order**, and the renderer asserts it:
+
+```
+question · understanding · examples · key observation · brute force · optimal approach ·
+walkthrough · C# · code walkthrough · complexity · edge cases · follow-ups ·
+what the interviewer is testing · how I would explain it
+```
+
+| File | Holds |
+|---|---|
+| `src/qbank.py` | The renderer, the page CSS, the 13 interview patterns, 8 C# templates, the mocks. `build()` asserts 17 questions, ids unique, numbers 1–17, all 14 parts present, and every code reference resolving |
+| `src/qbank_data.py` | Q1–Q9 |
+| `src/qbank_data2.py` | Q10–Q17 |
+| `src/qbank_lc.py` | The verified LeetCode table: 42 supplied numbers + 11 closest-twin rows |
+| `src/cs/qbank/*.cs` | **The C#.** 17 solution files + `Tests.cs`. `dotnet run -c Release` → 269 assertions |
+
+**The listings on the page are read from `src/cs/qbank/` at build time** by `qbank_cs.py`, which
+brace-matches a type or a member out of the source. So a listing cannot drift from code that was
+compiled and tested. Reference a type as `('caption', 'Q07_Scheduler.cs', 'DelayScheduler')` and
+a single member as `('caption', 'Q03_Island.cs', 'ArtificialIsland|public static int MaxIslandCircular')`
+— the dispatch is on `'|' in member`, **not** on `'(' in member`, which was wrong first time and
+silently sent a member lookup down the type path.
+
+**The tests are not decoration.** Three are property tests — the covered-size structure against a
+brute-force bitmap over 300 random trials, the four island variants against brute force over every
+window across 3,000 trials, the tournament tree against its own sorted leaves over 500 random
+tournaments. Writing them found **one real bug and two wrong expectations of mine**: `TaskManager.
+AddTask` overwrote an existing task's dependency edges instead of unioning them, so a cycle closed
+across two `AddTask` calls went undetected. Both are documented on the page rather than quietly
+fixed — "my first answer was wrong here" is worth more to revise than a clean page.
+
+**Rules for this page**
+
+- **All solutions in C#**, on the reader's instruction. No Java or Python primary implementations.
+- **The statement is preserved verbatim** in part 1, and everything after it is labelled as my
+  explanation. Where the statement is ambiguous or contradicts itself, the page says so instead
+  of silently choosing — Q6's description excludes the `+` in its own example, Q9 asks for an
+  O(log n) insert that is only achievable amortised, Q15's interface cannot make progress
+  because it has no completion signal.
+- **Where sources disagree, both are kept.** LeetCode 127 returns the word count and Q8 returns
+  the edge count; the page states it and the test asserts the edge count with the difference in
+  the assertion message.
+- **No question is claimed to be guaranteed.** Priority is evidence-weighted, not
+  difficulty-weighted, and is justified per question against the research already in the
+  workspace. 10 HIGH / 5 MEDIUM / 2 LOWER.
+- **`695 Max Area of Island` is a name collision, not a match** for Q3 "Artificial Island". 695 is
+  2-D flood fill; Q3 is a 1-D sliding window. The real twin is 1004, which is not in the supplied
+  list. The page says so twice.
+
+**Verifying the LeetCode table.** All 53 rows (42 supplied + 11 twins) were checked against
+LeetCode's own index, not typed from memory:
+
+```python
+# https://leetcode.com/api/problems/all/  → 4,068 problems
+# assert number, title, slug, difficulty and paid_only all match qbank_lc.ROWS + MISSING
+```
+
+That found one wrong premium flag (1117 is not premium). **Do not try to verify these with
+curl** — leetcode.com returns 403 to every request including nonexistent slugs, so a status code
+proves nothing in either direction. The index API is the check.
+
+### The four `lib.py` rendering bugs fixed while building it
+
+All four were pre-existing and silent, and all four are worth knowing because the same shapes
+recur. Baseline after the fixes: **0 visible entities, 0 literal markup, 0 NUL bytes, 0 broken
+anchors, 0 unwrapped tables, 0 overflow at 390px — on all ten pages.**
+
+| Bug | Symptom | Fix |
+|---|---|---|
+| `lib.code` number pass matched inside its own placeholders | `\x00` in the HTML and **every `//` comment dropped** from every listing — 440 on the coding page alone | Every pass now **stashes what it emits**; the look-around excludes `\x00` as well as `\w` |
+| `lib.code` keyword pass matched `class` inside the `class="t"` the type pass had just written | `<span <span class="k">class</span>="t">` in every listing mentioning a known type | Same fix — stash the emitted spans so no later pass can see them |
+| `lib.code` string pass looked for `&quot;` | `esc()` uses `quote=False`, so a quote survives as `"` and **no string literal was ever coloured** | Match a bare quote; the pass runs before any span is emitted, so there are no attributes to hit |
+| `lib.rich` had no `*italic*`, and `lib.table` escaped every cell | `*emphasis*` rendered as literal asterisks; a `<span class="tag">` in a cell rendered as visible markup | `*italic*` added after the `**bold**` pass with look-arounds that avoid multiplication and identifiers; `lib.Raw` / `lib.chip` opt a cell out of escaping |
+
+Two more traps in the same family, since they will recur:
+
+- **`lib.note()` already applies `rich()`.** `note(rich(x))` double-escapes, so every `&` in the
+  body came out as a visible `&amp;`. `lib.card`, `lib.acc` and `lib.sec` do **not** escape their
+  bodies, so `card(rich(x))` is correct — only `note` double-applies.
+- **Write real characters, not HTML entities**, in anything that passes through `rich()` or
+  `esc()`: `—` not `&mdash;`. The escape turns `&` into `&amp;` and the entity becomes visible
+  text. For a **truncated** teaser use `lib.plain()`, which strips the emphasis markers — `rich()`
+  on a cut string can leave an unmatched `**`.
 
 ### The official prep pack — authoritative
 

@@ -58,9 +58,9 @@ def build():
           'that code, time, space, follow-ups, how the interviewer may modify the question, and how to respond.\n\n'
           'There are **pause-and-think points** in every lesson. Use them. The video waits; an interviewer does not, and the '
           'only way to build the reflex is to do the thinking before you hear the answer.') ) +
-        note(rich('**Chapter order is driven by the research, not by a textbook.** Trees come before graphs because trees are '
+        note('**Chapter order is driven by the research, not by a textbook.** Trees come before graphs because trees are '
                   'the biggest reported cluster. Nothing here claims a question is guaranteed to appear — the relevance '
-                  'header on each lesson tells you exactly what the evidence is.'), kind='warn', label='Read this first'),
+                  'header on each lesson tells you exactly what the evidence is.', kind='warn', label='Read this first'),
         kicker='Video course',
         why='Short, single-pattern videos you can revise from the night before.')]
 
@@ -72,7 +72,7 @@ def build():
             if v:
                 link = '<a href="%s">▶ Watch</a>' % v['href']
                 if v['srt']:
-                    link += ' &nbsp;<a href="%s" class="dim">SRT</a>' % v['srt']
+                    link += '  <a href="%s" class="dim">SRT</a>' % v['srt']
                 link += ' <span class="dim">%d MB</span>' % v['mb']
             else:
                 link = '<span class="dim">not built yet</span>'
@@ -87,7 +87,7 @@ def build():
                 link,
             ])
         body.append(sec('ch%d' % ch['num'], 'Chapter %d · %s' % (ch['num'], ch['title']),
-            note(rich(ch['why']), kind='', label='Why this chapter is here') +
+            note(ch['why'], kind='', label='Why this chapter is here') +
             _rawtable(['Lesson', 'Runtime', 'LinkedIn relevance · evidence', 'Confidence', 'Video'],
                       rows, cls='t-course'),
             kicker='%d lessons' % len([x for x in lessons if x['chapter'] == cid])))
@@ -96,8 +96,8 @@ def build():
     prows = [['<b>Chapter %s · %s</b>' % (c.replace('c', ''), esc(t)), rich(w)] for c, t, w in planned]
     body.append(sec('planned', 'Chapters 4–10 — written next',
         _rawtable(['Chapter', 'Questions it covers'], prows, cls='t-planned') +
-        note(rich('These follow the same eighteen-beat shape. Chapter 10 is the rapid revision pass plus a **full '
-                  '50-minute mock**, timed, with the grading rubric supplied afterwards.'), kind=''),
+        note('These follow the same eighteen-beat shape. Chapter 10 is the rapid revision pass plus a **full '
+                  '50-minute mock**, timed, with the grading rubric supplied afterwards.', kind=''),
         kicker='Backlog'))
 
     # ------------------------------------------------------------------ cross links

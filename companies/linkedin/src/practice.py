@@ -186,7 +186,7 @@ PROBLEMS = [
    video='c1l2-valid-parens/LinkedIn-Coding-1.2-Valid-Parentheses.mp4',
    statement='<p>A string contains only the characters <code>( ) [ ] { }</code>. Return true if '
              'the brackets are correctly matched <b>and</b> correctly nested.</p>'
-             '<p><code>"([)]"</code> is invalid even though the counts balance &mdash; the nesting '
+             '<p><code>"([)]"</code> is invalid even though the counts balance — the nesting '
              'is crossed.</p>',
    hint='Nesting is last-in-first-out. Two checks per closing bracket, and one at the end.',
    stub='public bool IsValid(string s) {\n    \n}',
@@ -199,7 +199,7 @@ H.Case("empty string", true, delegate { return new Solution().IsValid(""); });
 H.Case("odd length (()", false, delegate { return new Solution().IsValid("(()"); });'''),
 
  P(id='find-leaves', title='Find Leaves of Binary Tree', lesson='2.1', chapter='Ch 2',
-   diff='Medium', evidence='Your list + reported twice', pattern='Trees &middot; return a height',
+   diff='Medium', evidence='Your list + reported twice', pattern='Trees · return a height',
    video='c2l1-find-leaves/LinkedIn-Coding-2.1-Find-Leaves.mp4', types=TREENODE,
    statement='<p>Repeatedly collect and remove all the leaves of a binary tree, until the tree is '
              'empty. Return the groups in the order they were removed.</p>'
@@ -218,7 +218,7 @@ H.Case("[1,2,3,4,null,null,5]", new int[][]{ new int[]{4,5}, new int[]{2,3}, new
     delegate { return new Solution().FindLeaves(T.Build(new int?[]{1,2,3,4,null,null,5})); });'''),
 
  P(id='upside-down', title='Binary Tree Upside Down', lesson='2.2', chapter='Ch 2',
-   diff='Medium', evidence='Your list, twice', pattern='Trees &middot; return the new root',
+   diff='Medium', evidence='Your list, twice', pattern='Trees · return the new root',
    video='c2l2-upside-down/LinkedIn-Coding-2.2-Upside-Down.mp4', types=TREENODE,
    statement='<p>Every right child in this tree is a leaf, and has a sibling. Flip the tree so that '
              'the original left spine becomes the root chain: each left child becomes the parent, '
@@ -241,7 +241,7 @@ H.Case("[1,2,3]", new object[]{2,3,1},
    statement='<p>Given a start word, an end word and a dictionary, return the number of words in the '
              'shortest transformation sequence from start to end, changing one letter at a time and '
              'using only dictionary words. Return 0 if there is no such sequence.</p>'
-             '<p>The count includes both ends: hit &rarr; hot &rarr; dot &rarr; dog &rarr; cog is 5.</p>',
+             '<p>The count includes both ends: hit → hot → dot → dog → cog is 5.</p>',
    hint='Do not compare every pair of words. Generate neighbours with a wildcard at each position.',
    stub='public int LadderLength(string beginWord, string endWord, IList<string> wordList) {\n    \n}',
    harness='''H.Case("hit -> cog", 5, delegate { return new Solution().LadderLength("hit", "cog",
@@ -256,7 +256,7 @@ H.Case("empty dictionary", 0, delegate { return new Solution().LadderLength("hit
     new List<string>()); });'''),
 
  P(id='the-maze', title='The Maze', lesson='3.2', chapter='Ch 3',
-   diff='Medium', evidence='Your list', pattern='BFS &middot; state beyond position',
+   diff='Medium', evidence='Your list', pattern='BFS · state beyond position',
    video='c3l2-the-maze/LinkedIn-Coding-3.2-The-Maze.mp4',
    statement='<p>A ball rolls through a grid of empty cells (0) and walls (1). Once it starts rolling '
              'in a direction it <b>does not stop until it hits a wall</b>. Given a start and a '
@@ -376,7 +376,7 @@ H.Case("count for \\"234\\"", 27, delegate {
     return new Solution().LetterCombinations("234").Count; });'''),
 
  P(id='bulb-switcher', title='Bulb Switcher', lesson='8.2', chapter='Ch 8',
-   diff='Medium', evidence='Your list', pattern='Maths &middot; reasoning out loud',
+   diff='Medium', evidence='Your list', pattern='Maths · reasoning out loud',
    video='c8l2-bulbs/LinkedIn-Coding-8.2-Bulb-Switcher.mp4',
    statement='<p>n bulbs start off. On pass i you toggle every i-th bulb, for i from 1 to n. '
              'How many bulbs are on at the end?</p>',
@@ -395,7 +395,7 @@ H.Case("n=1000000", 1000, delegate { return new Solution().BulbSwitch(1000000); 
    statement='<p>Given build targets and dependency pairs <code>[a, b]</code> meaning '
              '<b>a must be built before b</b>, return a valid build order. '
              'Return an empty list if the dependencies contain a cycle.</p>'
-             '<p>Any valid order is accepted &mdash; the tests check the ordering, not one answer.</p>',
+             '<p>Any valid order is accepted — the tests check the ordering, not one answer.</p>',
    hint='Kahn\'s algorithm. The cycle check is free: count what you emitted.',
    stub='public IList<string> GetBuildOrder(IList<string> targets, IList<string[]> deps) {\n    \n}',
    harness='''Func<IList<string>, IList<string[]>, string> check = delegate (IList<string> targets, IList<string[]> deps) {
@@ -454,21 +454,21 @@ def build():
     body = sec('how', 'How this works',
         card(rich(
           'Pick a problem, write C# in the editor, press **Run** (or &#8984;&#8629;). The page '
-          'assembles a complete program &mdash; your code plus a generated test harness &mdash; '
+          'assembles a complete program — your code plus a generated test harness — '
           'compiles it with **your own dotnet**, and shows each case with what it expected and '
           'what it got. The tests include the edge cases the matching lesson calls out.\n\n'
           'Execution is local, so start the runner and use the URL it prints:\n')) +
         '<div class="codeblock"><pre>python3 companies/linkedin/runner.py</pre></div>' +
-        note(rich(
-          '**Anywhere else &mdash; including the deployed site &mdash; there is no compiler.** '
+        note(
+          '**Anywhere else — including the deployed site — there is no compiler.** '
           'Every problem carries a **LeetCode link** instead, which runs against their judge and '
           'needs nothing installed. A few questions are LinkedIn-only and have no LeetCode '
-          'equivalent; those say so.'), kind='', label='Away from your machine'),
+          'equivalent; those say so.', kind='', label='Away from your machine'),
         kicker='Practice', why='Write it, run it, see which edge case you missed')
 
     body += ('<section class="sec" id="sec-run"><div class="sec-h"><div>'
              '<span class="kicker">Runner</span><h2 id="run">Problems</h2></div>'
-             '<span class="why">%d problems from the reported set &middot; C# &middot; '
+             '<span class="why">%d problems from the reported set · C# · '
              'tests include the edge cases each lesson names</span></div>'
              '<div id="practice"></div></section>' % len(PROBLEMS))
 

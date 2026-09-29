@@ -143,7 +143,7 @@ def chip(table, pid):
     """A small 'run it on LeetCode' link, or a muted note when there is nothing to link."""
     href, num, exact, note = entry(table, pid)
     if href:
-        label = 'LeetCode %s' % num if exact else 'LeetCode %s &middot; closest' % num
+        label = 'LeetCode %s' % num if exact else 'LeetCode %s · closest' % num
         title = note or 'Opens on LeetCode, where you can run it against their judge'
         return ('<a class="lc" href="%s" target="_blank" rel="noopener" title="%s">%s &#8599;</a>'
                 % (href, note.replace('"', "'") if note else title, label))

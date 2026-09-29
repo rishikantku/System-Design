@@ -16,11 +16,26 @@ def reg(round_id, item_id, topic, label, weight=1, kind='item', level=''):
 
 def esc(s): return H.escape(str(s), quote=False)
 
+def plain(s):
+    """Escaped text with the markdown emphasis markers removed.
+
+    For truncated teasers: rich() cannot be used on a cut string because the cut can leave an
+    unmatched ** pair, which then renders as literal asterisks.
+    """
+    s = re.sub(r'\*\*(.+?)\*\*', r'\1', str(s))
+    s = re.sub(r'(?<![*\w])\*(?!\s)([^*\n]+?)(?<!\s)\*(?![*\w])', r'\1', s)
+    return esc(s)
+
+
 def rich(s):
     """**bold**, `code`, [text](url) -> html"""
     s = esc(s)
     s = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2" target="_blank" rel="noopener">\1</a>', s)
     s = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', s)
+    # *italic*, after bold so the ** pairs are already gone. The look-arounds keep it away from
+    # multiplication (`2 * 3` has a space after the star) and from identifiers (`a*b*c`). Every
+    # module in this directory writes *emphasis* expecting it to render; it never did.
+    s = re.sub(r'(?<![*\w])\*(?!\s)([^*\n]+?)(?<!\s)\*(?![*\w])', r'<i>\1</i>', s)
     s = re.sub(r'`([^`]+)`', r'<code>\1</code>', s)
     # allow a tiny inline whitelist to survive escaping
     for tag_ in ('b', 'i', 'br', 'code', 'small'):
@@ -32,19 +47,46 @@ CS_KW = r'\b(public|private|protected|internal|static|readonly|const|class|struc
 CS_TY = r'\b(List|Dictionary|HashSet|Queue|Stack|IEnumerable|IEnumerator|IList|IDictionary|SortedSet|SortedDictionary|LinkedList|LinkedListNode|PriorityQueue|Span|Memory|StringBuilder|Array|Math|Console|Exception|ArgumentException|InvalidOperationException|CancellationToken|ConcurrentDictionary|SemaphoreSlim|ReaderWriterLockSlim|Interlocked|Volatile|Channel|ValueTask|HttpClient|JsonSerializer|Guid|DateTime|TimeSpan|Random|Comparer|IComparer|Func|Action|Tuple|KeyValuePair|Stopwatch|Lazy|Nullable|Regex|Encoding|Convert|Enumerable)\b'
 
 def code(src, lang='csharp', file=None):
+    """Very small C# highlighter.
+
+    Every pass STASHES what it emits behind a \x00N\x00 placeholder, and the placeholders are
+    resolved once at the end. That is not tidiness - each pass would otherwise match inside the
+    HTML the previous pass wrote:
+
+      * the keyword pass matched the word `class` inside the `class="t"` attribute the type pass
+        had just emitted, producing `<span <span class="k">class</span>="t">` in every listing
+        that mentioned a known type;
+      * the number pass matched the digits inside the placeholders themselves, which broke the
+        restore and left raw NUL bytes plus a dropped comment in the output.
+
+    Placeholder contents are plain escaped source, never another placeholder, so one restore
+    pass is enough.
+    """
     s = esc(src.strip('\n'))
     holes, out = [], s
+
     def stash(text):
-        holes.append(text); return '\x00%d\x00' % (len(holes) - 1)
-    out = re.sub(r'//[^\n]*', lambda m: stash('<span class="c">%s</span>' % m.group(0)), out)
-    out = re.sub(r'&quot;(?:[^&]|&(?!quot;))*?&quot;', lambda m: stash('<span class="s">%s</span>' % m.group(0)), out)
+        holes.append(text)
+        return '\x00%d\x00' % (len(holes) - 1)
+
+    def wrap(cls):
+        return lambda m: stash('<span class="%s">%s</span>' % (cls, m.group(0)))
+
+    out = re.sub(r'//[^\n]*', wrap('c'), out)
+    # esc() uses quote=False, so a double quote survives as `"`, not `&quot;`. The old pattern
+    # here looked for `&quot;` and therefore never fired - no string literal was ever coloured.
+    out = re.sub(r'"(?:[^"\\\n]|\\.)*"', wrap('s'), out)
     if lang == 'csharp':
-        out = re.sub(CS_TY, lambda m: '<span class="t">%s</span>' % m.group(0), out)
-        out = re.sub(CS_KW, lambda m: '<span class="k">%s</span>' % m.group(0), out)
-    out = re.sub(r'\b(\d+)\b', lambda m: '<span class="n">%s</span>' % m.group(0), out)
+        out = re.sub(CS_TY, wrap('t'), out)
+        out = re.sub(CS_KW, wrap('k'), out)
+    # The look-around must exclude \x00 as well as \w: a bare \b treats \x00 as a boundary.
+    out = re.sub(r'(?<![\x00\w])(\d+)(?![\x00\w])', wrap('n'), out)
+
     out = re.sub(r'\x00(\d+)\x00', lambda m: holes[int(m.group(1))], out)
+
     head = '<div class="code-h"><span class="fn">%s</span></div>' % esc(file) if file else ''
     return head + '<div class="code">%s</div>' % out
+
 
 # ---------------------------------------------------------------- blocks
 def tags(*items):
@@ -65,11 +107,30 @@ def card(body, cls='', title=None, id=None):
 def grid(items, cols='g2'):
     return '<div class="grid %s">%s</div>' % (cols, ''.join(items))
 
+class Raw(str):
+    """A cell or label that is already HTML.
+
+    table() runs rich() over every cell, which escapes anything outside the
+    <b> <i> <br> <code> <small> whitelist - so a <span class="tag"> passed straight in used to
+    render as visible markup rather than as a chip. Wrapping it in Raw opts out. Plain strings
+    behave exactly as before, so this is backward compatible.
+    """
+
+
+def cell(c):
+    return str(c) if isinstance(c, Raw) else rich(c)
+
+
+def chip(cls, text):
+    """A tag safe to put inside a table cell."""
+    return Raw(tag(cls, text))
+
+
 def table(headers, rows, cls=''):
-    th = ''.join('<th>%s</th>' % esc(h) for h in headers)
+    th = ''.join('<th>%s</th>' % (str(x) if isinstance(x, Raw) else esc(x)) for x in headers)
     tr = ''
     for r in rows:
-        tr += '<tr>' + ''.join('<td>%s</td>' % rich(c) for c in r) + '</tr>'
+        tr += '<tr>' + ''.join('<td>%s</td>' % cell(c) for c in r) + '</tr>'
     return '<div class="tw"><table class="%s"><thead><tr>%s</tr></thead><tbody>%s</tbody></table></div>' % (cls, th, tr)
 
 def sec(id, title, body, kicker=None, why=None):
@@ -136,7 +197,7 @@ def mock_block(item_id, question, round_name, rubric, secs=300, extra=''):
 # ---------------------------------------------------------------- page shell
 ROUNDS = [('coding', '01', 'Staff Coding', '01-coding.html'),
           ('ai', '02', 'Coding with AI', '02-ai-coding.html'),
-          ('design', '03', 'Systems &amp; Infra Design', '03-system-design.html'),
+          ('design', '03', 'Systems & Infra Design', '03-system-design.html'),
           ('hm', '04', 'Host Leader', '04-hiring-manager.html')]
 
 def page(filename, title, subtitle, body, round_id='', round_name='', crumb_tail='',
@@ -177,6 +238,7 @@ def page(filename, title, subtitle, body, round_id='', round_name='', crumb_tail
   <a href="06-coding-course.html">◆ Video coding course</a>
   <a href="07-practice.html">◆ Code practice</a>
   <a href="08-worked-questions.html">◆ Worked questions</a>
+  <a href="09-question-bank.html">◆ Question bank (17, C#)</a>
   <h4>Research</h4>
   <a href="05-research.html">◆ Recent interview research</a>
   <h4>Data</h4>

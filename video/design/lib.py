@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(HERE, '..', 'src')))
 
 import engine as E
 E.BRAND = 'LinkedIn system design &middot; Staff prep'
-from engine import (new_slide, seg, quote_slide, Diagram, travel, chapter, rich, esc)
+from engine import (new_slide, seg as _engine_seg, quote_slide, Diagram, travel, chapter, rich, esc)
 from engine import (cards as _e_cards, compare as _e_compare, table as _e_table,
                     statement as _e_statement, steps_list as _e_steps_list)
 
@@ -35,28 +35,66 @@ _ENT = {'&bull;': '\u2022', '&larr;': '\u2190', '&rarr;': '\u2192', '&mdash;': '
         '&ndash;': '\u2013', '&times;': '\u00d7', '&asymp;': '\u2248', '&middot;': '\u00b7',
         '&le;': '\u2264', '&ge;': '\u2265', '&divide;': '\u00f7', '&hellip;': '\u2026',
         '&amp;': '&', '&lt;': '<', '&gt;': '>', '&nbsp;': ' ',
-        '&ldquo;': '\u201c', '&rdquo;': '\u201d', '&micro;': '\u00b5'}
+        '&ldquo;': '\u201c', '&rdquo;': '\u201d', '&micro;': '\u00b5',
+        # Added after an entity leaked onto a rendered diagram. Anything that can appear in
+        # diagram text must be here, because _plain() is the only thing that resolves it -
+        # slide bodies go through _h(), which leaves entities for the browser to handle.
+        '&rsquo;': '\u2019', '&lsquo;': '\u2018', '&ne;': '\u2260', '&harr;': '\u2194',
+        '&uarr;': '\u2191', '&darr;': '\u2193', '&minus;': '\u2212', '&plusmn;': '\u00b1',
+        '&epsilon;': '\u03b5', '&delta;': '\u03b4', '&deg;': '\u00b0', '&sect;': '\u00a7',
+        '&sup2;': '\u00b2', '&sup3;': '\u00b3', '&frac12;': '\u00bd', '&infin;': '\u221e'}
 
 
-def _plain(s):
-    """Diagram text: entities become real characters so they survive rich()'s escaping."""
+def _ents(s):
+    """Entities to real characters. Shared by every text path."""
     s = str(s)
     for k, v in _ENT.items():
         s = s.replace(k, v)
     return s
 
 
+def _plain(s):
+    """Diagram text. Not HTML, so resolve entities and drop any tags outright."""
+    import re as _re
+    s = _ents(s)
+    s = _re.sub(r'<br\s*/?>', ' ', s)
+    return _re.sub(r'</?[a-zA-Z][^>]*>', '', s)
+
+
 
 def _md(s):
     """engine.rich() escapes everything and understands only **bold** and `mono`.
-    These lessons author HTML, so translate it into what rich() can render."""
+    These lessons author HTML, so translate it into what rich() can render.
+
+    Note the order: entities first, then tag conversion, then a final sweep for anything
+    left (a <span style=...>, say). Calling _plain() up front would strip the very tags
+    this function exists to convert - which is exactly the bug this ordering fixes.
+    """
     import re as _re
-    s = _plain(s)
+    s = _ents(s)
     s = _re.sub(r'<b>(.*?)</b>', r'**\1**', s, flags=_re.S)
     s = _re.sub(r'<code>(.*?)</code>', r'`\1`', s, flags=_re.S)
     s = _re.sub(r'<i>(.*?)</i>', r'\1', s, flags=_re.S)
-    s = s.replace('<br>', ' ').replace('<br/>', ' ')
-    return s
+    s = _re.sub(r'<br\s*/?>', ' ', s)
+    return _re.sub(r'</?[a-zA-Z][^>]*>', '', s)
+
+
+def _spoken(s):
+    """Narration goes straight to the TTS engine, so it must be plain prose.
+
+    An HTML entity or tag in a narration string is either read aloud verbatim or mangled
+    by the synthesiser. Lesson text is authored alongside HTML bodies, so entities leak in
+    easily - this makes that harmless rather than relying on discipline.
+    """
+    import re as _re
+    s = _plain(s)
+    s = _re.sub(r'<[^>]+>', '', s)
+    s = _re.sub(r'&[a-zA-Z]+;', '', s)
+    return _re.sub(r'\s+', ' ', s).strip()
+
+
+def seg(sid, step, text, **kw):
+    return _engine_seg(sid, step, _spoken(text), **kw)
 
 
 def cards(title, items, **kw):
@@ -114,7 +152,9 @@ def lesson_header(num, title, pattern, evidence, mins, narration):
 
 
 def beat(label, title, body_html, narration, kicker=None, step=0):
-    sid = new_slide(body_html, title=title, kicker=kicker or label)
+    # new_slide runs rich() over the title, which ESCAPES html - so <i>x</i> in a title
+    # rendered literally on screen. _md turns it into what rich() can actually display.
+    sid = new_slide(body_html, title=_md(title), kicker=kicker or label)
     seg(sid, step, narration)
     return sid
 
@@ -271,7 +311,8 @@ class Arch:
     """
 
     def __init__(self, title, kicker='Architecture', height=820):
-        self.D = Diagram(title, kicker=kicker, height=height)
+        # _plain the title: Diagram does not resolve entities, so `&mdash;` rendered literally.
+        self.D = Diagram(_plain(title), kicker=kicker, height=height)
         self._segs = []
 
     def box(self, id, x, y, w, h, title, sub='', kind='dp', step=0, focus=None, **kw):
@@ -280,6 +321,8 @@ class Arch:
         return id
 
     def arrow(self, a, b, step=0, focus=None, **kw):
+        if 'label' in kw:
+            kw['label'] = _plain(kw['label'])
         self.D.arrow(a, b, step=step, hl=_steps(focus), **kw)
 
     def zone(self, x, y, w, hgt, label, **kw):

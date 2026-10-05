@@ -533,6 +533,100 @@ Two more traps in the same family, since they will recur:
   text. For a **truncated** teaser use `lib.plain()`, which strips the emphasis markers — `rich()`
   on a cut string can leave an unmatched `**`.
 
+### `video/design/` — the system design course, chapters 4–10
+
+Chapters 1–3 (8 lessons) were the pilot. Chapters 4–10 cover the **21 questions the reader
+supplied from InterviewTV.io**, mapped onto the existing course rather than started fresh.
+`index.py` holds the full registry: **29 lessons, 10.3 hours**.
+
+**One video per design, 15–18 minutes**, on the reader's instruction — not one file per
+episode. A chapter is a grouping of 3–4 lessons, not a single MP4. If per-chapter files are
+ever wanted, concatenate with the same approach as `video/coding/combine.py`.
+
+| Ch | Episode | Designs |
+|---|---|---|
+| 4 | Distributed control | Rate limiter · API quota · Top-N 24h · IP denylist |
+| 5 | Text retrieval | Spell checker · Document indexing · Typeahead part 2 |
+| 6 | Storage and media | Disk KV store · Photo platform · Distributed logging |
+| 7 | Fanout and delivery | News feed · InMail · Notifications |
+| 8 | Stateful / event-sourced | CoderPad · Logistics · Calendar |
+| 9 | Intelligence, geo, trust | Job recs · Host health · Geo viz · Service permissions |
+| 10 | Patterns | The seven reusable shapes, and the tell for each |
+
+The reader's question 17 (message queue) is **already lesson 3.3** — do not rebuild it.
+Typeahead, metrics and search are also already covered; 5.3 and 9.2 are deltas on top of
+2.2 and 2.3 rather than repeats.
+
+**Each lesson runs the same blocks**, which map onto the brief the reader gave:
+`lesson_header · evidence · beat(why interesting) · think · clarify · capacity · Arch ·
+2 deep dives · tradeoff · failures · say · followups · cheatsheet · say(60-second answer)`.
+15 slides. Evidence is stated honestly per lesson and **no question is claimed to be
+guaranteed** — most of the 21 are single-source (InterviewTV only) and say so on screen.
+
+#### Four `lib.py` text-path bugs, and the rule that prevents them
+
+There are three text paths and they are **not** interchangeable. Getting them confused
+produced every rendering bug in this chapter:
+
+| Path | Used by | Rule |
+|---|---|---|
+| `_h()` | slide **bodies** | HTML. Entities and tags are fine — the browser renders them |
+| `_md()` | `cards`, `table`, `compare`, `beat` **titles** | Goes through `rich()`, which **escapes** HTML. Must convert `<b>` → `**bold**` first |
+| `_plain()` | **diagram** text (`Arch` boxes, labels, notes, titles, arrow labels) | Not HTML at all. Resolve entities, strip tags outright |
+| `_spoken()` | **narration** | Goes to the TTS engine. Strip everything — an entity here is read aloud |
+
+What was fixed: `Arch` did not resolve entities in its title or arrow labels, so `&mdash;`
+printed literally on a diagram; `<br>` in a box subtitle rendered as text; `beat()` titles
+went to `rich()` un-converted, so `<i>under</i>` appeared on screen; and entities leaked into
+narration, which would have been spoken. **`_md()` must call `_ents()` and not `_plain()`** —
+an earlier fix had `_plain()` stripping the very tags `_md()` exists to convert, silently
+killing every `<b>` in a table cell.
+
+#### Two caches that will waste a render cycle
+
+Both bit during this chapter, and neither fails loudly:
+
+- **`render` skips frames that already exist.** `run.py render` passes `force=0`, so after a
+  content change you must `rm -rf build-design/<id>/frames` or the re-render is a no-op that
+  still reports `ok (549 frames)`.
+- **The segment cache keys on frame *filenames*, not contents.** `encode.py` hashes
+  `[p['frames'], p['hold'], total, audio]`. Frame names are deterministic, so re-rendered
+  frames produce an identical key and `segs/` is reused — the new MP4 is built from the old
+  pictures. Clear `segs/` and the `.mp4` too.
+
+So the safe sequence after changing lesson content is:
+
+```bash
+rm -rf video/build-design/<id>/{frames,segs} video/build-design/<id>/*.mp4
+cd video/design && python3 run.py plan <id> && python3 run.py render <id>
+SARVAM_API_KEY=... python3 run.py encode <id>
+```
+
+TTS audio is cached by a hash **of the narration text**, which is correct — unchanged
+narration costs nothing to re-encode.
+
+**Verify by reading a frame from the finished MP4, not from `deck.html`.** Both caches sit
+between those two artefacts, and every bug above was invisible in the deck.
+
+#### Two operational limits hit while building chapters 5&ndash;10
+
+- **Disk.** `build-design/` holds ~300 MB of frames and segments *per lesson*, and the machine ran
+  out of space mid-render (`ENOSPC`, reported as a render failure with a partial frame count).
+  After a lesson's MP4 exists, `frames/` and `segs/` are pure intermediates &mdash; delete them.
+  Keep `audio/`: it is the TTS cache keyed on narration text, so keeping it means a re-encode
+  costs no credits.
+
+  ```bash
+  cd video/build-design
+  for d in */; do [ -n "$(ls $d*.mp4 2>/dev/null)" ] && rm -rf "$d/frames" "$d/segs"; done
+  ```
+
+- **TTS credits.** `HTTP 402 Payment Required` from Sarvam means the account is out of credits, not
+  a code fault. `plan` and `render` are unaffected; only `encode` fails. Lessons can be fully
+  rendered and left waiting &mdash; `encode` picks them up unchanged once credits are topped up.
+  A transient `URLError: nodename nor servname provided` is a different thing: a DNS blip
+  mid-encode. Just re-run that lesson; cached audio means it resumes rather than restarts.
+
 ### The official prep pack — authoritative
 
 The recruiter sent **`Staff SI Onsite Prep - CWAI (1).pdf`** ("LinkedIn Interview Preparation,

@@ -18,9 +18,13 @@ public class CoveredIntervals {
         int lo = start, hi = end;
 
         // 1. The interval immediately at or before `start`. If it reaches start, it merges.
-        var before = _set.GetViewBetween((int.MinValue, int.MinValue), (start, int.MaxValue));
-        if (before.Count > 0) {
-            var prev = before.Max;
+        //    Never ask a SortedSet *view* for .Count: a view re-counts itself by walking every
+        //    element it covers whenever the set has changed, so `before.Count` here was O(n) per
+        //    call and made the whole structure O(n²). The first version of this file did exactly
+        //    that; the simulator's 200,000-insert test caught it. Checking against the set's own
+        //    Min is O(log n), and so is a view's Max.
+        if (_set.Count > 0 && _set.Min.Start <= start) {
+            var prev = _set.GetViewBetween(_set.Min, (start, int.MaxValue)).Max;
             if (prev.End >= start) {
                 lo = prev.Start;
                 hi = Math.Max(hi, prev.End);
@@ -30,12 +34,14 @@ public class CoveredIntervals {
 
         // 2. Every interval starting inside [lo, hi] is swallowed. Each one is removed exactly
         //    once over the life of the structure, which is what makes the amortised cost O(log n)
-        //    even though a single call can remove many.
+        //    even though a single call can remove many. An enumerator finds the first element
+        //    of the range in O(log n); .Count on the view would walk all of it.
         while (true) {
             var inside = _set.GetViewBetween((lo, int.MinValue), (hi, int.MaxValue));
-            if (inside.Count == 0) break;
+            using var e = inside.GetEnumerator();
+            if (!e.MoveNext()) break;
 
-            var next = inside.Min;
+            var next = e.Current;
             hi = Math.Max(hi, next.End);
             Drop(next);
         }

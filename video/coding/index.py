@@ -189,6 +189,13 @@ LESSONS = [
       title='The 50-minute mock, run in real time',
       file='LinkedIn-Coding-10.2-Fifty-Minute-Mock', mins=22,
       pattern='Mock interview', relevance='—', reports='—', latest='—', confidence='—'),
+
+ # ---------------- chapter 11: the Coding-with-AI round ----------------
+ dict(id='c11l1-ai-round', chapter='c11', module='c11l1_ai_round',
+      title='The AI-assisted coding round — five design questions, end to end',
+      file='LinkedIn-Coding-11.1-AI-Assisted-Round', mins=28,
+      pattern='Caches · logger · scheduler · counters', relevance='Highest',
+      reports='Official pack + logging (5 reports) + LRU AI-round reports', latest='Sep 2026', confidence='High'),
 ]
 
 CHAPTERS = {
@@ -217,6 +224,9 @@ CHAPTERS = {
  'c9': dict(num=9, title='Concurrency and fundamentals',
             why='The reported pivot \u2014 "now make it thread-safe" \u2014 plus the OS and networking questions an infra '
                 'interviewer asks when the coding is done early.'),
+ 'c11': dict(num=11, title='The Coding-with-AI round',
+            why='The CWAI module: what the pack evaluates, a way of working with the assistant, and five design questions '
+                '(LRU→TTL→threads, LFU+rank, logging library, delay scheduler, window counter) with the defects assistants produce.'),
  'c10': dict(num=10, title='Rapid revision and the full mock',
             why='Every pattern in one pass, then a timed 50-minute mock run exactly as the round runs.'),
 }

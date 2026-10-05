@@ -19,18 +19,19 @@ Option B is the one to reach for, but say Option A out loud first — it shows y
   code='''// One pass, no maxDepth needed.
 public int DepthSumInverse(IList<NestedInteger> nestedList) {
     var queue = new Queue<NestedInteger>(nestedList);
-    int levelSum = 0, total = 0;
+    int levelSum = 0, total = 0, answer = 0;
 
     while (queue.Count > 0) {
-        int size = queue.Count;
+        int size = queue.Count; bool sawInteger = false;
         for (int i = 0; i < size; i++) {
             var ni = queue.Dequeue();
-            if (ni.IsInteger()) levelSum += ni.GetInteger();
+            if (ni.IsInteger()) { levelSum += ni.GetInteger(); sawInteger = true; }
             else foreach (var child in ni.GetList()) queue.Enqueue(child);
         }
         total += levelSum;          // every deeper level adds the shallow sums again
+        if (sawInteger) answer = total;   // a level of only empty lists must not count: [1,[[]]] is 1, not 3
     }
-    return total;
+    return answer;
 }''',
   complexity='O(n) time where n is the number of nested elements; O(w) space for the widest level. The two-pass version is also O(n) but touches every node twice.',
   follow=['Do the original version (weight = depth) — one line changes.',

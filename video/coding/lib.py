@@ -68,7 +68,7 @@ def code_slide(title, code_text, narration_blocks, kicker='C# implementation', m
         for i in range(lo, hi + 1):
             html.append('<span class="ln" data-l="%d">%s</span>' % (i, _hl(lines[i - 1]) or '&nbsp;'))
         html.append('</pre></div>')
-        t = title if n == 0 else title + ' &mdash; continued'
+        t = title if n == 0 else title + ' — continued'   # real dash: new_slide escapes entities
         sid = new_slide(''.join(html), title=t, kicker=kicker, cls='codeslide')
         first = first or sid
         for step, (rng, text) in enumerate(blocks):

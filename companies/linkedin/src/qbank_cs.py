@@ -12,7 +12,9 @@ _cache = {}
 
 def _read(filename):
     if filename not in _cache:
-        with open(os.path.join(CSDIR, filename), encoding='utf-8') as f:
+        # 'aicoding/A01_Lru.cs' reads from a sibling project under cs/; a bare name stays in qbank.
+        root = os.path.dirname(CSDIR) if '/' in filename else CSDIR
+        with open(os.path.join(root, filename), encoding='utf-8') as f:
             _cache[filename] = f.read()
     return _cache[filename]
 

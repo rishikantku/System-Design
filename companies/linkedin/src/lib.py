@@ -239,6 +239,7 @@ def page(filename, title, subtitle, body, round_id='', round_name='', crumb_tail
   <a href="07-practice.html">◆ Code practice</a>
   <a href="08-worked-questions.html">◆ Worked questions</a>
   <a href="09-question-bank.html">◆ Question bank (17, C#)</a>
+  <a href="02b-ai-simulator.html">◆ AI coding simulator</a>
   <h4>Research</h4>
   <a href="05-research.html">◆ Recent interview research</a>
   <h4>Data</h4>

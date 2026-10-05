@@ -315,7 +315,8 @@ coding, AI coding, system design, hiring manager. Five pages plus shared assets:
 |---|---|
 | `index.html` | Dashboard: readiness rings, today's plan, **recent interview intelligence**, the question database, "what recent interviews are telling us", sources |
 | `01-coding.html` | 18 patterns with C# templates, 14 worked problems (9-stage progressive reveal), 33-problem bank, complexity/edge-case/quality/communication checklists, 3 mocks |
-| `02-ai-coding.html` | The AI-enabled round: reported format and rubric, 22 AI-engineering concepts, 11 C# exercises, 2 progressive-requirement simulations, 2 mocks |
+| `02-ai-coding.html` | The CWAI training platform — research, playbook, 21 prioritised questions in two modes, 14 reviews, 8 debugging exercises, follow-up engine, C# deep-dive. See its own subsection below |
+| `02b-ai-simulator.html` | Interview mode: 10-round simulator, 5 mocks, Staff-standard scoring, weakness tracker |
 | `03-system-design.html` | 16-step framework, numbers, staff lens, 8 interactive designs (the page asks before it tells), catalogue linking the guide's 26 designs, 3 mocks |
 | `04-hiring-manager.html` | 12-story bank **built only from `specialization-aic.html`**, 20 behavioural questions, craftsmanship round, Why-LinkedIn worksheet, 3 mocks |
 | `09-question-bank.html` | **The InterviewDB set.** 17 questions, each run through the same 14 parts, all C#. Has its own subsection below |
@@ -331,6 +332,46 @@ and a "done" item with confidence ≤ 2 is capped at 0.8.
 **Mock mode is a chat handoff.** The page runs the question, timer and notes; the *Grade this with
 Claude* button copies a prompt asking for SCORE / WHAT WAS STRONG / WHAT IS MISSING / STAFF-LEVEL
 SIGNAL / HOW TO IMPROVE / LIKELY FOLLOW-UP. The pages never pretend to grade.
+
+### `02-ai-coding.html` + `02b-ai-simulator.html` — the CWAI training platform (Oct 2026)
+
+Rebuilt from the reader's two briefs into a study page and a separate interview page. **Interview
+mode lives on its own page on purpose** — the answers must never be one scroll away.
+
+| File | Holds |
+|---|---|
+| `src/aic_research.py` | Research pass 4 (5 Oct 2026): 16 sources, ~23 claims graded CONFIRMED / REPORTED / ADVICE / INFERENCE, and the 21-question bank with the reader's **P0/P1/P2** priority and five evidence **labels** (Multiple candidate reports · Reported LinkedIn question · InterviewDB question · Research-derived practice · Pattern-based practice) |
+| `src/aic_content.py` | Model of the round, playbook (15), workflow (8), prompt templates (8, each with *why*), rejection patterns, checklist, time plans, concurrency, testing, roadmap, **and the scoring standard** (shared with the simulator) |
+| `src/aic_study.py` | Study mode (13 parts + follow-up engine + C# deep-dive) for 9 full questions; the AI-round layer for the 12 InterviewDB ones (full solutions stay on `09-question-bank.html#qN`); interview scripts; `REVIEW` (R1–R14), `DEBUG` (D1–D8), `REVIEW_FOR`, `FU` (5 levels per question), `CSHARP`, `FEATURES` |
+| `src/aic_page.py` | Assembles `02-ai-coding.html`. `aicoding.py` keeps the old data (FUND, EX, SCENARIOS, MOCKS) and imports `build` from here — **all old manifest ids are kept** so saved progress survives |
+| `src/aisim.py` + `assets/aisim.js` | The simulator: 10 rounds (problem · implement · change · test · **"Would you ship this?"** on flawed code · follow-up L1–L5), 30/45/60 timer, prompt checker, scoring, weakness tracker. History is LP item `ai.sim.history`; in-progress session `aisim.cur` |
+| `assets/aic.css` | Components for both pages |
+| `src/cs/aicoding/` | **126 assertions.** Solutions, `Review.cs`, `Debug.cs`, `Tests.cs` — every planted defect is *reproduced* by a test, so none is a straw man |
+
+**Scoring is the reader's Staff standard (second brief), not the first brief's 14×5 /70.**
+15 dimensions + 7 AI-collaboration checks, each 1–5 with written anchors → eight headline scores
+/10 (`HEADLINES`) → verdict. PASS needs headline mean ≥ 7.0 **and** AI Collaboration ≥ 6 **and**
+Staff Judgment ≥ 6 **and** AI-output verification ≥ 3 **and** no 1s. Honesty checkboxes cap scores
+(pasted unexplained code → verification ≤ 2 → cannot pass). The calibration is mine and the page
+says so; the only published scale is Hello Interview's "4-point, 3 passes".
+
+**The page never pretends to grade free text.** It runs structure and time; "Grade with Claude"
+and "Copy interviewer prompt" hand the transcript or the interviewer role to a Claude chat.
+
+Things that are easy to get wrong here:
+
+- **The pack does not say "understand before prompting".** It says *no prescribed workflow*. The
+  page recommends understanding first and grades that recommendation INFERENCE. Keep it that way.
+- **The logging library is the strongest Staff evidence** (Hello Interview community: 5 reports,
+  Staff early Aug 2026, Senior late Aug / mid Sep 2026). Its four phases are verbatim from that page.
+- **`BoundedChannelFullMode.DropWrite` makes `TryWrite` return true when it drops.** My first
+  `AsyncLogger` counted drops on `TryWrite == false` and reported 0 drops while writing 1,026 of
+  10,000. Fixed with `FullMode = Wait`; kept as review exercise R14 and documented on the page.
+- `note()` escapes HTML (an `<a>` inside it renders as text) and `acc(titled(...))` needs
+  `raw=True`. Both leaked here once; the sweep that catches them strips `.code, pre, script` from
+  `main` and searches `textContent` — `innerText` misses collapsed stages.
+- Generic C# type names collide in `cs_type` regexes only if a name is a prefix *after whitespace*;
+  `LruCache` vs `CountingLruCache` is safe, but check when adding types.
 
 ### `video/coding/` — the LinkedIn coding video course
 

@@ -192,8 +192,8 @@ LESSONS = [
 
  # ---------------- chapter 11: the Coding-with-AI round ----------------
  dict(id='c11l1-ai-round', chapter='c11', module='c11l1_ai_round',
-      title='The AI-assisted coding round — five design questions, end to end',
-      file='LinkedIn-Coding-11.1-AI-Assisted-Round', mins=28,
+      title='The LinkedIn AI-assisted coding round — the complete guide',
+      file='LinkedIn-Coding-11.1-AI-Assisted-Round', mins=70,
       pattern='Caches · logger · scheduler · counters', relevance='Highest',
       reports='Official pack + logging (5 reports) + LRU AI-round reports', latest='Sep 2026', confidence='High'),
 ]

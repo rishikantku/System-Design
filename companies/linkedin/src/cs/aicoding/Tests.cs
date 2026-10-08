@@ -14,7 +14,7 @@ static class T {
 
 class Program {
     static int Main() {
-        Lru(); LruTtl(); SyncAndSharded(); Counting(); Lfu(); Intervals(); Records(); Queue(); MazeT(); Sampling_(); Window(); Logging();
+        Lru(); LruTtl(); SyncAndSharded(); Counting(); KeyValidation(); Friends(); Lfu(); Intervals(); Records(); Queue(); MazeT(); Sampling_(); Window(); Logging();
         Review(); Debugging();
         return T.Report();
     }
@@ -167,6 +167,43 @@ class Program {
         T.Note($"uniform {uni.HitRatio:P1}, skewed {skew.HitRatio:P1}, cyclic {cyc.HitRatio:P1}");
     }
 
+    static void KeyValidation() {
+        T.Section("A04 LRU key validation");
+        var c = new ValidatedLruCache<string, int>(2, KeyRules.Strings);
+        T.Eq("valid key", c.Validate("user:1"), null);
+        T.Eq("empty rejected with a reason", c.Validate(""), "empty");
+        T.Eq("control chars rejected", c.Validate("a\nb"), "contains control characters");
+        bool threw = false; try { c.Put(null, 1); } catch (ArgumentException) { threw = true; }
+        T.True("Put rejects an invalid key", threw);
+        T.True("TryGet on an invalid key is a miss, not a throw", !c.TryGet("", out _));
+        c.Put("a", 1); c.Put("b", 2); c.TryGet("a", out _); c.Put("c", 3);
+        T.True("still an LRU underneath", !c.TryGet("b", out _) && c.TryGet("a", out _));
+    }
+
+    static void Friends() {
+        T.Section("G02 friend graph");
+        var g = new FriendGraph(new Dictionary<int, List<int>> {
+            [1] = new() { 2, 3 }, [2] = new() { 4 }, [3] = new() { 4 }, [4] = new() { 5 }, [6] = new()   // 6 isolated; edges listed once
+        });
+        T.Eq("path 1→5", string.Join(",", g.ShortestPath(1, 5)), "1,2,4,5");
+        T.Eq("path uses the symmetric edge 5→1", string.Join(",", g.ShortestPath(5, 1)), "5,4,2,1");
+        T.Eq("same user", string.Join(",", g.ShortestPath(3, 3)), "3");
+        T.Eq("unreachable", g.ShortestPath(1, 6).Count, 0);
+        T.Eq("unknown user", g.ShortestPath(1, 99).Count, 0);
+        T.Eq("distance 1→5", g.Distance(1, 5), 3);
+        T.Eq("distance to self", g.Distance(2, 2), 0);
+        T.Eq("distance unreachable", g.Distance(1, 6), -1);
+        // suggestions for 1: friends 2,3. 4 is a friend of both (2 mutual). 5 is not a friend of a friend.
+        var s1 = g.SuggestFriends(1, 5);
+        T.Eq("suggest for 1", string.Join(",", s1.Select(x => $"{x.User}:{x.Mutual}")), "4:2");
+        var s5 = g.SuggestFriends(5, 5);        // 5's friend is 4; 4's friends 2,3 → one mutual each, tie by id
+        T.Eq("ties broken by id", string.Join(",", s5.Select(x => x.User)), "2,3");
+        T.Eq("never suggests self or existing friends", g.SuggestFriends(4, 10).Any(x => x.User == 4 || x.User == 2 || x.User == 3 || x.User == 5), false);
+        // reuse check: a long chain is still exact
+        var chain = Enumerable.Range(0, 10_000).ToDictionary(i => i, i => new List<int> { i + 1 });
+        T.Eq("10,000-hop chain", new FriendGraph(chain).Distance(0, 10_000), 10_000);
+    }
+
     static void Lfu() {
         T.Section("A03 LFU + GetRank");
         var c = new LfuRankCache<string, int>(3);
@@ -193,6 +230,20 @@ class Program {
     }
 
     static void Intervals() {
+        {   // Next(): containing interval, else the first one starting after the point
+            var n = new IntervalSet();
+            T.Eq("next on empty", n.Next(5), null);
+            n.Add(10, 20); n.Add(30, 40);
+            T.Eq("before everything", n.Next(0), (10, 20));
+            T.Eq("inside [10,20)", n.Next(15), (10, 20));
+            T.Eq("at an end (half-open)", n.Next(20), (30, 40));
+            T.Eq("in a gap", n.Next(25), (30, 40));
+            T.Eq("at a start", n.Next(30), (30, 40));
+            T.Eq("past the last", n.Next(40), null);
+            n.Add(20, 30);                         // bridges into one [10,40)
+            T.Eq("after a merge", n.Next(25), (10, 40));
+        }
+
         T.Section("E01 IntervalSet");
         var s = new IntervalSet();
         s.Add(1, 3); s.Add(5, 7);

@@ -48,6 +48,15 @@ public sealed class IntervalSet {
 
     public bool Contains(int point) => Floor(point) is { } f && point < f.End;
 
+    // "Next interval lookup" (named in a 2026 list of LinkedIn AI-round questions; no statement
+    // was found, so this definition is an ASSUMPTION — state it before coding):
+    // the interval containing `point`, else the first one starting after it; null if none. O(log n).
+    public (int Start, int End)? Next(int point) {
+        if (Floor(point) is { } f && point < f.End) return f;     // point is inside an interval
+        if (_set.Count == 0 || _set.Max.Start <= point) return null;
+        return _set.GetViewBetween((point + 1, 0), _set.Max).Min;
+    }
+
     public IReadOnlyList<(int Start, int End)> Intervals => _set.ToList();
 
     private (int Start, int End)? Floor(int x) {

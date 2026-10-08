@@ -9,6 +9,7 @@ ddia*.txt
 video/build/
 video/build-coding/
 video/build-design/
+video/build-hm/
 
 # Python bytecode
 __pycache__/

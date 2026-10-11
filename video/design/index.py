@@ -267,6 +267,39 @@ LESSONS = [
       file='LinkedIn-Design-10.1-Patterns', mins=15,
       pattern='Seven reusable shapes, and the tell that identifies each one',
       evidence=None),
+
+ # ================= chapter 11: recently reported on LeetCode Discuss =================
+
+ dict(id='s11l1-posts', chapter='m11', module='s11l1_posts',
+      title='Design LinkedIn posts and comments &mdash; then add analytics',
+      file='LinkedIn-Design-11.1-Posts-Comments-Analytics', mins=17,
+      pattern='Thread-local storage &middot; hot-post counters &middot; event stream &rarr; OLAP',
+      evidence=dict(reports='1 candidate report', latest='~mid 2025', level='Software engineer, onsite',
+                    conf='MEDIUM &mdash; single report', sources='LeetCode Discuss')),
+ dict(id='s11l2-trending', chapter='m11', module='s11l2_trending',
+      title='Design trending articles on LinkedIn &mdash; and Top-K videos',
+      file='LinkedIn-Design-11.2-Trending-Articles', mins=17,
+      pattern='Velocity not volume &middot; windowed counts &middot; decay &middot; anti-gaming',
+      evidence=dict(reports='2 candidate reports', latest='~early 2026', level='Staff (offer), SDE 2',
+                    conf='HIGH &mdash; two independent reports', sources='LeetCode Discuss')),
+ dict(id='s11l3-cache', chapter='m11', module='s11l3_cache',
+      title='Design a distributed in-memory cache with pluggable eviction',
+      file='LinkedIn-Design-11.3-Pluggable-Cache', mins=17,
+      pattern='Strategy-pattern eviction &middot; O(1) LRU / LFU &middot; consistent hashing &middot; Redis internals',
+      evidence=dict(reports='Candidate reports, LLD then HLD', latest='2025', level='Staff / Senior',
+                    conf='MEDIUM', sources='LeetCode Discuss')),
+ dict(id='s11l4-dcmigrate', chapter='m11', module='s11l4_dcmigrate',
+      title='Migrate live data from one data centre to another',
+      file='LinkedIn-Design-11.4-Data-Centre-Migration', mins=17,
+      pattern='Snapshot + change replay &middot; verify &middot; fenced cut-over &middot; rollback',
+      evidence=dict(reports='1 candidate report (HM round)', latest='~late 2025', level='Senior SWE, Sys/Infra',
+                    conf='MEDIUM &mdash; single report', sources='LeetCode Discuss')),
+ dict(id='s11l5-scheduler2', chapter='m11', module='s11l5_scheduler2',
+      title='Job scheduler, part two: fetch machines, execute, and alert',
+      file='LinkedIn-Design-11.5-Scheduler-Machines-Alerts', mins=16,
+      pattern='Machine leases &middot; executor heartbeats &middot; epoch fencing &middot; alerting',
+      evidence=dict(reports='Candidate report, onsite R3', latest='2025&ndash;26', level='Onsite, HLD',
+                    conf='HIGH as a family', sources='LeetCode Discuss + Blind')),
 ]
 
 
@@ -305,6 +338,10 @@ CHAPTERS = {
  'm10': dict(num=10, title='Revision: the patterns',
              why='Not a summary. The seven shapes that recur across all twenty-one questions, '
                  'and the tell that lets you recognise each one in a question you have never seen.'),
+ 'm11': dict(num=11, title='Recently reported on LeetCode Discuss',
+             why='Questions candidates reported with a LinkedIn tag that the first ten chapters did not '
+                 'cover: posts and analytics, trending, a pluggable cache, a data-centre migration, and a '
+                 'scheduler that must fetch its own machines and raise alerts.'),
  'm3': dict(num=3, title='Distributed infrastructure',
             why='The three remaining HIGH-confidence questions, and the ones closest to the '
                 'Infrastructure round: search, scheduling and the log. All three are lower-stack '

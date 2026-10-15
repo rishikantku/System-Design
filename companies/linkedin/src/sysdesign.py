@@ -206,7 +206,12 @@ def build():
              title='Logistics, from the pack'),
     ], 'g2'))
 
+    bank = ('<div class="note good"><b>Question bank — 23 LinkedIn design questions, ranked by reports.</b> '
+            'Every question with a complete solution in interview order: requirements, capacity, API, data model with partition keys, '
+            'architecture and detailed component diagrams, read and write paths, trade-offs, failures and Staff-level points. '
+            '<a href="design-interview/index.html"><b>Open the question bank →</b></a></div>')
     body = (
+        bank +
         sec('official', 'The official module', official,
             kicker='From LinkedIn', why='Authoritative — this overrides the community research below') +
         sec('reports', 'What recent reports say about this round', rep_html + probe,

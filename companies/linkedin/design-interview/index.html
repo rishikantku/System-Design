@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="sim-token" content="__SIM_TOKEN__">
+<title>LinkedIn Design Mocks</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+:root{--ink:#1a1a2e;--soft:#4a4a6a;--muted:#7a7a9a;--bg:#fafaf7;--card:#fff;--line:#e4e4ee;--li:#0a66c2;--li-soft:#e8f1fb;
+  --green:#2e7d32;--ok-bg:#e8f5e9;--red:#c62828;--bad-bg:#ffebee;--amber:#8d5300;--warn-bg:#fff8e1;--purple:#6a1b9a;--purple-bg:#f3e5f5}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:15px;line-height:1.6}
+a{color:var(--li)}
+code,pre,textarea{font-family:'JetBrains Mono',monospace;font-variant-ligatures:none}
+code{background:#eef1f6;padding:1px 5px;border-radius:4px;font-size:.88em}
+.top{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:10px 20px}
+.top b{font-size:16px}.top .sp{flex:1}.top .tag{font-size:12px;color:var(--muted)}
+.page{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
+h1{font-size:26px;margin-bottom:6px}h2{font-size:19px;margin:22px 0 8px}h3{font-size:16px;margin:16px 0 6px}
+.muted{color:var(--muted)}.small{font-size:13px}
+.btn{display:inline-block;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:7px 14px;font:600 14px Inter,sans-serif;cursor:pointer;text-decoration:none}
+.btn.pri{background:var(--li);border-color:var(--li);color:#fff}.btn.red{background:var(--red);border-color:var(--red);color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed}.btn.sm{padding:4px 10px;font-size:13px}
+.btn.mic.on{background:#b91c1c;border-color:#ef4444;color:#fff;animation:pulse 1.2s infinite}@keyframes pulse{50%{box-shadow:0 0 0 5px rgba(239,68,68,.25)}}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;margin-top:14px}
+.qc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.qc .n{font:700 12px 'JetBrains Mono',monospace;color:var(--li)}.qc .t{font-weight:700;font-size:16px}
+.qc .d{font-size:13.5px;color:var(--soft);flex:1}.qc .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.chip{font-size:11.5px;font-weight:700;border-radius:10px;padding:2px 8px;background:#eef1f6;color:var(--soft)}
+.v-PASS,.v-STRONG{background:var(--ok-bg);color:var(--green)}.v-BORDERLINE{background:var(--warn-bg);color:var(--amber)}.v-NOT{background:var(--bad-bg);color:var(--red)}
+.search{width:100%;max-width:420px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font:14px Inter,sans-serif}
+.tabs{display:flex;gap:6px;margin:14px 0}.tabs a{padding:7px 14px;border-radius:8px;text-decoration:none;color:var(--soft);font-weight:600;border:1px solid var(--line);background:#fff}
+.tabs a.on{background:var(--li);color:#fff;border-color:var(--li)}
+.stmt{background:#fff;border:1px solid var(--line);border-left:4px solid var(--li);border-radius:10px;padding:12px 16px;white-space:pre-wrap;font-size:14.5px}
+/* interview */
+.ivgrid{display:grid;grid-template-columns:minmax(0,1fr) 430px;gap:16px;align-items:start}
+@media(max-width:980px){.ivgrid{grid-template-columns:1fr}}
+.panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.clock{font:700 15px 'JetBrains Mono',monospace;background:#eef1f6;border-radius:8px;padding:4px 10px}
+.phases{display:flex;gap:4px;flex-wrap:wrap}.ph{font-size:11.5px;padding:2px 8px;border-radius:10px;background:#eef1f6;color:var(--muted)}
+.ph.on{background:var(--li);color:#fff}.ph.done{background:var(--li-soft);color:var(--li)}
+.log{height:56vh;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:4px}
+.msg{max-width:92%;border-radius:12px;padding:9px 13px;font-size:14.5px}
+.msg.iv{background:var(--li-soft);align-self:flex-start}.msg.me{background:#f1f3f5;align-self:flex-end;white-space:pre-wrap}
+.msg.sys{background:var(--warn-bg);align-self:center;font-size:13px}
+.msg .who{font:700 11px 'JetBrains Mono',monospace;letter-spacing:1px;color:var(--muted);margin-bottom:3px}
+.msg p{margin:4px 0}
+textarea.in{width:100%;min-height:78px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px;resize:vertical}
+textarea.board{width:100%;height:46vh;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:13.5px;line-height:1.5;resize:vertical;background:#fffef6}
+.btns{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+select{padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:14px Inter,sans-serif}
+/* report */
+.verdict{font-size:22px;font-weight:800;margin:6px 0}
+.scores{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin:10px 0}
+.sc{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px}.sc b{font-size:20px}.sc .ev{font-size:13px;color:var(--soft)}
+ul.l{margin:4px 0 8px 20px}ul.l li{margin:3px 0}
+/* solution */
+.sol .sec{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:12px 0}
+.sol table{width:100%;border-collapse:collapse;font-size:14px}.sol td,.sol th{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+.sol td:first-child{font-weight:600;width:34%}
+.steps{counter-reset:s;list-style:none}.steps li{counter-increment:s;padding:6px 0 6px 40px;position:relative;border-bottom:1px dashed var(--line)}
+.steps li:before{content:counter(s);position:absolute;left:0;top:6px;width:26px;height:26px;border-radius:50%;background:var(--li);color:#fff;font-weight:700;display:grid;place-items:center;font-size:13px}
+.steps .m{font:600 12px 'JetBrains Mono',monospace;color:var(--li)}
+details.fu{border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:6px 0;background:#fcfcfe}
+details.fu summary{cursor:pointer;font-weight:600}details.fu div{margin-top:6px;color:var(--soft)}
+.say{font-style:italic;background:var(--ok-bg);border-radius:8px;padding:10px 14px}
+.gist{font-size:16px}
+svg.arch{width:100%;height:auto;background:#fcfcfe;border:1px solid var(--line);border-radius:10px;margin:6px 0 4px;font-family:Inter,sans-serif}
+.grid4{width:100%;border-collapse:collapse;font-size:14px}.grid4 th{background:#f1f3f5;text-align:left;padding:7px 8px;font-size:12.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--soft)}
+.grid4 td{border-bottom:1px solid var(--line);padding:7px 8px;vertical-align:top}.grid4 td:first-child{font-weight:600}.grid4 td.key{color:var(--li);font-weight:700}
+.sol .grid4 td:first-child{width:auto}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:760px){.two{grid-template-columns:1fr}}
+.two h4,.sol h4{font-size:14.5px;margin:6px 0 4px}
+.opt{border:1px solid var(--line);border-radius:10px;padding:10px 12px}.opt.win{border-color:#2e7d32;background:#f4fbf4}
+li.pro::marker{content:'+  ';color:#2e7d32;font-weight:700}li.con::marker{content:'−  ';color:#c62828;font-weight:700}
+.chosen{background:var(--ok-bg);border-radius:8px;padding:8px 12px;margin-top:10px}.flip{background:var(--warn-bg);border-radius:8px;padding:8px 12px;margin-top:6px}
+.staffsec{border-left:4px solid #6a1b9a}.detailsec{border-left:4px solid #0a66c2}
+.pathbar{display:flex;gap:6px;margin:4px 0 8px}.pathbar .chip{cursor:pointer;border:1px solid var(--line);font-size:13px;padding:4px 12px}.pathbar .chip.on{background:var(--li);color:#fff;border-color:var(--li)}
+svg.pathmode g[data-id]{opacity:.25;transition:opacity .2s}svg.pathmode g[data-id].onpath{opacity:1}
+svg.pathmode line{opacity:.15}svg.pathmode line.onpath{opacity:1;stroke-width:4}
+svg.write .pbadge rect{fill:#e65100}svg.read .pbadge rect{fill:#2e7d32}
+svg.write g.onpath>rect:first-child{stroke:#e65100;stroke-width:4}svg.read g.onpath>rect:first-child{stroke:#2e7d32;stroke-width:4}
+.paths{margin-top:10px}.pathcol{border-radius:10px;padding:10px 12px;border:1px solid var(--line)}.pathcol.write{background:#fff8f1;border-color:#ffcc80}.pathcol.read{background:#f4fbf4;border-color:#a5d6a7}
+.pathcol ol{margin-left:20px;font-size:13.5px}.pathcol li{margin:4px 0}.walk td{font-size:13.5px}.walk td:first-child{width:24px;color:var(--muted)}.walk td.key{font-weight:600}ol.staff{margin-left:22px}ol.staff li{margin:5px 0}
+.jump{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px;position:sticky;top:50px;background:var(--bg);padding:6px 0;z-index:3}
+.jump a{font-size:12.5px;padding:3px 9px;border-radius:12px;background:#fff;border:1px solid var(--line);text-decoration:none;color:var(--soft)}
+.solgrid{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:18px;align-items:start}
+@media(max-width:1080px){.solgrid{grid-template-columns:1fr}}
+.tutor{position:sticky;top:64px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 80px)}
+.tu-h{display:flex;justify-content:space-between;align-items:center}
+.tu-log{flex:1;min-height:180px;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:2px}
+.tu-log .msg{max-width:100%}
+.tu-chips{display:flex;flex-wrap:wrap;gap:6px}.tu-chip{cursor:pointer;border:1px solid var(--line);background:var(--li-soft);color:var(--li)}
+#askSel{position:absolute;z-index:20;box-shadow:0 4px 14px rgba(0,0,0,.15)}
+.msg ul,.msg ol{margin:4px 0 4px 20px}.msg li{margin:2px 0}
+.mdpre{background:#1e1e2e;color:#e6e6f0;border-radius:8px;padding:8px 10px;font-size:12.5px;white-space:pre;overflow-x:auto;margin:6px 0}
+.mdt{border-collapse:collapse;margin:6px 0;font-size:13px;background:#fff}.mdt td,.mdt th{border:1px solid var(--line);padding:3px 7px;text-align:left}.mdt th{background:#f1f3f5}
+.note{background:var(--warn-bg);border-radius:8px;padding:8px 12px;font-size:13.5px;margin:8px 0}
+.err{background:var(--bad-bg);color:var(--red);border-radius:8px;padding:8px 12px;margin:8px 0}
+</style>
+</head>
+<body>
+<div class="top"><a href="../03-system-design.html" class="small">← System Design</a><b>LinkedIn design mocks</b><span class="tag">InterviewDB + LeetCode Discuss · ranked</span><span class="sp"></span><span id="st" class="tag"></span></div>
+<div class="page" id="app">Loading…</div>
+<script>
+(function () {
+  const TOKEN = document.querySelector('meta[name="sim-token"]').content;
+  const $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const inl = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Small markdown: paragraphs, **bold**, `code`, fenced code, bullet / numbered lists, headings, pipe tables.
+  function md(src) {
+    const lines = String(src || '').replace(/\r/g, '').split('\n'); const out = []; let i = 0;
+    while (i < lines.length) {
+      const l = lines[i];
+      if (/^\s*```/.test(l)) { const buf = []; i++; while (i < lines.length && !/^\s*```/.test(lines[i])) buf.push(lines[i++]); i++; out.push('<pre class="mdpre">' + esc(buf.join('\n')) + '</pre>'); continue; }
+      if (/^\s*\|.*\|\s*$/.test(l)) {
+        const rows = []; while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) rows.push(lines[i++]);
+        const cells = (r) => r.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+        const body = rows.filter((r) => !/^\s*\|[\s:|-]+\|\s*$/.test(r));
+        out.push('<table class="mdt">' + body.map((r, k) => '<tr>' + cells(r).map((c) => (k ? '<td>' : '<th>') + inl(c) + (k ? '</td>' : '</th>')).join('') + '</tr>').join('') + '</table>');
+        continue;
+      }
+      if (/^\s*[-*•] /.test(l)) { const it = []; while (i < lines.length && /^\s*[-*•] /.test(lines[i])) it.push(lines[i++].replace(/^\s*[-*•] /, '')); out.push('<ul>' + it.map((x) => '<li>' + inl(x) + '</li>').join('') + '</ul>'); continue; }
+      if (/^\s*\d+[.)] /.test(l)) { const it = []; while (i < lines.length && /^\s*\d+[.)] /.test(lines[i])) it.push(lines[i++].replace(/^\s*\d+[.)] /, '')); out.push('<ol>' + it.map((x) => '<li>' + inl(x) + '</li>').join('') + '</ol>'); continue; }
+      if (/^#{1,4} /.test(l)) { out.push('<p><b>' + inl(l.replace(/^#+ /, '')) + '</b></p>'); i++; continue; }
+      if (!l.trim()) { i++; continue; }
+      const para = []; while (i < lines.length && lines[i].trim() && !/^\s*(```|\||[-*•] |\d+[.)] |#{1,4} )/.test(lines[i])) para.push(lines[i++]);
+      out.push('<p>' + para.map(inl).join('<br>') + '</p>');
+    }
+    return out.join('');
+  }
+  const app = $('#app');
+  const store = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+                  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+  let Q = [], META = {}, STATUS = { claude: false };
+  const live = TOKEN && TOKEN !== '__SIM_TOKEN__';
+
+  async function api(path, body) {
+    const r = await fetch('/api/sd/' + path, { method: body ? 'POST' : 'GET', headers: { 'x-sim-token': TOKEN, 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.statusText); return j;
+  }
+  async function stream(path, body, on) {
+    const r = await fetch('/api/sd/' + path, { method: 'POST', headers: { 'x-sim-token': TOKEN, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); on.error && on.error({ message: j.error || r.statusText }); return; }
+    const rd = r.body.getReader(), dec = new TextDecoder(); let buf = '';
+    for (;;) {
+      const { value, done } = await rd.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i; while ((i = buf.indexOf('\n\n')) >= 0) {
+        const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
+        const ev = /^event: (.*)$/m.exec(chunk)?.[1], data = /^data: (.*)$/m.exec(chunk)?.[1];
+        if (ev && on[ev]) on[ev](data ? JSON.parse(data) : {});
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------ list
+  function list() {
+    const last = store.get('sd.last', {});
+    app.innerHTML = '<h1>LinkedIn system design — ' + Q.length + ' questions, most reported first</h1>' +
+      '<p class="muted">Your InterviewDB list plus the LeetCode Discuss reports you collected, merged where they are the same question and ranked by how many independent reports we have (updated ' + esc(META.updated || '') + '). A count is evidence, not a probability. Each question has a <b>mock interview</b> with Claude as the interviewer and a <b>solution guide</b> in simple English.</p>' +
+      ((META.unplaced || []).length ? '<p class="small muted">Not placed: ' + META.unplaced.map(esc).join(' · ') + '</p>' : '') +
+      (live ? '' : '<div class="note">Reading mode: every solution guide, diagram and read/write path is here. The mock interview and the tutor chat need a local setup with Claude, so they are switched off on this site.</div>') +
+      '<p style="margin-top:10px"><input class="search" id="qs" placeholder="Filter: cache, feed, queue…"></p><div class="grid" id="g"></div>';
+    const draw = (f) => {
+      $('#g').innerHTML = Q.filter((q) => !f || (q.title + ' ' + q.statement).toLowerCase().includes(f)).map((q) => {
+        const l = last[q.id];
+        return '<div class="qc"><div class="n">#' + q.rank + ' · ' + q.reports + ' report' + (q.reports > 1 ? 's' : '') + (q.idb ? '' : ' · new from LeetCode Discuss') + ' · video ' + esc(q.lesson) + '</div><div class="t">' + esc(q.title) + '</div>' +
+          '<div class="d">' + esc(q.statement.split('\n')[0].slice(0, 170)) + (q.statement.length > 170 ? '…' : '') + '</div>' +
+          '<div class="row"><a class="btn pri sm" href="#/q/' + q.id + '/interview">Interview mode</a><a class="btn sm" href="#/q/' + q.id + '/solution">Solution</a>' +
+          (l ? '<span class="chip v-' + l.v.split(' ')[0] + '">Last: ' + esc(l.v) + ' · ' + l.avg.toFixed(1) + '/10</span>' : '') + '</div></div>';
+      }).join('');
+    };
+    draw(''); $('#qs').addEventListener('input', (e) => draw(e.target.value.trim().toLowerCase()));
+  }
+
+  function head(q, tab) {
+    return '<p class="small"><a href="#/">← All ' + Q.length + ' questions</a></p><h1>#' + q.rank + ' · ' + esc(q.title) + '</h1><p class="small muted">' + q.reports + ' independent report' + (q.reports > 1 ? 's' : '') + ' · video lesson ' + esc(q.lesson) + '</p>' +
+      '<div class="tabs"><a href="#/q/' + q.id + '/interview" class="' + (tab === 'interview' ? 'on' : '') + '">Interview mode</a>' +
+      '<a href="#/q/' + q.id + '/solution" class="' + (tab === 'solution' ? 'on' : '') + '">Solution guide</a></div>';
+  }
+
+  // ------------------------------------------------------------------ solution
+  const FLOW = [
+    ['0–5 min', 'Understand and clarify', 'Say the question back in one line. Ask 4–5 questions that change the design. Write down functional needs (what it does) and non-functional needs (scale, latency, availability).'],
+    ['5–10 min', 'Numbers', 'Quick estimates: requests per second, data per day, read/write ratio. Only the numbers that change a decision — say which decision.'],
+    ['10–15 min', 'API and data model', 'The main calls, and how data is stored and keyed (this decides sharding later).'],
+    ['15–25 min', 'High-level design', 'Draw the boxes. Walk one request end to end, out loud.'],
+    ['25–45 min', 'Deep dive', 'Go deep on the 2–3 hard parts below. For each choice say what you gave up.'],
+    ['45–55 min', 'Scale, failures, follow-ups', 'What breaks first at 10× load? What if a component dies? Answer their follow-ups.'],
+    ['55–60 min', 'Wrap up', 'Summarise in two lines (see the closing line below) and ask your questions.']];
+  // Architecture diagram as SVG: two rows of boxes, arrows chosen from relative position.
+  function diagram(d) {
+    const W = 1100, BW = 262, BH = 92, X0 = 8, X1 = W - 8, pos = {}, Y = d.rows.map((_, r) => 20 + r * 210);
+    const kinds = ['#e8f1fb:#0a66c2', '#e0f2f1:#00695c', '#fff3e0:#e65100', '#e8f5e9:#2e7d32', '#f3e5f5:#6a1b9a', '#eceff1:#37474f'];
+    // Shrink text so it always fits inside its box (average glyph width ≈ ratio × font size).
+    const fitSize = (txt, max, ratio) => Math.max(11, Math.min(max, Math.floor((BW - 16) / Math.max(1, txt.length * ratio))));
+    let k = 0, boxes = '';
+    d.rows.forEach((row, r) => {
+      const n = row.length, gap = n > 1 ? (X1 - X0 - n * BW) / (n - 1) : 0;
+      row.forEach(([id, t, sub], i) => {
+        const x = n > 1 ? X0 + i * (BW + gap) : (W - BW) / 2, y = Y[r]; pos[id] = { x, y, r };
+        const [bg, fg] = kinds[k++ % kinds.length].split(':');
+        boxes += '<g data-id="' + esc(id) + '" data-x="' + x + '" data-y="' + y + '"><rect x="' + x + '" y="' + y + '" width="' + BW + '" height="' + BH + '" rx="10" fill="' + bg + '" stroke="' + fg + '" stroke-width="2"/>' +
+          '<text x="' + (x + BW / 2) + '" y="' + (y + 39) + '" text-anchor="middle" font-size="' + fitSize(t, 23, 0.58) + '" font-weight="700" fill="' + fg + '">' + esc(t) + '</text>' +
+          '<text x="' + (x + BW / 2) + '" y="' + (y + 68) + '" text-anchor="middle" font-size="' + fitSize(sub || '', 18, 0.52) + '" fill="#4a4a6a">' + esc(sub || '') + '</text></g>';
+      });
+    });
+    let lines = ''; const BWs = BW;
+    d.arrows.forEach(([a, b, label]) => {
+      const A = pos[a], B = pos[b]; let x1, y1, x2, y2;
+      if (A.r === B.r) { if (A.x < B.x) { x1 = A.x + BW; x2 = B.x; } else { x1 = A.x; x2 = B.x + BW; } y1 = y2 = A.y + BH / 2; }
+      else { x1 = A.x + BW / 2; x2 = B.x + BW / 2; if (A.r < B.r) { y1 = A.y + BH; y2 = B.y; } else { y1 = A.y; y2 = B.y + BH; } }
+      lines += '<line data-a="' + esc(a) + '" data-b="' + esc(b) + '" x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="#5c6bc0" stroke-width="2.6" marker-end="url(#ah)"/>';
+      if (label) { const mx = (x1 + x2) / 2, my = (y1 + y2) / 2 - 7, w = label.length * 7.3 + 10;
+        lines += '<rect x="' + (mx - w / 2) + '" y="' + (my - 15) + '" width="' + w + '" height="21" rx="5" fill="#fff" stroke="#c5cae9"/><text x="' + mx + '" y="' + (my + 1) + '" text-anchor="middle" font-size="12" fill="#3949ab" font-family="JetBrains Mono, monospace">' + esc(label) + '</text>'; }
+    });
+    return '<svg class="arch" viewBox="0 0 ' + W + ' ' + (d.rows.length * 210 - 66) + '" role="img" aria-label="architecture diagram"><defs><marker id="ah" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="#5c6bc0"/></marker></defs>' + lines + boxes + '</svg>';
+  }
+
+  function solution(q) {
+    const g = q.guide, d = q.design;
+    const rows = (xs) => '<table><tbody>' + xs.map(([a, b]) => '<tr><td>' + inl(a) + '</td><td>' + inl(b) + '</td></tr>').join('') + '</tbody></table>';
+    const grid = (heads, xs, keyCol) => '<table class="grid4"><thead><tr>' + heads.map((h) => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' +
+      xs.map((r) => '<tr>' + r.map((c, i) => '<td' + (i === keyCol ? ' class="key"' : '') + '>' + inl(c) + '</td>').join('') + '</tr>').join('') + '</tbody></table>';
+    const sec = (t, body, cls) => '<div class="sec' + (cls ? ' ' + cls : '') + '"><h3>' + t + '</h3>' + body + '</div>';
+    const ul = (xs) => '<ul class="l">' + xs.map((x) => '<li>' + inl(x) + '</li>').join('') + '</ul>';
+    const tr = d.trade;
+    app.innerHTML = head(q, 'solution') + '<div class="solgrid"><div class="sol" id="solbody">' +
+      '<nav class="jump">' + ['Question', 'Clarify', 'Requirements', 'Capacity', 'API & data', 'Architecture', 'Deep dives', 'Trade-off', 'Failures', 'Staff', 'Follow-ups']
+        .map((t, i) => '<a href="javascript:void 0" data-j="j' + i + '">' + t + '</a>').join('') + '</nav>' +
+      '<div id="j0"></div>' + sec('The question', '<div class="stmt">' + esc(q.statement) + '</div>') +
+      sec('How it was reported (' + q.reports + ')', '<table><tbody>' + (q.variants || []).map((v) => '<tr><td>' + esc(v.source) + '</td><td>' + esc(v.text).replace(/\n/g, '<br>') + (v.note ? '<br><span class="small" style="color:#8d5300"><b>What happened:</b> ' + esc(v.note) + '</span>' : '') + '</td></tr>').join('') + '</tbody></table>') +
+      sec('What they are really testing', '<p class="gist">' + inl(g.gist) + '</p>') +
+      sec('How the round should go', '<ol class="steps">' + FLOW.map(([m, t, x]) => '<li><span class="m">' + m + '</span> <b>' + t + '</b><br>' + x + '</li>').join('') + '</ol>') +
+      '<div id="j1"></div>' + sec('Step 1 · Clarifying questions', rows(g.clarify)) +
+      '<div id="j2"></div>' + sec('Step 2 · Requirements', '<div class="two"><div><h4>Functional — what it does</h4>' + ul(d.fr) + '</div><div><h4>Non-functional — how well</h4>' + ul(d.nfr) + '</div></div>') +
+      '<div id="j3"></div>' + sec('Step 3 · Capacity estimation', grid(['Assumption', 'Calculation', 'Result', 'So the design…'], d.cap, 2) +
+        '<h4>More numbers</h4>' + ul(g.numbers)) +
+      '<div id="j4"></div>' + sec('Step 4 · API', '<ul class="l">' + g.api.map((x) => '<li><code>' + esc(x) + '</code></li>').join('') + '</ul>') +
+      sec('Step 4 · Data model and partition keys', grid(['Table / record', 'Main fields', 'Partition key', 'Why this key'], d.model, 2)) +
+      '<div id="j5"></div>' + sec('Step 5 · High-level architecture', diagram(d) + '<p class="small muted">Walk one request through these boxes out loud before going deep.</p>' + rows(g.parts)) +
+      (q.detail ? sec('Step 5b · Detailed architecture — the exact components',
+        (q.detail.paths ? '<div class="pathbar"><button class="chip on" data-p="">All components</button><button class="chip" data-p="write">✍ Write path</button><button class="chip" data-p="read">👁 Read path</button></div>' : '') +
+        '<div id="detailDiagram">' + diagram(q.detail) + '</div>' +
+        (q.detail.paths ? '<div class="two paths">' + ['write', 'read'].map((k) => { const p = q.detail.paths[k], names = Object.fromEntries(q.detail.rows.flat().map((b) => [b[0], b[1]]));
+          return '<div class="pathcol ' + k + '"><h4>' + (k === 'write' ? 'Write path' : 'Read path') + ' — ' + inl(p.title) + '</h4><ol>' +
+            p.steps.map(([b, t]) => '<li><b>' + esc(names[b] || b) + ':</b> ' + inl(t) + '</li>').join('') + '</ol></div>'; }).join('') + '</div>' : '') +
+        '<p class="small muted">Use this when the interviewer asks "which component, exactly?" Technologies are common, defensible choices, not claims about what LinkedIn runs.</p>' +
+        '<table class="grid4 walk"><thead><tr><th>#</th><th>Component</th><th>Technology</th><th>What exactly happens</th><th>Why this / the alternative</th></tr></thead><tbody>' +
+        q.detail.steps.map((st, i) => '<tr><td>' + (i + 1) + '</td><td>' + inl(st[0]) + '</td><td class="key">' + inl(st[1]) + '</td><td>' + inl(st[2]) + '</td><td>' + inl(st[3]) + '</td></tr>').join('') +
+        '</tbody></table>', 'detailsec') : '') +
+      '<div id="j6"></div>' + sec('Step 6 · Deep dives', g.deep.map(([t, x]) => '<h4>' + inl(t) + '</h4><p>' + inl(x) + '</p>').join('')) +
+      '<div id="j7"></div>' + sec('Step 7 · The key trade-off', '<div class="two">' + tr.options.map((o) => '<div class="opt ' + (o.kind === 'ok' ? 'win' : '') + '"><h4>' + inl(o.name) + '</h4><ul class="l">' +
+          o.pros.map((x) => '<li class="pro">' + inl(x) + '</li>').join('') + o.cons.map((x) => '<li class="con">' + inl(x) + '</li>').join('') + '</ul></div>').join('') + '</div>' +
+        '<p class="chosen"><b>Chosen:</b> ' + inl(tr.chosen) + '</p><p class="flip"><b>What would flip it:</b> ' + inl(tr.flip) + '</p>') +
+      '<div id="j8"></div>' + sec('Step 8 · Failures — what breaks, and what happens', grid(['What dies', 'What the user sees', 'What the system does'], d.fail, 0)) +
+      '<div id="j9"></div>' + sec('What a Staff engineer does here', '<ol class="staff">' + d.staff.map((x) => '<li>' + inl(x) + '</li>').join('') + '</ol>', 'staffsec') +
+      '<div id="j10"></div>' + sec('Step 9 · Follow-up questions they will ask', '<p class="small muted">Try to answer in your head first, then open.</p>' +
+        g.followups.map(([fq, fa]) => '<details class="fu"><summary>' + inl(fq) + '</summary><div>' + inl(fa) + '</div></details>').join('')) +
+      sec('Common mistakes', ul(g.mistakes)) +
+      sec('Close with this', '<p class="say">' + inl(g.say) + '</p><p class="small muted">Video lesson ' + esc(q.lesson) + ' covers this question' +
+        (['metrics', 'kvstore', 'topn', 'typeahead', 'denylist', 'mq', 'notify', 'scheduler', 'ratelimit', 'logging'].includes(q.id) ? ', and so does the Top-10 video (lesson 12.1).' : '.') + '</p>') +
+      '</div>' + tutorPanel() + '</div><button id="askSel" class="btn pri sm" hidden>Ask about this</button>';
+    if (q.detail && q.detail.paths) $$('.pathbar .chip').forEach((c) => c.addEventListener('click', () => {
+      $$('.pathbar .chip').forEach((x) => x.classList.toggle('on', x === c));
+      const svg = $('#detailDiagram svg'); const k = c.dataset.p;
+      $$('.pbadge', svg).forEach((e) => e.remove());
+      svg.classList.toggle('pathmode', !!k); svg.classList.remove('write', 'read'); if (k) svg.classList.add(k);
+      $$('g[data-id]', svg).forEach((g) => g.classList.remove('onpath'));
+      $$('line', svg).forEach((l) => l.classList.remove('onpath'));
+      if (!k) return;
+      const steps = q.detail.paths[k].steps, nums = {};
+      steps.forEach(([b], i) => { (nums[b] = nums[b] || []).push(i + 1); });
+      for (let i = 1; i < steps.length; i++) $$('line', svg).forEach((l) => { const a = l.dataset.a, b = l.dataset.b;
+        if ((a === steps[i - 1][0] && b === steps[i][0]) || (b === steps[i - 1][0] && a === steps[i][0])) l.classList.add('onpath'); });
+      Object.entries(nums).forEach(([b, ns]) => { const g = $('g[data-id="' + b + '"]', svg); if (!g) return; g.classList.add('onpath');
+        const x = +g.dataset.x, y = +g.dataset.y, label = ns.join(','), w = 16 + label.length * 9;
+        g.insertAdjacentHTML('beforeend', '<g class="pbadge"><rect x="' + (x - 8) + '" y="' + (y - 12) + '" width="' + w + '" height="26" rx="13"/><text x="' + (x - 8 + w / 2) + '" y="' + (y + 6) + '" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">' + label + '</text></g>'); });
+    }));
+    $$('.jump a').forEach((a) => a.addEventListener('click', () => { const t = document.getElementById(a.dataset.j); if (t) window.scrollTo({ top: t.getBoundingClientRect().top + window.scrollY - 60, behavior: 'smooth' }); }));
+    wireTutor(q);
+  }
+
+  // ------------------------------------------------------------------ tutor chat (Solution tab)
+  function tutorPanel() {
+    return '<aside class="tutor"><div class="tu-h"><b>Ask about this solution</b><button class="btn sm" id="tuClear" title="Start a new chat">Clear</button></div>' +
+      (live && STATUS.claude ? '' : '<div class="note small">The tutor chat runs only on a local setup with Claude.</div>') +
+      '<div class="tu-log" id="tuLog"></div>' +
+      '<div class="tu-chips" id="tuChips">' + ['Explain this design in 5 simple lines', 'What will the interviewer push on most?', 'Explain the partition key choice', 'Give me an example with real numbers']
+        .map((c) => '<button class="chip tu-chip">' + esc(c) + '</button>').join('') + '</div>' +
+      '<textarea class="in" id="tuMsg" placeholder="Ask anything — a term, a number, a why… (⌘↵ to send). Or select text in the guide."></textarea>' +
+      '<div class="btns"><button class="btn mic" id="tuMic">● Speak</button><span style="flex:1"></span><button class="btn pri" id="tuSend">Send</button></div></aside>';
+  }
+  function wireTutor(q) {
+    const key = 'sd.tutor.' + q.id;
+    let hist = store.get(key, []), busyT = false;
+    const log = $('#tuLog');
+    const add = (role, text) => {
+      const d = document.createElement('div'); d.className = 'msg ' + (role === 'user' ? 'me' : 'iv');
+      d.innerHTML = '<div class="who">' + (role === 'user' ? 'YOU' : 'TUTOR') + '</div><div class="b">' + (role === 'user' ? esc(text) : md(text)) + '</div>';
+      log.appendChild(d); log.scrollTop = 1e9; return d;
+    };
+    if (!hist.length) log.innerHTML = '<p class="small muted">Ask about anything on this page. Answers stay in the context of this question.</p>';
+    hist.forEach((m) => add(m.role, m.text));
+    const mic = voiceInput($('#tuMsg'), $('#tuMic'), $('#tuSend'), 'Send');
+    async function sendT(text) {
+      text = (text || $('#tuMsg').value).trim(); if (!text || busyT) return;
+      if (mic.on()) await mic.stop();
+      busyT = true; $('#tuMsg').value = '';
+      if (!hist.length) log.innerHTML = '';
+      add('user', text);
+      const d = add('assistant', '…'), b = $('.b', d); let out = '';
+      await stream('ask', { qid: q.id, message: text, history: hist }, {
+        delta: (x) => { out += x.text; b.innerHTML = md(out); log.scrollTop = 1e9; },
+        error: (e) => { b.innerHTML = '<span class="err">' + esc(e.message) + '</span>'; },
+      });
+      if (out) { hist.push({ role: 'user', text }, { role: 'assistant', text: out }); hist = hist.slice(-40); store.set(key, hist); }
+      busyT = false;
+    }
+    $('#tuSend').addEventListener('click', () => sendT());
+    $('#tuMsg').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendT(); } });
+    $$('.tu-chip').forEach((c) => c.addEventListener('click', () => sendT(c.textContent)));
+    $('#tuClear').addEventListener('click', () => { hist = []; store.set(key, hist); log.innerHTML = '<p class="small muted">New chat.</p>'; });
+    // Select a word or a line in the guide → "Ask about this".
+    const btn = $('#askSel');
+    document.onmouseup = (e) => {                       // assigned, not added: one handler however often the tab opens
+      if (e.target === btn) return;
+      const sel = window.getSelection(); const t = sel ? sel.toString().trim() : '';
+      if (!t || t.length > 400 || !$('#solbody') || !$('#solbody').contains(sel.anchorNode)) { btn.hidden = true; return; }
+      const r = sel.getRangeAt(0).getBoundingClientRect();
+      btn.style.left = Math.min(window.innerWidth - 150, r.right + window.scrollX + 6) + 'px'; btn.style.top = (r.top + window.scrollY - 34) + 'px';
+      btn.hidden = false; btn.dataset.sel = t;
+    };
+    btn.addEventListener('click', () => { btn.hidden = true; sendT('In this design, what does this mean, and why does it matter: "' + btn.dataset.sel + '"'); window.getSelection().removeAllRanges(); });
+  }
+
+  // Voice input for any textarea (Web Speech API). Only the recognised text is kept.
+  function voiceInput(ta, micBtn, sendBtn, sendLabel) {
+    let r = null, on = false;
+    const ui = () => { micBtn.classList.toggle('on', on); micBtn.textContent = on ? '■ Stop' : '● Speak'; sendBtn.textContent = on ? 'Stop & send' : sendLabel; };
+    if (!SR) micBtn.disabled = true;
+    const stop = () => new Promise((done) => { if (!r || !on) return done(); on = false; ui(); r.onend = () => done(); r.stop(); setTimeout(done, 1500); });
+    micBtn.addEventListener('click', () => {
+      if (on) return stop();
+      r = new SR(); r.lang = store.get('sd.lang', 'en-IN'); r.continuous = true; r.interimResults = true;
+      let base = ta.value.trim(); if (base) base += ' '; let heard = '';
+      r.onresult = (e) => { let interim = ''; for (let i = e.resultIndex; i < e.results.length; i++) { const x = e.results[i]; if (x.isFinal) heard += x[0].transcript.trim() + ' '; else interim += x[0].transcript; } ta.value = base + heard + interim; };
+      r.onerror = (e) => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { on = false; ui(); alert('Microphone blocked — allow it from the address bar.'); } };
+      r.onend = () => { if (on) { base = ta.value.trim() + ' '; heard = ''; try { r.start(); } catch {} } };
+      on = true; ui(); try { r.start(); } catch { on = false; ui(); }
+    });
+    window.addEventListener('hashchange', () => { if (on) { on = false; r.stop(); } }, { once: true });
+    return { stop, on: () => on };
+  }
+
+  // ------------------------------------------------------------------ interview
+  const PHASES = ['Requirements', 'Numbers & API', 'High-level', 'Deep dive', 'Scale & follow-ups', 'Wrap-up'];
+  let cur = null, timer = null, busy = false;
+  let SR = window.SpeechRecognition || window.webkitSpeechRecognition, rec = null, recOn = false;
+
+  function interview(q) {
+    clearInterval(timer);
+    const saved = store.get('sd.cur.' + q.id, null);
+    app.innerHTML = head(q, 'interview') +
+      (!live ? '<div class="note">Interview mode runs only on a local setup with Claude. On this site, use the <b>Solution guide</b> tab.</div>' : '') +
+      (live && !STATUS.claude ? '<div class="err">Claude is not configured on the local server (sim/.env).</div>' : '') +
+      '<div id="pre" class="panel"><p>Claude will act as a LinkedIn Staff-level interviewer for this question. Speak or type your answers. Use the whiteboard on the left for your design — the interviewer can see it.</p>' +
+      '<div class="btns"><label>Length <select id="mins"><option>30</option><option selected>45</option><option>60</option></select> min</label>' +
+      '<button class="btn pri" id="go"' + (live && STATUS.claude ? '' : ' disabled') + '>Start interview</button>' +
+      (saved ? '<button class="btn" id="resume">Resume last session</button>' : '') + '</div></div>' +
+      '<div id="room" hidden><div class="bar"><span class="clock" id="clk">0:00</span><span class="phases" id="phs"></span><span style="flex:1"></span>' +
+      '<button class="btn red sm" id="end">End &amp; evaluate</button></div>' +
+      '<div class="ivgrid"><div class="panel"><b>Whiteboard</b> <span class="small muted">— requirements, numbers, boxes and arrows in text. Sent with your next message.</span>' +
+      '<textarea class="board" id="board" placeholder="Functional:\n- …\nNon-functional:\n- …\n\nNumbers:\n- …\n\nClient -> LB -> Service -> DB\n"></textarea></div>' +
+      '<div class="panel"><div class="log" id="log"></div><textarea class="in" id="msg" placeholder="Your answer… (⌘↵ to send)"></textarea>' +
+      '<div class="btns"><button class="btn mic" id="mic">● Speak</button><select id="lang">' + ['en-IN', 'en-US', 'en-GB'].map((l) => '<option' + (l === store.get('sd.lang', 'en-IN') ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>' +
+      '<span style="flex:1"></span><button class="btn" id="next">Move on</button><button class="btn pri" id="send">Send</button></div></div></div></div>' +
+      '<div id="rep"></div>';
+    if (!SR) $('#mic') && ($('#mic').disabled = true);
+    $('#go') && $('#go').addEventListener('click', async () => {
+      try { const r = await api('start', { qid: q.id, mins: +$('#mins').value }); cur = { id: r.id, q, mins: +$('#mins').value, started: Date.now(), phase: 0, log: [] }; enter(); ask('start'); }
+      catch (e) { $('#pre').insertAdjacentHTML('beforeend', '<div class="err">' + esc(e.message) + '</div>'); }
+    });
+    $('#resume') && $('#resume').addEventListener('click', () => { cur = Object.assign(saved, { q }); enter(); cur.log.forEach((m) => bubble(m.who, m.text)); });
+    $('#send').addEventListener('click', sendMsg);
+    $('#msg').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendMsg(); } });
+    $('#next').addEventListener('click', () => ask('next'));
+    $('#end').addEventListener('click', evaluate);
+    $('#mic').addEventListener('click', () => recOn ? micStop() : micStart());
+    $('#lang').addEventListener('change', (e) => store.set('sd.lang', e.target.value));
+    $('#board').addEventListener('input', () => { if (cur) { cur.board = $('#board').value; persist(); } });
+  }
+  function enter() {
+    $('#pre').hidden = true; $('#room').hidden = false;
+    $('#board').value = cur.board || '';
+    drawPhases(); clearInterval(timer);
+    timer = setInterval(() => { const s = Math.floor((Date.now() - cur.started) / 1000); $('#clk') ? $('#clk').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') + ' / ' + cur.mins + ':00' : clearInterval(timer); }, 1000);
+  }
+  function drawPhases() { $('#phs').innerHTML = PHASES.map((p, i) => '<span class="ph ' + (i === cur.phase ? 'on' : i < cur.phase ? 'done' : '') + '">' + p + '</span>').join(''); }
+  function persist() { const { q, ...rest } = cur; store.set('sd.cur.' + cur.q.id, rest); }
+  function bubble(who, text) {
+    const d = document.createElement('div'); d.className = 'msg ' + who;
+    d.innerHTML = '<div class="who">' + (who === 'iv' ? 'INTERVIEWER' : who === 'me' ? 'YOU' : 'NOTE') + '</div><div class="b">' + (who === 'me' ? esc(text) : md(text)) + '</div>';
+    $('#log').appendChild(d); $('#log').scrollTop = 1e9; return d;
+  }
+  async function sendMsg() {
+    if (busy || !cur) return;
+    if (recOn) await micStop();
+    const v = $('#msg').value.trim(); if (!v) return;
+    bubble('me', v); cur.log.push({ who: 'me', text: v }); $('#msg').value = ''; persist();
+    ask('', v);
+  }
+  async function ask(event, message) {
+    if (busy) return; busy = true;
+    const d = bubble('iv', '…'), b = $('.b', d); let text = '';
+    await stream('turn', { id: cur.id, event, message, board: $('#board').value }, {
+      delta: (x) => { text += x.text; b.innerHTML = md(text); $('#log').scrollTop = 1e9; },
+      phase: (x) => { cur.phase = x.index; drawPhases(); },
+      end: () => { bubble('sys', 'The interviewer has closed the round. Press **End & evaluate** for your feedback.'); },
+      error: (e) => { text = '_' + e.message + '_'; b.innerHTML = '<span class="err">' + esc(e.message) + '</span>'; },
+      done: (x) => { $('#st').textContent = x.sessionUsd != null ? '≈ $' + x.sessionUsd.toFixed(2) + ' this session' : ''; },
+    });
+    if (text) { cur.log.push({ who: 'iv', text }); persist(); }
+    busy = false;
+  }
+  async function evaluate() {
+    if (!cur || !confirm('End the interview and get your evaluation?')) return;
+    if (recOn) await micStop();
+    $('#end').disabled = true; $('#rep').innerHTML = '<p class="muted">Claude is reviewing the whole interview — about 30–60 seconds…</p>';
+    try {
+      const r = await api('end', { id: cur.id }); const e = r.evaluation;
+      const last = store.get('sd.last', {}); last[cur.q.id] = { v: e.verdict, avg: e.avg }; store.set('sd.last', last);
+      try { localStorage.removeItem('sd.cur.' + cur.q.id); } catch {}
+      const names = { requirements: 'Requirements', estimation: 'Estimation', api_data: 'API and data model', high_level: 'High-level design', deep_dive: 'Deep dive', tradeoffs: 'Trade-offs', scale_reliability: 'Scale and failures', communication: 'Communication' };
+      const lst = (t, xs) => xs && xs.length ? '<h3>' + t + '</h3><ul class="l">' + xs.map((x) => '<li>' + inl(x) + '</li>').join('') + '</ul>' : '';
+      $('#rep').innerHTML = '<div class="panel" style="margin-top:16px"><h2>Your evaluation</h2><div class="verdict"><span class="chip v-' + e.verdict.split(' ')[0] + '" style="font-size:18px">' + esc(e.verdict) + '</span> ' + e.avg.toFixed(1) + ' / 10 average</div>' +
+        '<p>' + inl(e.summary) + '</p><div class="scores">' + r.dims.map((k) => '<div class="sc">' + names[k] + ' <b>' + e.scores[k].score + '</b>/10<div class="ev">' + inl(e.scores[k].evidence) + '</div></div>').join('') + '</div>' +
+        lst('What went well', e.strengths) + lst('What to improve', e.gaps) + lst('Important points you did not cover', e.missed) +
+        (e.redo.length ? '<h3>Answers to redo</h3>' + e.redo.map((x) => '<details class="fu"><summary>' + inl(x.moment) + '</summary><div><b>Issue:</b> ' + inl(x.issue) + '<br><b>Better:</b> ' + inl(x.better) + '</div></details>').join('') : '') +
+        lst('Practise next', e.next_practice) +
+        '<p class="small muted">Scores are Claude\'s judgement against a Staff bar I set (PASS = average 6.5+, deep dive and trade-offs 6+, nothing below 4). It is practice feedback, not LinkedIn\'s rubric. Now compare with the <a href="#/q/' + cur.q.id + '/solution">solution guide</a>.</p></div>';
+      clearInterval(timer);
+    } catch (err) { $('#rep').innerHTML = '<div class="err">' + esc(err.message) + '</div>'; $('#end').disabled = false; }
+  }
+
+  // voice input (Web Speech API): the browser's speech service turns speech into text; only text is kept
+  function micStart() {
+    if (!SR) return;
+    rec = new SR(); rec.lang = store.get('sd.lang', 'en-IN'); rec.continuous = true; rec.interimResults = true;
+    let base = $('#msg').value.trim(); if (base) base += ' '; let heard = '';
+    rec.onresult = (e) => { let interim = ''; for (let i = e.resultIndex; i < e.results.length; i++) { const r = e.results[i]; if (r.isFinal) heard += r[0].transcript.trim() + ' '; else interim += r[0].transcript; } $('#msg').value = base + heard + interim; };
+    rec.onerror = (e) => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { recOn = false; micUi(); alert('Microphone blocked — allow it from the address bar.'); } };
+    rec.onend = () => { if (recOn) { base = $('#msg').value.trim() + ' '; heard = ''; try { rec.start(); } catch {} } };
+    recOn = true; micUi(); try { rec.start(); } catch { recOn = false; micUi(); }
+  }
+  function micStop() { return new Promise((done) => { if (!rec || !recOn) return done(); recOn = false; micUi(); rec.onend = () => done(); rec.stop(); setTimeout(done, 1500); }); }
+  function micUi() { const b = $('#mic'); if (!b) return; b.classList.toggle('on', recOn); b.textContent = recOn ? '■ Stop' : '● Speak'; $('#send').textContent = recOn ? 'Stop & send' : 'Send'; }
+
+  // ------------------------------------------------------------------ router
+  function route() {
+    if (recOn) micStop();
+    const m = /^#\/q\/([\w-]+)\/(interview|solution)/.exec(location.hash);
+    const q = m && Q.find((x) => x.id === m[1]);
+    window.scrollTo(0, 0);
+    if (!q) return list();
+    return m[2] === 'solution' ? solution(q) : interview(q);
+  }
+  (async () => {
+    // The verbatim InterviewDB text exists only on the owner's machine (questions.local.json, git-excluded);
+    // the deployed site serves the public rewrite.
+    try { const r = await fetch('assets/questions.local.json'); if (!r.ok) throw 0; Q = await r.json(); }
+    catch { Q = await (await fetch('assets/questions.json')).json(); }
+    try { META = await (await fetch('assets/meta.json')).json(); } catch {}
+    if (live) { try { STATUS = await api('status'); $('#st').textContent = STATUS.claude ? 'Claude · ' + STATUS.model : 'Claude not configured'; } catch {} }
+    window.addEventListener('hashchange', route); route();
+  })();
+})();
+</script>
+</body>
+</html>

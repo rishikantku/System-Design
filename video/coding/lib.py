@@ -110,9 +110,9 @@ def _hl(line):
         code, comment = s[:i], s[i:]
 
     out = []
-    for part in re.split(r'(&quot;.*?&quot;)', code):
-        if part.startswith('&quot;'):
-            out.append('<i class="cs">%s</i>' % part)
+    for part in re.split(r'("(?:[^"\\]|\\.)*")', code):   # escape() leaves quotes alone (quote=False)
+        if part.startswith('"'):
+            out.append('<i class="cstr">%s</i>' % part)
             continue
         part = re.sub(KW, r'<i class="ck">\1</i>', part)      # keywords first
         part = re.sub(TY, r'<i class="ct">\1</i>', part)      # then types (no overlap with markup)
@@ -219,4 +219,78 @@ def interview_script(lines, narration):
     sid = steps_list('How to say it in the interview', items, numbered=False)
     for step, text in enumerate(narration):
         seg(sid, step, text)
+    return sid
+
+# ------------------------------------------------------------------ the CoderPad screen (lesson 11.2)
+def _con_line(t):
+    """Colour one console line by what it says, never by position."""
+    cls = 'cn'
+    if t.startswith('$'): cls = 'cp'
+    elif 'FAIL' in t or 'error CS' in t or t.startswith('Unhandled exception'): cls = 'cf'
+    elif t.startswith('---'): cls = 'cs3'
+    elif t.strip().startswith('note:'): cls = 'cnote'
+    elif ' passed, 0 failed' in t: cls = 'cok'
+    elif ' passed, ' in t: cls = 'cf'
+    return '<div class="%s">%s</div>' % (cls, esc(t) or '&nbsp;')
+
+def pad(title, file, code, chat=(), narr=(), kicker='CoderPad', tabs=None, clock='', phase='',
+        ai=False, hl=(), console=None, max_lines=22):
+    """A CoderPad-like screen: the file in the editor, the AI Assist chat, the console.
+
+    chat    [(step, kind, head, body_html)]   kind: you | bad | good | ai | iv | rev | fix
+    hl      [(step, [needle, ...])]           lines (found by substring) highlighted at that step
+    console (step, text) or None              text is REAL output from live_out.json, or a note
+    narr    [(step, text)]
+    ai      True marks every line as written by the assistant (purple edge)
+    """
+    lines = code.strip('\n').split('\n')
+    assert len(lines) <= max_lines, '%s: %d lines on the pad (max %d)' % (title, len(lines), max_lines)
+    marks = {}
+    for st, needles in hl:
+        for nd in needles:
+            hits = [i for i, l in enumerate(lines) if nd in l]
+            assert hits, '%s: highlight %r not found' % (title, nd)
+            for i in hits: marks.setdefault(i, []).append(str(st))
+    body = []
+    for i, l in enumerate(lines):
+        a = ' data-hl="%s"' % ','.join(marks[i]) if i in marks else ''
+        body.append('<span class="ln%s"%s>%s</span>' % (' ai' if ai else '', a, _hl(l) or '&nbsp;'))
+    tabs_html = ''.join('<span class="ptab%s">%s</span>' % (' on' if t == file else '', esc(t))
+                        for t in (tabs or [file]))
+    bubbles = []
+    for st, kind, head, html in chat:
+        bubbles.append('<div class="bub b-%s" data-step="%d"><div class="bh">%s</div><div class="bb">%s</div></div>'
+                       % (kind, st, esc(head), html))
+    if console:
+        cst, text = console
+        con = ('<div class="pcon-ph" data-step="0" data-hide="%d">&#9654; Run to see output</div>'
+               '<div class="pcon-out" data-step="%d"><div class="cp">$ dotnet run</div>%s</div>'
+               % (cst, cst, ''.join(_con_line(t) for t in text.split('\n'))))
+    else:
+        con = '<div class="pcon-ph" data-step="0">&#9654; Run to see output</div>'
+    inner = ('<div class="pad"><div class="pbar"><span class="plogo">CoderPad</span><span class="pchip">C# · .NET</span>'
+             '<span class="pchip ai">AI Assist</span><span class="pgap"></span>%s%s</div>'
+             '<div class="pmain"><div class="pleft"><div class="ptabs">%s</div>'
+             '<div class="pcode"><pre class="cl padcode">%s</pre></div>'
+             '<div class="pcon"><div class="pconh">Console</div>%s</div></div>'
+             '<div class="pright"><div class="pchath">AI Assist</div><div class="pmsgs">%s</div></div></div></div>') % (
+        '<span class="pchip ph">%s</span>' % esc(phase) if phase else '',
+        '<span class="pchip clk">%s</span>' % esc(clock) if clock else '',
+        tabs_html, ''.join(body), con, ''.join(bubbles))
+    sid = new_slide(inner, title=title, kicker=kicker, cls='padslide')
+    for st, text in narr:
+        seg(sid, st, text)
+    return sid
+
+def prompt_compare(title, bad, bad_why, good, good_why, narr, kicker='Bad prompt vs good prompt'):
+    """Two prompts side by side, each with why it works or fails. Steps: 0 = bad, 1 = good."""
+    def col(kind, tag, text, why, st):
+        lis = ''.join('<li>%s</li>' % rich(w) for w in why)
+        return ('<div class="pc pc-%s" data-step="%d"><div class="pctag">%s</div><div class="pctext">%s</div>'
+                '<ul>%s</ul></div>') % (kind, st, tag, esc(text).replace('\n', '<br>'), lis)
+    inner = '<div class="pcmp">%s%s</div>' % (col('bad', 'Bad prompt', bad, bad_why, 0),
+                                               col('good', 'Good prompt', good, good_why, 1))
+    sid = new_slide(inner, title=title, kicker=kicker, cls='pcslide')
+    for st, text in narr:
+        seg(sid, st, text)
     return sid

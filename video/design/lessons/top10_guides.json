@@ -1,0 +1,721 @@
+{
+ "metrics": {
+  "gist": "The most reported LinkedIn design question. Collect `[source, metric, value]` from hundreds of machines, store it as **time series**, let people **graph** any metric for any hosts over time, and **alert** on thresholds. The hard parts: very high **write volume**, fast **range queries**, and alerting that does not miss or spam.",
+  "clarify": [
+   [
+    "How many sources and metrics, how often?",
+    "Decides write rate — the main number in this question."
+   ],
+   [
+    "How long to keep data, and at what detail?",
+    "Raw for days, then downsampled (1-min, 1-hour) — decides storage."
+   ],
+   [
+    "How fresh must graphs and alerts be?",
+    "Alerts within ~1 minute usually; graphs a few seconds behind is fine."
+   ],
+   [
+    "Which queries? One metric for a few hosts (t1→t2), or aggregates (p99 across a cluster)?",
+    "Decides the data layout and pre-aggregation."
+   ],
+   [
+    "Push or pull — can we put an agent on every machine?",
+    "Decides the collection path."
+   ]
+  ],
+  "api": [
+   "Agent → POST /ingest (batched points)",
+   "GET /query?metric=mem&sources=h1,h2,h3&from=t1&to=t2&step=1m",
+   "POST /alerts {metric, condition: > 70%, for: 5m, notify}"
+  ],
+  "deep": [
+   [
+    "Data layout",
+    "Group points by series (metric + source) and time block (e.g. 2 hours). A graph query reads a few contiguous blocks. Compress timestamps and values with deltas — this is why TSDBs are so small."
+   ],
+   [
+    "Downsampling",
+    "Nobody needs 10-second points from last year. Keep raw for ~2 weeks, 1-minute for months, 1-hour for years. The query service chooses the resolution from the range."
+   ],
+   [
+    "Alerting that works",
+    "\"Above 70% for 5 minutes\", not \"above 70% once\" (avoids flapping). Treat **missing data as a signal** — a dead host sends nothing. Group and dedupe alerts during incidents."
+   ],
+   [
+    "Cardinality",
+    "The real danger: a label like user_id creates millions of series and kills the TSDB. Limit labels, and reject or sample high-cardinality metrics."
+   ]
+  ],
+  "followups": [
+   [
+    "Write rate goes 10× — what breaks first?",
+    "The TSDB write path. Add shards by series, batch harder on agents, drop or sample low-value metrics. Kafka absorbs short spikes."
+   ],
+   [
+    "Graph a cluster-wide p99 over 30 days fast.",
+    "Pre-aggregate per cluster in rollups (or store histograms/sketches); never compute it from raw points at query time."
+   ],
+   [
+    "The monitoring system itself goes down.",
+    "Run it per data centre; each DC monitors itself and the others. Agents buffer locally. A separate tiny heartbeat checker watches the monitor."
+   ],
+   [
+    "Host health across 3 data centres (the InterviewDB version).",
+    "Per-DC collectors and storage, a global view that merges them, and a current-state store (latest status per host) for \"what is unhealthy now\"."
+   ],
+   [
+    "How do you avoid alert spam?",
+    "For-duration conditions, grouping by service, dedupe, severity levels, silence windows during maintenance."
+   ]
+  ],
+  "mistakes": [
+   "Writing every point straight into a SQL table.",
+   "No downsampling — storage grows forever, week-long graphs are slow.",
+   "Alerting on a single sample (flapping).",
+   "Forgetting that a silent host is a failure.",
+   "Ignoring cardinality."
+  ],
+  "say": "\"Agents batch to Kafka, a sharded time-series store keeps compressed series with rollups, queries pick the resolution from the range, and alerts evaluate for-duration rules on the stream — with missing data treated as an alert.\""
+ },
+ "kvstore": {
+  "gist": "Build a key-value store on top of a **simple file API** (create, append, read bytes at an offset). Keys fit in memory, values do not. This is the **Bitcask** design: append values to a log file, keep an **in-memory index key → (file, offset, size)**.",
+  "clarify": [
+   [
+    "Exact interface given?",
+    "Yes — append, read at offset, create. So no in-place updates — everything is append."
+   ],
+   [
+    "Delete support?",
+    "Needs tombstones and compaction."
+   ],
+   [
+    "Durability on crash?",
+    "Need to rebuild the index from files."
+   ],
+   [
+    "Single machine or distributed?",
+    "Start with one node; distribution is a follow-up."
+   ]
+  ],
+  "api": [
+   "put(key, value)",
+   "get(key)",
+   "delete(key)"
+  ],
+  "deep": [
+   [
+    "Write path",
+    "Append to the end of the active file (fast, sequential), then update the index. An update is just a new append — the index points to the newest one."
+   ],
+   [
+    "Read path",
+    "Look up the key in memory, then read exactly `size` bytes at `offset`. One disk read."
+   ],
+   [
+    "Delete and compaction",
+    "Append a tombstone; index removes the key. Compaction later removes old values and tombstones to free space."
+   ],
+   [
+    "Crash recovery",
+    "Rebuild the index by scanning files (or hint files). A checksum per record detects a half-written last record — ignore it."
+   ],
+   [
+    "The distributed version (two of the three LeetCode reports)",
+    "Partition keys with **consistent hashing** (virtual nodes so adding a node moves little data). Replicate each partition to 3 nodes. Consistency: quorum reads/writes (W + R > N) for strong-ish reads, or leader-per-partition for simple strong consistency. Name the trade: availability during partitions vs fresh reads."
+   ]
+  ],
+  "followups": [
+   [
+    "Range queries (all keys between A and B)?",
+    "A hash index cannot do it — use a sorted structure (LSM tree / SSTables) instead. Say the trade-off."
+   ],
+   [
+    "Keys no longer fit in memory.",
+    "Move to an LSM tree: sorted files with a sparse index and Bloom filters."
+   ],
+   [
+    "Make it distributed.",
+    "Partition keys by consistent hashing; replicate each partition to 3 nodes."
+   ],
+   [
+    "Concurrent writers?",
+    "One writer thread appends (serialises writes); readers read in parallel."
+   ],
+   [
+    "Partitioning, replication and consistency — how?",
+    "Consistent hashing with virtual nodes; replication factor 3; leader-follower per partition (simple, strong) or leaderless quorum N=3, W=2, R=2 (more available). Hinted handoff and read repair for leaderless."
+   ],
+   [
+    "Disk cleanup — when do you run compaction, and does it hurt reads?",
+    "Compact when dead data in a file passes a threshold (e.g. 50%); run in the background with an I/O budget; readers keep using old files until the swap is atomic."
+   ],
+   [
+    "How do you know what is safe to delete after compaction?",
+    "Write the new file fully, fsync, update the index to point at it, then delete the old file. A crash in between leaves extra files, never lost data."
+   ]
+  ],
+  "mistakes": [
+   "Trying to update values in place — the API only appends.",
+   "Forgetting compaction — disk grows forever.",
+   "No checksum for torn writes after a crash."
+  ],
+  "say": "\"Append-only data files, an in-memory index of key to file and offset, background compaction, and hint files for fast restart — the Bitcask design.\""
+ },
+ "topn": {
+  "gist": "Find the **top N most frequent items over a fixed 24-hour window** across hundreds of machines. You cannot ship every request to one place, so each machine **counts locally**, and you **merge** counts. Exact vs approximate is the key trade-off.",
+  "clarify": [
+   [
+    "Exact top N, or approximately right is fine?",
+    "Exact needs much more memory and network. Approximate allows Count-Min Sketch / Space-Saving."
+   ],
+   [
+    "\"Last 24 hours (not any 24 hours)\" — a fixed day or a sliding window?",
+    "The wording says a specific window — fixed hourly buckets make this easy."
+   ],
+   [
+    "How big is N? 10 or 10,000?",
+    "Small N → small heaps."
+   ],
+   [
+    "How fast must the answer be? Ad hoc query or a daily report?",
+    "Decides precompute vs on-demand merge."
+   ]
+  ],
+  "api": [
+   "GET /topN?n=100&window=last24h"
+  ],
+  "deep": [
+   [
+    "Why local top-K is approximate",
+    "An item that is #10,001 on every machine can still be #1 overall. Fix: send more than N (10× N) and add a second pass for exact counts of the candidates, or accept small error and say so."
+   ],
+   [
+    "Count-Min Sketch + heap",
+    "Fixed memory counts with small overestimate; a heap keeps current top-K. Good when keys are too many to store exactly."
+   ],
+   [
+    "Sliding vs fixed",
+    "Hourly buckets give a window accurate to one hour. Need minute accuracy → minute buckets (1,440 of them)."
+   ],
+   [
+    "Several windows at once (5 min, 1 hour, 24 hours)",
+    "Keep minute buckets. 5 min = merge 5 buckets; 1 hour = 60; 24 hours = merge hourly rollups (each hour merged once and stored). Same pipeline, three cheap merges."
+   ]
+  ],
+  "followups": [
+   [
+    "Exact answer is required.",
+    "Two passes: first collect candidate keys from every machine's top-K, then ask every machine for exact counts of those candidates."
+   ],
+   [
+    "Query must return in milliseconds.",
+    "Keep a precomputed rolling result updated every hour (or minute)."
+   ],
+   [
+    "One machine is down for an hour.",
+    "Its bucket is missing — mark the result as partial, backfill when it returns (agents buffer locally)."
+   ],
+   [
+    "Different windows: last 1 hour, last 7 days.",
+    "Same hourly buckets — merge 1 or 168 of them."
+   ],
+   [
+    "Do you need a coordination service (ZooKeeper)?",
+    "No — a candidate lost points adding one. Machines just send counts to aggregators partitioned by key; nothing here needs leader election or locks. Only add a component when you can say exactly what breaks without it."
+   ]
+  ],
+  "mistakes": [
+   "Sending every request to a central counter.",
+   "Merging only top-N from each machine and calling it exact.",
+   "Not asking exact vs approximate."
+  ],
+  "say": "\"Count locally in hourly buckets, ship each machine's top-K, merge 24 buckets for the answer — approximate by default, with a second exact pass if needed.\""
+ },
+ "typeahead": {
+  "gist": "Suggestions while typing must come back in **under ~100 ms**. So you **precompute** the top suggestions for every prefix and serve them from memory. Personalisation (your connections first) and freshness (new names) are the follow-ups.",
+  "clarify": [
+   [
+    "What do we suggest — people, companies, skills, all?",
+    "Different sources, mixed in one list."
+   ],
+   [
+    "Personalised (your network first) or the same for everyone?",
+    "LinkedIn: personalised matters a lot — \"Ry\" should show your connection Ryan."
+   ],
+   [
+    "How fresh? A new company must show within?",
+    "Minutes vs a day decides batch vs streaming updates."
+   ],
+   [
+    "Latency target?",
+    "Under 100 ms end to end, so the server part ~20–30 ms."
+   ]
+  ],
+  "api": [
+   "GET /typeahead?q=Ry&memberId=…&k=10"
+  ],
+  "deep": [
+   [
+    "Precompute top-K per prefix",
+    "Ranking millions of matches at query time is too slow. Store the answer for each prefix ahead of time. Space grows, but memory is cheap compared to latency."
+   ],
+   [
+    "Personalisation without per-user tries",
+    "Global index for popular entities + a small per-user list of connections, merged at query time."
+   ],
+   [
+    "Freshness",
+    "Main index rebuilt daily; a small \"recent additions\" index updated in near real time and merged in."
+   ]
+  ],
+  "followups": [
+   [
+    "How to scale with 1 billion users in the index?",
+    "Shard the prefix index by prefix; replicate hot shards (short prefixes like \"a\" are hottest); cache top prefixes."
+   ],
+   [
+    "How to generate rank and return top K with low latency?",
+    "Scores computed offline (popularity, connections, recency), stored sorted per prefix, so query time is just a lookup + small merge."
+   ],
+   [
+    "Typos (\"Rian\" for \"Ryan\")?",
+    "Fuzzy matching with edit distance 1 on short candidate sets, or phonetic keys."
+   ],
+   [
+    "Privacy?",
+    "Only show names the viewer is allowed to see; filter blocked members."
+   ]
+  ],
+  "mistakes": [
+   "Ranking at query time over the whole dataset.",
+   "Forgetting personalisation for LinkedIn.",
+   "No client-side debounce/cancel."
+  ],
+  "say": "\"Precompute top-K per prefix in a sharded in-memory index, merge with a small personal list of connections at query time, and keep it fresh with a small real-time index.\""
+ },
+ "denylist": {
+  "gist": "Detect bad IPs in one place and push the list to thousands of web servers **quickly and reliably**. The real problem is **distribution**: every server must get updates fast, and the check on every request must cost almost nothing.",
+  "clarify": [
+   [
+    "How fast must a new bad IP be blocked everywhere?",
+    "Seconds vs minutes changes push vs pull."
+   ],
+   [
+    "How big is the list? IPv4 only or IPv6 too?",
+    "A few million IPs fit in memory on each server. IPv6 needs prefixes (ranges), not single IPs."
+   ],
+   [
+    "Do entries expire?",
+    "Yes usually — IPs get reused. Add a TTL so the list does not grow forever."
+   ],
+   [
+    "Is a false positive (blocking a good user) worse than missing a bad one?",
+    "Decides how strict detection is and whether we need an appeal / allow-list path."
+   ]
+  ],
+  "api": [
+   "isMalicious(request) — given",
+   "POST /denylist {ip, reason, ttl} (internal)",
+   "GET /denylist/snapshot?version=v",
+   "GET /denylist/delta?since=v"
+  ],
+  "deep": [
+   [
+    "Push vs pull",
+    "Pull every 30 s is simple but slow and makes 10,000 servers hit the service at once. Push through Kafka is fast (seconds). Best: **push deltas, plus a periodic pull of the version** to catch anything missed."
+   ],
+   [
+    "Never stale without knowing it",
+    "Each server knows its list version. If it falls too far behind (version gap or no update for N minutes) it reloads the snapshot and raises an alert."
+   ],
+   [
+    "What if the denylist service is down?",
+    "Web servers keep using their last list — fail open for availability, but the list is still mostly correct. Never block all traffic because the list could not load."
+   ],
+   [
+    "Ranges and IPv6",
+    "Store CIDR prefixes in a trie (longest-prefix match). One entry can block a whole bad subnet."
+   ],
+   [
+    "\"Intercept malicious requests\" (the second LeetCode wording)",
+    "Where you intercept matters: at the edge (load balancer / API gateway) so bad traffic never reaches services. The in-memory denylist check runs there. isMaliciousRequest is expensive, so call it asynchronously on a sample or on suspicious traffic and feed results into the denylist, rather than calling it on every request."
+   ]
+  ],
+  "followups": [
+   [
+    "A bad IP must be blocked in under 5 seconds everywhere.",
+    "Push via Kafka with servers subscribed directly; measure end-to-end lag as a metric and alert on it."
+   ],
+   [
+    "The list becomes 100M entries.",
+    "Use a Bloom filter in memory for the first check (no false negatives), and confirm hits against a local compact store. Or block by prefix instead of single IPs."
+   ],
+   [
+    "How do you unblock a wrongly blocked user?",
+    "Allow-list that overrides the denylist, an appeal path, and TTLs so mistakes expire on their own."
+   ],
+   [
+    "How do you check it is working?",
+    "Metrics: list version per server, lag, block rate, false-positive reports. Canary: add a test IP and confirm every server blocks it."
+   ],
+   [
+    "Must isMaliciousRequest run on every request?",
+    "Usually no — too slow. Check the cheap in-memory denylist on every request, run the expensive classifier async (or only on suspicious patterns), and add offenders to the list."
+   ]
+  ],
+  "mistakes": [
+   "Calling a remote service on every request — adds latency and a single point of failure.",
+   "Sending the full list every time instead of deltas.",
+   "No versioning — you cannot tell which servers are stale.",
+   "Running isMalicious inline and slowing every request."
+  ],
+  "say": "\"Detect off the request path, keep a versioned source of truth, push deltas to an in-memory copy on every server, and let servers self-heal with snapshots when they fall behind.\""
+ },
+ "mq": {
+  "gist": "Design a **Kafka-like** queue: producers append messages, consumers read them, messages are **durable** and **ordered within a partition**. LinkedIn built Kafka, so expect deep questions on partitions, replication and delivery guarantees.",
+  "clarify": [
+   [
+    "Queue (each message to one consumer) or pub/sub (to many groups)?",
+    "Kafka style log does both via consumer groups."
+   ],
+   [
+    "Ordering needed?",
+    "Usually per key — so partition by key."
+   ],
+   [
+    "Delivery: at-least-once or exactly-once?",
+    "At-least-once + idempotent consumers is the common answer."
+   ],
+   [
+    "Retention — delete after read, or keep for days?",
+    "Log style keeps for days, so consumers can replay."
+   ]
+  ],
+  "api": [
+   "produce(topic, key, value)",
+   "consume(topic, group) → messages from an offset",
+   "commit(group, partition, offset)"
+  ],
+  "deep": [
+   [
+    "Why an append-only log is fast",
+    "Sequential disk writes and reads, OS page cache, batching, zero-copy send. That is why Kafka handles huge throughput."
+   ],
+   [
+    "Replication and acks",
+    "Leader writes, followers copy. With acks=all, a message is acknowledged only when all in-sync replicas have it — no loss if the leader dies."
+   ],
+   [
+    "Delivery guarantees",
+    "Consumer processes then commits the offset → at-least-once (may repeat after a crash). Make consumers idempotent. Exactly-once needs transactions — say it is costly."
+   ]
+  ],
+  "followups": [
+   [
+    "A consumer is slow (lag grows).",
+    "Add consumers up to the number of partitions; more partitions for the future; alert on lag."
+   ],
+   [
+    "A broker dies.",
+    "Controller elects a new leader from in-sync replicas; producers and consumers refresh metadata."
+   ],
+   [
+    "Ordering across the whole topic?",
+    "Only with one partition — kills throughput. Per-key ordering is the usual answer."
+   ],
+   [
+    "Delayed / scheduled messages?",
+    "Separate delay topics or a timer service — Kafka does not do it natively."
+   ]
+  ],
+  "mistakes": [
+   "A single queue with no partitions.",
+   "Promising global ordering and high throughput together.",
+   "Deleting messages on read (no replay)."
+  ],
+  "say": "\"Partitioned, replicated append-only logs; producers partition by key for order; consumer groups track offsets for at-least-once delivery with idempotent consumers.\""
+ },
+ "notify": {
+  "gist": "One pipeline that takes \"something happened\" events and delivers notifications over **push, email and in-app**, respecting **user preferences**, **deduplication**, **rate limits** and **retries**. The key is to separate deciding *what* to send from actually *sending*.",
+  "clarify": [
+   [
+    "Which events? Messages, likes, job alerts, security?",
+    "Priority differs — security codes must be fast, digests can wait."
+   ],
+   [
+    "User preferences per channel and type?",
+    "Needs a preference service checked on every send."
+   ],
+   [
+    "Volume?",
+    "Decides queues and worker counts."
+   ],
+   [
+    "Digests (batch many likes into one)?",
+    "Needs a delay/aggregation step."
+   ]
+  ],
+  "api": [
+   "Internal: notify(event) from any service",
+   "GET /notifications?user= (in-app feed)",
+   "PUT /preferences"
+  ],
+  "deep": [
+   [
+    "Priority queues",
+    "A security code should not wait behind 1M marketing emails — separate high-priority queues and workers."
+   ],
+   [
+    "Idempotency",
+    "Each notification has an id; workers check before sending so a retry does not send twice."
+   ],
+   [
+    "Rate limiting the user",
+    "Cap notifications per user per hour; collapse many \"X liked your post\" into one."
+   ],
+   [
+    "Per-category limits (\"5 marketing notifications per day per user\")",
+    "Counter per (user, category, day) in Redis with expiry — atomic increment, reject or delay when over. Transactional and security categories are never limited. Check limits **after** preferences and **before** sending."
+   ]
+  ],
+  "followups": [
+   [
+    "A provider (APNs) is slow or down.",
+    "Queue grows; retry with backoff; circuit breaker; fall back to in-app."
+   ],
+   [
+    "Track delivery and opens.",
+    "Delivery receipts from providers + open/click events back into analytics."
+   ],
+   [
+    "Send at a good local time.",
+    "Schedule non-urgent notifications for the user's daytime."
+   ],
+   [
+    "Too many notifications annoy users.",
+    "Per-user budget and ranking — send only the most valuable ones."
+   ],
+   [
+    "Add rate limits per category.",
+    "Per (user, category, day) counters; different limits per category; over the limit → drop or merge into a digest. Never limit security codes."
+   ],
+   [
+    "Where do user preferences sit?",
+    "A preference service checked first (opt-outs per channel and category, quiet hours); cached because it is read on every notification."
+   ]
+  ],
+  "mistakes": [
+   "Services calling email/push providers directly.",
+   "One queue for everything.",
+   "No dedupe on retries.",
+   "Ignoring preferences."
+  ],
+  "say": "\"Events go to a notification service that applies preferences, dedupe, rate limits and digests, then to per-channel priority queues whose workers retry idempotently.\""
+ },
+ "scheduler": {
+  "gist": "Run jobs at the right time on machines you **ask for through an API**, make sure each job runs **once**, survive scheduler crashes, and **alert** on failures. The core: a durable job store, a way to find **due jobs** quickly, **leases** so two schedulers never run the same job, and a clear **job state machine**.",
+  "clarify": [
+   [
+    "One-off jobs, recurring (cron), or both? Dependencies between jobs?",
+    "Recurring needs a \"next run time\"; dependencies need a DAG — say if out of scope."
+   ],
+   [
+    "Exactly once, or at least once with idempotent jobs?",
+    "Exactly once is very hard; at-least-once + idempotent jobs is the usual answer."
+   ],
+   [
+    "What does the machine API give us — a free machine on request? Can machines die mid-job?",
+    "Decides retries and heartbeats."
+   ],
+   [
+    "How many jobs per day, and how late is acceptable?",
+    "Decides how we find due jobs (DB index vs time buckets)."
+   ],
+   [
+    "Alert on what — failure, timeout, too many retries, late start?",
+    "Defines the alerting rules."
+   ]
+  ],
+  "api": [
+   "POST /jobs {cron or runAt, command, resources, retries, timeout}",
+   "GET /jobs/{id}/runs",
+   "Given: fetchMachines(requirements) → machine(s)",
+   "Worker → POST /runs/{id}/heartbeat, /complete"
+  ],
+  "deep": [
+   [
+    "No double runs",
+    "A scheduler **claims** a run with an atomic update: `SET state=claimed, lease_until=now+30s WHERE id=? AND state=due`. Only one wins. If it crashes, the lease expires and another scheduler picks it up."
+   ],
+   [
+    "State machine",
+    "scheduled → claimed → running → succeeded / failed → (retry → scheduled) / dead. Every change is an atomic update with the expected old state, so late messages cannot move a run backwards."
+   ],
+   [
+    "Machine failure mid-job",
+    "Workers heartbeat every few seconds. Missed heartbeats → the monitor marks the run lost and schedules a retry (with backoff), on a new machine from the API. Jobs must be idempotent because a retry may repeat work."
+   ],
+   [
+    "Top-of-hour spike",
+    "Partition due runs by hash across scheduler nodes; add small random jitter for jobs that do not need the exact second."
+   ]
+  ],
+  "followups": [
+   [
+    "Do you need ZooKeeper / a coordination service?",
+    "Not for claiming runs — an atomic DB update with a lease is enough. Use one only if you need leader election for something singular. (A candidate lost points for adding one that was not needed.)"
+   ],
+   [
+    "The machine API is slow or has no free machines.",
+    "Queue the run as waiting-for-capacity, retry with backoff, alert if it starts too late."
+   ],
+   [
+    "Jobs depend on other jobs.",
+    "Store a DAG; a run becomes due when its parents succeed."
+   ],
+   [
+    "Exactly-once execution?",
+    "Not guaranteed across crashes — make jobs idempotent (unique run id, check before side effects)."
+   ],
+   [
+    "How do users see what happened?",
+    "Run history with logs link, status, attempts; dashboards on success rate and lateness."
+   ]
+  ],
+  "mistakes": [
+   "Two schedulers can pick the same job (no atomic claim).",
+   "No heartbeats — a dead machine leaves a job \"running\" forever.",
+   "Scanning the whole job table every second.",
+   "Promising exactly-once.",
+   "Adding a coordination service you cannot justify."
+  ],
+  "say": "\"Durable job store with a due-time index, atomic lease-based claims so a run executes once at a time, heartbeats and timeouts drive retries on new machines from the API, and every terminal failure raises an alert.\""
+ },
+ "ratelimit": {
+  "gist": "Limit how many requests a client can make per time window. Know the algorithms (**token bucket**, sliding window), and the **distributed** problem: many servers must share the count without adding much latency.",
+  "clarify": [
+   [
+    "Limit by what — user, IP, API key, endpoint?",
+    "Decides the counter key."
+   ],
+   [
+    "Hard limit or small overshoot OK?",
+    "Exact needs a shared store; approximate allows local counters."
+   ],
+   [
+    "Burst allowed?",
+    "Token bucket allows bursts; fixed window does not shape them."
+   ],
+   [
+    "Where — API gateway or inside each service?",
+    "Usually at the gateway."
+   ]
+  ],
+  "api": [
+   "allow(key, cost=1) → yes/no + retryAfter",
+   "HTTP 429 with Retry-After header when over"
+  ],
+  "deep": [
+   [
+    "Algorithms",
+    "Fixed window: simple, but allows 2× bursts at window edges. Sliding window log: exact but stores every timestamp. Sliding window counter: good approximation. **Token bucket**: refill rate + bucket size, allows controlled bursts — the common choice."
+   ],
+   [
+    "Atomic update",
+    "Read-check-write must be atomic, or two gateways both let the last request through. Use a Redis Lua script."
+   ],
+   [
+    "Failure mode",
+    "If Redis is down: fail open (allow) for normal APIs, fail closed for expensive or security-sensitive ones. Say which."
+   ]
+  ],
+  "followups": [
+   [
+    "Make it fast — no Redis call per request.",
+    "Local token buckets per gateway with a share of the limit; sync every second. Small overshoot accepted."
+   ],
+   [
+    "Different limits per customer plan.",
+    "Rules service with per-plan config, cached locally."
+   ],
+   [
+    "Multi-region.",
+    "Per-region limits, or route a key to a home region."
+   ],
+   [
+    "Protect against one hot key.",
+    "Local pre-check before Redis; reject obvious abusers at the edge."
+   ]
+  ],
+  "mistakes": [
+   "Non-atomic check-then-increment.",
+   "Not saying what happens when the counter store is down.",
+   "Only knowing fixed windows."
+  ],
+  "say": "\"Token bucket per key at the gateway, state in Redis updated atomically by a Lua script, with a stated fail-open or fail-closed policy and a local-counter option for lower latency.\""
+ },
+ "logging": {
+  "gist": "Collect logs from many services, move them reliably, store them cheaply, and make them **searchable** and usable for **analytics**. Separate the **ingest path** (fast, buffered) from **storage/query** (indexed hot data, cheap cold data).",
+  "clarify": [
+   [
+    "What queries — search by text, or aggregate analytics (counts by field)?",
+    "Search needs an index (Elasticsearch); analytics needs columnar storage."
+   ],
+   [
+    "Volume?",
+    "Decides partitions and cost."
+   ],
+   [
+    "Retention?",
+    "Hot 7 days searchable, cold 1 year in object storage is common."
+   ],
+   [
+    "Can we lose logs?",
+    "Usually small loss OK for debug logs, not OK for audit logs."
+   ]
+  ],
+  "api": [
+   "Services write to local agent (stdout/file)",
+   "GET /logs/search?q=&from=&to=",
+   "Analytics: SQL over the log tables"
+  ],
+  "deep": [
+   [
+    "Back-pressure",
+    "If storage is slow, Kafka buffers; agents buffer on disk. Logging must never crash or slow the service — drop debug logs first if needed."
+   ],
+   [
+    "Structured logs",
+    "JSON with fields (time, service, level, traceId) makes both search and analytics easy."
+   ],
+   [
+    "Cost control",
+    "Sampling, shorter retention for debug level, compression, tiered storage."
+   ]
+  ],
+  "followups": [
+   [
+    "Find all logs for one request across services.",
+    "Add a trace id to every log line and index it."
+   ],
+   [
+    "Ingest spikes 10×.",
+    "Kafka absorbs it; scale processors; sample low-priority logs."
+   ],
+   [
+    "Audit logs must never be lost.",
+    "Separate pipeline with acks=all, replication, no sampling."
+   ],
+   [
+    "Real-time alerts from logs.",
+    "A stream consumer counting error patterns and alerting."
+   ]
+  ],
+  "mistakes": [
+   "Services writing directly to the search cluster.",
+   "Keeping everything in the expensive index forever.",
+   "Unstructured text logs."
+  ],
+  "say": "\"Agents ship to Kafka, processors parse and enrich, recent logs go to a search index and everything goes to cheap columnar storage, with buffering so logging never hurts the service.\""
+ }
+}

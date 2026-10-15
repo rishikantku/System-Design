@@ -1,0 +1,90 @@
+{
+ "L0": {
+  "out": "--- my cases: severity\nUnhandled exception. System.NotImplementedException: The method or operation is not implemented.",
+  "verdict": "crash"
+ },
+ "L1b": {
+  "out": "Tests.cs(6,23): error CS0712: Cannot create an instance of the static class 'Logger'\nTests.cs(6,13): error CS0723: Cannot declare a variable of static type 'Logger'\nTests.cs(7,17): error CS1501: No overload for method 'Log' takes 4 arguments\nTests.cs(10,17): error CS1501: No overload for method 'Log' takes 4 arguments\nTests.cs(12,17): error CS1501: No overload for method 'Log' takes 4 arguments",
+  "verdict": "build"
+ },
+ "L1": {
+  "out": "--- my cases: severity\n  FAIL the minimum itself is written: got 1, want 2\n\n2 passed, 1 failed",
+  "verdict": "fail"
+ },
+ "L1f": {
+  "out": "--- my cases: severity\n\n3 passed, 0 failed",
+  "verdict": "pass"
+ },
+ "L2b": {
+  "out": "--- my cases: severity\n--- my cases: throttle\nUnhandled exception. System.ArgumentOutOfRangeException: Index was out of range. Must be non-negative and less than the size of the collection. (Parameter 'index')",
+  "verdict": "crash"
+ },
+ "L2": {
+  "out": "--- my cases: severity\n--- my cases: throttle\n  FAIL summary carries the FIRST time: got 1500 Warn f:1 disk [suppressed 2], want 0 Warn f:1 disk [suppressed 2]\n\n5 passed, 1 failed",
+  "verdict": "fail"
+ },
+ "L2f": {
+  "out": "--- my cases: severity\n--- my cases: throttle\n\n6 passed, 0 failed",
+  "verdict": "pass"
+ },
+ "L3b": {
+  "out": "LoggerTests.cs(1,7): error CS0246: The type or namespace name 'Xunit' could not be found (are you missing a using directive or an assembly reference?)\nLoggerTests.cs(4,6): error CS0246: The type or namespace name 'FactAttribute' could not be found (are you missing a using directive or an assembly reference?)\nLoggerTests.cs(4,6): error CS0246: The type or namespace name 'Fact' could not be found (are you missing a using directive or an assembly reference?)\nLoggerTests.cs(13,6): error CS0246: The type or namespace name 'FactAttribute' could not be found (are you missing a using directive or an assembly reference?)\nLoggerTests.cs(13,6): error CS0246: The type or namespace name 'Fact' could not be found (are you missing a using directive or an assembly reference?)",
+  "verdict": "build"
+ },
+ "L3": {
+  "out": "--- my cases: severity\n--- my cases: throttle\n--- generated tests\n  FAIL 3 identical inside one window: got 1, want 0\n\n9 passed, 1 failed",
+  "verdict": "fail"
+ },
+ "L3f": {
+  "out": "--- my cases: severity\n--- my cases: throttle\n--- generated tests\n\n10 passed, 0 failed",
+  "verdict": "pass"
+ },
+ "L4b": {
+  "out": "--- stress: 8 threads, one identical message\n--- a slow sink: how long do callers wait?\n    note: 8 threads x 25 distinct logs, 5 ms sink: 1128 ms\n\n2 passed, 0 failed",
+  "verdict": "pass"
+ },
+ "L4": {
+  "out": "--- stress: 8 threads, one identical message\n--- a slow sink: how long do callers wait?\n    note: 8 threads x 25 distinct logs, 5 ms sink: 141 ms\n\n2 passed, 0 failed",
+  "verdict": "pass"
+ },
+ "L5b": {
+  "out": "--- fire-and-forget\n  FAIL written in the order they were logged: got False, want True\n\n1 passed, 1 failed",
+  "verdict": "fail"
+ },
+ "L5": {
+  "out": "--- 10,000 calls, capacity 1,024, slow sink\n    note: accepted 10000, dropped 0, written 1024\n  FAIL everything accepted was written: got 1024, want 10000\n\n2 passed, 1 failed",
+  "verdict": "fail"
+ },
+ "L5f": {
+  "out": "--- 10,000 calls, capacity 1,024, slow sink\n    note: accepted 1024, dropped 8976, written 1024\n\n3 passed, 0 failed",
+  "verdict": "pass"
+ },
+ "R1b": {
+  "out": "Tests.cs(5,25): error CS0246: The type or namespace name 'LruCache<,>' could not be found (are you missing a using directive or an assembly reference?)",
+  "verdict": "build"
+ },
+ "R1": {
+  "out": "--- my cases: LRU\n  FAIL 2 was evicted: got False, want True\n  FAIL 1 survived its read: got False, want True\n\n1 passed, 2 failed",
+  "verdict": "fail"
+ },
+ "R1f": {
+  "out": "--- my cases: LRU\n\n3 passed, 0 failed",
+  "verdict": "pass"
+ },
+ "R2": {
+  "out": "--- my cases: TTL\n  FAIL dead exactly at the TTL: got False, want True\n  FAIL the dead entry was removed: got 1, want 0\n\n1 passed, 2 failed",
+  "verdict": "fail"
+ },
+ "R2f": {
+  "out": "--- my cases: TTL\n\n3 passed, 0 failed",
+  "verdict": "pass"
+ },
+ "R3b": {
+  "out": "--- my cases: TTL\n--- stress: 8 threads on one cache\n  FAIL no exception under 8 threads: got InvalidOperationException: The LinkedList node does not belong to current LinkedList., want none\n  FAIL never above capacity: got False, want True\n\n3 passed, 2 failed",
+  "verdict": "fail"
+ },
+ "R3": {
+  "out": "--- my cases: TTL\n--- stress: 8 threads on one cache\n\n5 passed, 0 failed",
+  "verdict": "pass"
+ }
+}

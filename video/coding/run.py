@@ -123,7 +123,7 @@ def render(lesson, force=False):
 def encode(lesson):
     out = os.path.join(OUT, lesson['id'])
     env = dict(os.environ, BUILD=out, OUTNAME=lesson['file'], TTS='sarvam',
-               SARVAM_SPEAKER=os.environ.get('SARVAM_SPEAKER', 'ritu'), JOBS='6')
+               SARVAM_SPEAKER=os.environ.get('SARVAM_SPEAKER', 'ritu'), JOBS=os.environ.get('JOBS', '2'))
     r = subprocess.run([sys.executable, os.path.join(SRC, 'encode.py')], env=env,
                        capture_output=True, text=True)
     return r.returncode == 0, (r.stdout.strip().split('\n') or [''])[0], r.stderr[-400:]

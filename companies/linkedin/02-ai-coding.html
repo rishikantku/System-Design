@@ -260,6 +260,15 @@
 
     <span class="k">public</span> <span class="k">bool</span> Contains(<span class="k">int</span> point) =&gt; Floor(point) <span class="k">is</span> { } f &amp;&amp; point &lt; f.End;
 
+    <span class="c">// "Next interval lookup" (named in a 2026 list of LinkedIn AI-round questions; no statement</span>
+    <span class="c">// was found, so this definition is an ASSUMPTION — state it before coding):</span>
+    <span class="c">// the interval containing `point`, else the first one starting after it; null if none. O(log n).</span>
+    <span class="k">public</span> (<span class="k">int</span> Start, <span class="k">int</span> End)? Next(<span class="k">int</span> point) {
+        <span class="k">if</span> (Floor(point) <span class="k">is</span> { } f &amp;&amp; point &lt; f.End) <span class="k">return</span> f;     <span class="c">// point is inside an interval</span>
+        <span class="k">if</span> (_set.Count == <span class="n">0</span> || _set.Max.Start &lt;= point) <span class="k">return</span> <span class="k">null</span>;
+        <span class="k">return</span> _set.GetViewBetween((point + <span class="n">1</span>, <span class="n">0</span>), _set.Max).Min;
+    }
+
     <span class="k">public</span> IReadOnlyList&lt;(<span class="k">int</span> Start, <span class="k">int</span> End)&gt; Intervals =&gt; _set.ToList();
 
     <span class="k">private</span> (<span class="k">int</span> Start, <span class="k">int</span> End)? Floor(<span class="k">int</span> x) {

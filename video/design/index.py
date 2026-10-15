@@ -300,10 +300,17 @@ LESSONS = [
       pattern='Machine leases &middot; executor heartbeats &middot; epoch fencing &middot; alerting',
       evidence=dict(reports='Candidate report, onsite R3', latest='2025&ndash;26', level='Onsite, HLD',
                     conf='HIGH as a family', sources='LeetCode Discuss + Blind')),
+ dict(id='s12l1-top10', chapter='m12', module='s12l1_top10',
+      title='The top 10 LinkedIn system design questions — the interview, step by step',
+      file='LinkedIn-Design-Top10-Step-By-Step', mins=85,
+      evidence=dict(reports='InterviewDB + LeetCode Discuss + earlier research', latest='October 2026', level='Staff',
+                    conf='Ranked by independent reports', sources='InterviewDB, LeetCode Discuss, Blind, Glassdoor, Exponent')),
 ]
 
 
 CHAPTERS = {
+ 'm12': dict(num=12, title='The top 10, step by step',
+            why='One video: the ten most reported LinkedIn design questions, each run the way the interview runs.'),
  'm1': dict(num=1, title='System design methodology',
             why='The method is worth more than any single answer. It is what carries you '
                 'through a question you have never seen, which is the likeliest case.'),

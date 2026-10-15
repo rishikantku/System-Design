@@ -193,9 +193,14 @@ LESSONS = [
  # ---------------- chapter 11: the Coding-with-AI round ----------------
  dict(id='c11l1-ai-round', chapter='c11', module='c11l1_ai_round',
       title='The LinkedIn AI-assisted coding round — the complete guide',
-      file='LinkedIn-Coding-11.1-AI-Assisted-Round', mins=70,
+      file='LinkedIn-Coding-11.1-AI-Assisted-Round', mins=78,
       pattern='Caches · logger · scheduler · counters', relevance='Highest',
       reports='Official pack + logging (5 reports) + LRU AI-round reports', latest='Sep 2026', confidence='High'),
+ dict(id='c11l2-live-round', chapter='c11', module='c11l2_live_round',
+      title='The AI round, step by step — prompts, reviews and real test runs',
+      file='LinkedIn-Coding-11.2-AI-Round-Step-By-Step', mins=27,
+      pattern='Bad vs good prompts · review · real runs', relevance='Highest',
+      reports='Logging library (5 reports) + LRU AI-round reports', latest='Sep 2026', confidence='High'),
 ]
 
 CHAPTERS = {

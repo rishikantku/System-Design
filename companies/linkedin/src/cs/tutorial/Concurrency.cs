@@ -189,3 +189,28 @@ public static class Stress {
         ts.ForEach(t => t.Join());
     }
 }
+
+// ---- C13. Async fan-out. Awaiting calls one by one in a loop runs them IN SEQUENCE; starting them
+// all and awaiting Task.WhenAll runs them CONCURRENTLY. Bound the fan-out with SemaphoreSlim.
+// Never block on async code with .Result or .Wait(): under a single-threaded SynchronizationContext
+// (UI apps, classic ASP.NET) the continuation needs the thread you are blocking — a deadlock;
+// everywhere else it wastes a thread-pool thread. Async all the way down.
+public static class AsyncFanOut {
+    public static async Task<int[]> Sequential(Func<int, Task<int>> fetch, int n) {
+        var r = new int[n];
+        for (int i = 0; i < n; i++) r[i] = await fetch(i);     // waits for each before starting the next
+        return r;
+    }
+
+    public static Task<int[]> Concurrent(Func<int, Task<int>> fetch, int n) =>
+        Task.WhenAll(Enumerable.Range(0, n).Select(fetch));     // all started first, then awaited together
+
+    public static async Task<int[]> Bounded(Func<int, Task<int>> fetch, int n, int maxInFlight) {
+        using var gate = new SemaphoreSlim(maxInFlight);
+        return await Task.WhenAll(Enumerable.Range(0, n).Select(async i => {
+            await gate.WaitAsync();
+            try { return await fetch(i); }
+            finally { gate.Release(); }                        // in finally: an exception must not leak a slot
+        }));
+    }
+}

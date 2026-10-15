@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Chapter 11 — the complete guide to the Coding-with-AI round: tutorial, concurrency, ten questions.
+"""Chapter 11 — the complete guide to the Coding-with-AI round: tutorial, concurrency, eleven questions.
 
 Every listing on screen is sliced out of the C# that `dotnet run` compiled and tested
 (companies/linkedin/src/cs/aicoding: 126 assertions; cs/qbank: 269), via qbank_cs, so the
@@ -96,7 +96,7 @@ lesson_header('11', 'The LinkedIn AI-assisted coding round — the complete guid
               """the recruiter pack and from candidate reports up to October twenty twenty-six. How to work with the assistant: """
               """what to delegate, four prompt templates, how to review, what to say. The C sharp data structures these """
               """questions are built from. Concurrency in C sharp from the ground up, because every question ends with "now make """
-              """it thread-safe". How to test in the pad. Then ten questions, small systems rather than puzzles, each with the """
+              """it thread-safe". How to test in the pad. Then eleven questions, small systems rather than puzzles, each with the """
               """design, the prompt, the code, the assistant's mistake and the follow-ups. Then debugging code you did not write, """
               """and finally the whole sixty minutes run end to end. Every listing compiled and passed its tests, and every """
               """concurrency number was measured.""")
@@ -124,16 +124,19 @@ seg(sid, 5, """And sixth: you own the final solution. You must understand it, va
             """code you cannot explain, you have failed the one thing the round is measuring.""")
 
 sid = steps_list('How the round runs (reports to Oct 2026)', [
-    (0, '**CoderPad + an AI chat panel**; Claude models reported among the options. It cannot edit your code — you paste', 'info'),
+    (0, '**CoderPad + an AI panel**; Claude reported. **Check the modes in minute one** (chat only? can it edit?). **Your prompts are recorded**', 'info'),
     (1, 'Often **boilerplate + test cases provided**, or a small codebase: fix → extend → optimise. **Optimal solutions weigh more**', 'info'),
     (2, 'Requirements **escalate**, and almost always end in "now make it thread-safe / production-ready"', 'shared'),
     (3, 'The interviewer **interrupts**: why that prompt, and how do you know it works?', 'shared'),
     (4, 'Reported scale: **4 points, 3 passes** — prompts, verification, production thinking, communication', 'ok'),
     (5, 'Most-reported mistake: **too long on the first task**, no time for the follow-ups', 'deny'),
 ])
-seg(sid, 0, """How it runs, from candidate reports up to October twenty twenty-six. CoderPad, with an A I chat panel; Claude """
-            """models are reported among the options. The assistant cannot edit your code. You copy what you choose, which """
-            """means every line that lands in the editor passed through your hands.""")
+seg(sid, 0, """How it runs, from candidate reports up to October twenty twenty-six. CoderPad, with an A I panel on the side. """
+            """Claude is reported among the models. Most LinkedIn reports say the assistant only chats, and you copy what you """
+            """choose into the editor. But CoderPad's assistant can also run in a plan mode, or an edit mode that changes your """
+            """code, depending on how the company sets it up. So in the first minute, check what it can do. And remember this: """
+            """the interviewer can replay your prompts afterwards. Write every prompt as if your interviewer is reading it, """
+            """because they are.""")
 seg(sid, 1, """Several reports describe a starting point rather than a blank editor: boilerplate code and test cases already """
             """provided, or a small codebase, with tasks that escalate: fix a bug, add a feature, then optimise. And one LeetCode """
             """Discuss report adds a useful detail: implementing the optimal solution carries more weight. Working but slow is not """
@@ -153,6 +156,7 @@ EVID = [
     ['Modified merge intervals, 3 incremental parts', '2 sources + LeetCode Discuss; "next interval" named', 'Q7'],
     ['Structured data: JSON-like records + tests', '2 independent sources', 'Q8'],
     ['Friendship graph: path → distance → suggestions', 'LeetCode Discuss, Oct 2026 — tests provided', 'Q9'],
+    ['rand7 → rand10: explain the maths, then code', 'LeetCode Discuss, AI round (ML track, late 2025)', 'Q11'],
     ['Router placement among houses · robots capturing "Sara"', 'Named once in a 2026 list — no statement found', 'Named only'],
 ]
 EVNARR = [
@@ -168,10 +172,12 @@ EVNARR = [
     """Structured data processing, from two independent sources. Question eight.""",
     """A friendship graph in three parts, path, distance and suggestions, with boilerplate and tests provided. Question """
     """nine.""",
+    """Rejection sampling: build rand ten from rand seven, and explain the maths before you code. Reported for the A I """
+    """round on the machine-learning track. Question eleven.""",
     """And two names that appear in one twenty twenty-six list with no statement anywhere: router placement among houses, """
     """and robots capturing Sara. This video does not invent them. If you meet them, they look like graph and grid search: """
     """clarify the rules first, then design."""]
-for title, lo, hi in [('What is reported for this round (1 of 2)', 0, 4), ('What is reported for this round (2 of 2)', 4, 8)]:
+for title, lo, hi in [('What is reported for this round (1 of 2)', 0, 5), ('What is reported for this round (2 of 2)', 5, 9)]:
     sid = table(title, ['Question', 'Evidence', 'In this video'], [(k - lo, EVID[k]) for k in range(lo, hi)],
                 kicker='Research pass 5 · Oct 2026 + your LeetCode Discuss reports')
     for k in range(lo, hi):
@@ -390,11 +396,120 @@ for i, t in enumerate([
     """And dictionary enumeration order is not a contract. If the output order matters, sort it."""]):
     seg(sid, i, t)
 
+
+_MOD = CS._read('tutorial/Modern.cs')
+M1 = fit(strip_comments(_MOD[_MOD.index('public sealed record Order'):_MOD.index('public static class Modern')].strip()))
+code_slide('Modern C# you can use in the pad (1 of 2)', M1, [
+    (rng(M1, 'public sealed record Order', 'public sealed record Order'),
+     """A short tour of newer C sharp, because it makes pad code shorter and easier to read. First, a record. One line gives """
+     """you a small data type that compares by value: two orders with the same fields are equal. It also prints itself """
+     """nicely, and you can copy it with one field changed. Records make great dictionary keys and results."""),
+    (rng(M1, 'public sealed class Inventory', 'return true;'),
+     """Next, a primary constructor. The capacity in brackets after the class name is available everywhere inside the class. """
+     """No field, no constructor body. And look at TryTake: try-get-value with out var looks the key up once and gives you """
+     """the value in the same step. Get-value-or-default does the same for counting. One lookup, not two."""),
+], kicker='Toolbox · modern C#')
+
+M2 = fit(strip_comments(_MOD[_MOD.index('public static class Modern'):].strip()))
+code_slide('Modern C# you can use in the pad (2 of 2)', M2, [
+    (rng(M2, 'public static string Classify', '_                                => "normal",'),
+     """A switch expression with patterns. Read it top to bottom like a list of rules: amount zero or less, invalid. """
+     """Status cancelled, ignore. Amount over a thousand, large. Anything else, normal. The first rule that matches wins, so """
+     """the order of the rules matters."""),
+    (rng(M2, 'public static int[] Merge', 'public static int[] Merge'),
+     """Collection expressions. Square brackets build an array or a list, and the two dots spread another collection into """
+     """it. One line instead of a loop."""),
+    (rng(M2, 'public sealed class Config', 'public sealed class Config'),
+     """And required. The compiler refuses to let anyone create a Config without a Name. A mistake caught while typing, not """
+     """at runtime. All of this was compiled and tested on dot net ten."""),
+], kicker='Toolbox · modern C#')
+
 # ======================================================================== part B: concurrency
 E.chapter(3, 'Concurrency in C#, from the ground up', 'Every follow-up in this round ends here',
-          """Chapter three, and the most important tutorial in this video: concurrency in C sharp. Every question in this round """
+          """Chapter three, and the most important tutorial in this video: concurrency in C sharp. We start from zero, in plain """
+          """words, and build up. Every question in this round """
           """ends with "now make it thread-safe" or "now productionise it", and that is where the Staff signal is. Every """
           """number you will hear in this part was measured by a test, not quoted from memory.""")
+
+
+sid = cards('Three words you need first', [
+    (0, 'Thread', 'A worker that runs your code. You can make your own with new Thread. Each one is costly (about 1 MB of memory), so make few', 'info'),
+    (1, 'Thread pool', 'A small team of threads that .NET keeps ready and reuses. Cheap, because nobody is hired or fired for each job', 'ok'),
+    (2, 'Task', 'A piece of work, usually run by the pool. Task.Run for computing. An async method for waiting — it uses no thread while it waits', 'shared'),
+], cols=1, kicker='Concurrency · foundations')
+for i, t in enumerate([
+    """Three words you need first. A thread is a worker that runs your code. You can create one yourself, but each thread """
+    """costs about a megabyte of memory, so you create only a few.""",
+    """The thread pool is a small team of threads that dot net keeps ready and reuses. It is cheap, because no worker is """
+    """created or destroyed for each job.""",
+    """And a task is a piece of work, usually given to the pool. Use task dot run when the work is computing. Use an async """
+    """method when the work is waiting, for a network call or a file. While an async method waits, it uses no thread at """
+    """all. Hold on to that idea. It is the key to the rest of this chapter."""]):
+    seg(sid, i, t)
+
+F1 = fit(CS.cs_type('tutorial/Foundations.cs', 'RunWays', comment=False))
+code_slide('Foundations 1 · Three ways to run work', F1, [
+    (rng(F1, 'public static int OnNewThread', 'return result;'),
+     """Here are the three in code. First, your own thread: create it, start it, and Join waits until it finishes. You will """
+     """rarely do this in real code, but it shows the idea."""),
+    (rng(F1, 'public static Task<int> OnThreadPool', 'public static Task<int> OnThreadPool'),
+     """Second, task dot run hands the work to the pool and gives you back a task, which is a promise of a result later."""),
+    (rng(F1, 'public static async Task<int> WaitWithoutAThread', 'return ms;'),
+     """Third, an async method that waits. Our test started two hundred of these at once, each waiting a tenth of a second, """
+     """and all of them finished in about a tenth of a second. Two hundred waits, and no two hundred threads. That is what """
+     """async gives you."""),
+], kicker='Concurrency · foundations')
+
+F2 = fit(CS.cs_type('tutorial/Foundations.cs', 'Account', comment=False))
+code_slide('Foundations 2 · What a lock really protects', F2, [
+    (rng(F2, 'private long _balance;', 'public long Balance'),
+     """Now the most important idea in this chapter. A lock does not protect a variable. It protects a rule. Here the rule """
+     """is simple: a bank balance must never go below zero. The lock object is a new type in dot net nine, called Lock. The """
+     """lock keyword uses it directly."""),
+    (rng(F2, 'public bool WithdrawUnsafe', 'return false;'),
+     """The broken version. First it checks: is there enough money? Then it takes the money. Between those two steps, another """
+     """thread can do the same check. Both see a hundred. Both take a hundred. The balance is now minus one hundred. We tested """
+     """this with four threads at once, three hundred times, and the account went negative in almost every trial."""),
+    (rng(F2, 'public bool Withdraw(long amount)', 'return true;'),
+     """The fixed version puts the check and the update inside one lock. Now no other thread can get in between them. Tested: """
+     """never negative. Remember this sentence for the interview: the lock must cover the whole rule, the check and the """
+     """change together."""),
+], kicker='Concurrency · foundations')
+
+sid = cards('What happens at await — in plain words', [
+    (0, 'Think of a waiter', 'A waiter takes your order to the kitchen, then serves other tables. They do not stand at the kitchen door until your food is ready', 'info'),
+    (1, 'await does the same', 'At await, the method pauses and gives its thread back. When the result is ready, it continues — maybe on a different thread', 'ok'),
+    (2, 'So never block on it', '.Result or .Wait() makes the waiter stand at the kitchen door. Under load you run out of waiters. Use await all the way up', 'deny'),
+], cols=1, kicker='Concurrency · foundations')
+for i, t in enumerate([
+    """What actually happens at await? Think of a waiter in a restaurant. The waiter takes your order to the kitchen, and """
+    """then serves other tables. They do not stand at the kitchen door until your food is ready.""",
+    """Await does the same. The method pauses and gives its thread back to the pool. When the result is ready, the method """
+    """continues, maybe on a different thread. Nothing is wasted while it waits.""",
+    """So never block on async code with dot result or dot wait. That is the waiter standing at the kitchen door. With enough """
+    """customers, you run out of waiters. Use await all the way up."""]):
+    seg(sid, i, t)
+
+F3 = fit(CS.cs_type('tutorial/Foundations.cs', 'CpuWork', comment=False))
+code_slide('Foundations 3 · Computing vs waiting', F3, [
+    (None, """There are two kinds of slow work, and they need different tools. Computing work, like this sum, gets faster with """
+           """more processor cores, so we split it with parallel dot for. Each thread keeps its own private total, and adds it """
+           """to the shared total only once, at the end. So the threads almost never get in each other's way, and the answer is """
+           """exact. Waiting work, like calling a network service, does not need more cores. It needs to overlap the waits, and """
+           """that is async with task dot when all, which you will see later in this chapter."""),
+], kicker='Concurrency · foundations')
+
+sid = table('Which tool for which kind of work', ['Kind of work', 'Example', 'Use'], [
+    (0, ['Computing (CPU-bound)', 'Sum, sort, parse a big file', '`Parallel.For` / `Task.Run`']),
+    (1, ['Waiting (I/O-bound)', 'HTTP call, database, disk', '`async` / `await`, `Task.WhenAll`']),
+    (2, ['Shared data changed by many threads', 'Counter, cache, balance', '`lock`, `Interlocked`, concurrent collections']),
+], kicker='Concurrency · foundations')
+for i, t in enumerate([
+    """A simple way to choose. If the work is computing, use parallel dot for or task dot run.""",
+    """If the work is waiting, use async and await, and task dot when all to wait for many things at once.""",
+    """And if many threads change the same data, you need a lock, an interlocked operation, or a concurrent collection. The """
+    """next eleven slides are all about this third row, because that is where the interview follow-ups go."""]):
+    seg(sid, i, t)
 
 C1 = fit(join(CS.cs_type('tutorial/Concurrency.cs', 'UnsafeCounter', comment=False),
               CS.cs_type('tutorial/Concurrency.cs', 'LockedCounter', comment=False),
@@ -403,14 +518,14 @@ code_slide('1 · A race condition, and the two fixes', C1, [
     (rng(C1, 'public sealed class UnsafeCounter', 'public sealed class UnsafeCounter'),
      """The simplest race. Count plus plus looks like one step. It is three: read, add, write. Two threads read the same """
      """value, both add one, both write, and one increment is lost. Eight threads each incrementing a million times lost """
-     """sixty-eight percent of the increments in our test."""),
+     """more than half of the increments in our tests, between sixty and eighty percent depending on the run."""),
     (rng(C1, 'public sealed class LockedCounter', 'public long Value { get { lock'),
      """Fix one: a lock. Note the lock object is private. Never lock on this, or on a string, because code you do not own """
      """can take the same lock. And the read takes the lock too: a lock gives you mutual exclusion and visibility."""),
     (rng(C1, 'public sealed class AtomicCounter', 'public long Value => Interlocked.Read'),
      """Fix two: Interlocked dot increment, a single atomic instruction. For a single number it is the natural tool. Under """
-     """this heavy contention it was not faster than the lock in our measurement, about two hundred and fifty milliseconds """
-     """either way for eight million increments, so do not claim it is free. Claim it is simple."""),
+     """this heavy contention it was not much faster than the lock in our measurements, a few hundred milliseconds either way """
+     """for eight million increments, so do not claim it is free. Claim it is simple."""),
 ], kicker='Concurrency · races')
 
 C2 = fit(join(CS.cs_type('tutorial/Concurrency.cs', 'UnsafePageViews', comment=False),
@@ -419,7 +534,7 @@ code_slide('2 · Thread-safe collection, unsafe code', C2, [
     (rng(C2, 'public sealed class UnsafePageViews', '_d[page] = n + 1;'),
      """The most common wrong answer in this round. A concurrent dictionary makes each call atomic. Two calls in a row are """
      """not. Between the try-get and the set, another thread can do the same thing, and a hit is lost. Measured: one point """
-     """six million hits recorded as two hundred and eighty-three thousand."""),
+     """six million hits recorded as only about three hundred thousand. Most of them were lost."""),
     (rng(C2, 'public sealed class PageViews', 'public int Get(string page)'),
      """The fix is to make the whole read-modify-write one call: add or update. Exact. The general rule: the unit of """
      """atomicity must cover the whole invariant, not each individual call."""),
@@ -529,6 +644,21 @@ for i, t in enumerate([
     """Async void: the caller cannot catch its exceptions, and they can take down the process. Return a task.""",
     """And fire-and-forget: a task nobody keeps is a failure nobody sees. Keep it, or log inside it."""]):
     seg(sid, i, t)
+
+
+C13 = fit(CS.cs_type('tutorial/Concurrency.cs', 'AsyncFanOut', comment=False))
+code_slide('12 · Many calls at once: Task.WhenAll, with a limit', C13, [
+    (rng(C13, 'public static async Task<int[]> Sequential', 'return r;'),
+     """A very common mistake. Awaiting each call inside a loop runs them one after another. Ten calls of fifty milliseconds """
+     """took half a second in our test."""),
+    (rng(C13, 'public static Task<int[]> Concurrent', 'Task.WhenAll(Enumerable.Range(0, n).Select(fetch));'),
+     """Start them all first, then wait for all of them together with task dot when all. The same ten calls finished in about """
+     """fifty milliseconds. Same results, same order."""),
+    (rng(C13, 'public static async Task<int[]> Bounded', 'finally { gate.Release(); }'),
+     """But never start a thousand calls at once against a real service. A semaphore slim set to three lets only three run at """
+     """a time; the rest wait their turn. Release it in finally, so an error never leaks a slot. Tested: never more than three """
+     """in flight. This is the answer to "how do you call a rate-limited A P I faster"."""),
+], kicker='Concurrency · async')
 
 sid = table('Which primitive, when', ['Situation', 'Reach for', 'Say this'], [
     (0, ['One number', '`Interlocked`', 'Atomic, no lock — simple, not magic']),
@@ -942,8 +1072,8 @@ ship('"A thread-safe logger: one lock so lines never interleave."', R11,
       """that logs waits for the disk.""",
       """The fix: hold the lock only for the decision, write outside it. In production, a background writer behind a bounded """
       """queue.""",
-      """Measured: eight threads logging twenty-five lines each to a two millisecond sink took about four hundred and sixty """
-      """milliseconds. Logging just became the bottleneck of every request."""])
+      """Measured: eight threads logging twenty-five lines each to a two millisecond sink took close to half a second. """
+      """Logging just became the bottleneck of every request."""])
 
 R14 = CS.cs_type('aicoding/Review.cs', 'R14_AsyncLogger', comment=False)
 ship('"Non-blocking logger: a bounded channel that drops when full, with a drop counter."', R14,
@@ -1388,8 +1518,64 @@ for i, t in enumerate([
     """And priority: a priority queue inside the lock, and watch for low priorities starving."""]):
     seg(sid, i, t)
 
+# ======================================================================== Q11 rejection sampling
+E.chapter(15, 'Question 11 — rand7 → rand10: explain the maths, then code', 'Reported for the AI round (ML track, late 2025)',
+          """Question eleven, and a different kind of question. You are given a function rand seven, which returns a whole """
+          """number from one to seven, each equally likely. Build rand ten: one to ten, each equally likely. The report says the """
+          """interviewer wanted the maths explained before any code. That is exactly where the assistant is weakest, so it is a """
+          """good test of whether you understand what you accept.""")
+
+think('Why is (rand7() + rand7()) % 10 + 1 wrong? And how many rand7 calls do you need on average?', 25,
+      """Pause. A common first answer is: add two calls to rand seven, take the remainder after dividing by ten, add one. Why """
+      """is that wrong?""",
+      """Here is why, in plain numbers.""")
+
+sid = cards('The idea, in plain numbers', [
+    (0, 'Why adding is wrong', 'Two dice added are not uniform: a total of 8 has many ways to happen, a total of 2 has one. Some answers come up more often', 'deny'),
+    (1, 'Make a grid instead', 'Two rand7 calls are a row and a column: 7 × 7 = 49 squares, each exactly as likely as any other', 'ok'),
+    (2, 'Use 40, throw away 9', 'Number the squares 0–48. Squares 0–39 split into 10 groups of 4 → answer 1–10. Squares 40–48: roll again', 'ok'),
+    (3, 'How many calls?', 'A round succeeds 40 times in 49. Each round costs 2 calls. Average: 2 × 49 / 40 ≈ 2.45 calls', 'shared'),
+], cols=2, kicker='Q11 · the maths first')
+for i, t in enumerate([
+    """Adding is wrong because sums are not equally likely. Think of two dice: a total of eight can happen in many ways, a """
+    """total of two in only one way. So some answers come up more often than others.""",
+    """Instead, think of a grid. The first call picks a row, the second picks a column. Seven times seven is forty-nine """
+    """squares, and every square is exactly as likely as every other.""",
+    """Number the squares from zero to forty-eight. The first forty split perfectly into ten groups of four, so each answer """
+    """from one to ten gets four squares. For the last nine squares, we throw the result away and roll again. That is called """
+    """rejection sampling: throw away what would make it unfair.""",
+    """And the cost. Each round succeeds forty times out of forty-nine, and each round costs two calls. On average that is """
+    """two times forty-nine over forty, about two point four five calls. Say this number. It shows you did the maths."""]):
+    seg(sid, i, t)
+
+SAMP = fit(CS.cs_type('aicoding/G01_Sampling.cs', 'Sampling', comment=False))
+code_slide('Rejection sampling — and its general form', SAMP, [
+    (rng(SAMP, 'public static int Rand10', 'if (idx < 40) return idx % 10 + 1;'),
+     """The code is short once the maths is clear. Two calls make a square number from zero to forty-eight. If it is below """
+     """forty, map it to one to ten. Otherwise loop and try again. Notice the loop has no fixed limit: it ends with """
+     """probability one, and that is fine, but say it out loud, because an interviewer may ask."""),
+    (rng(SAMP, 'public static int UniformBelow', 'if (value < limit) return (int)(value % n);'),
+     """The follow-up is usually the general version: any fair range from any fair source. Build a number from several """
+     """calls until its range is big enough, then throw away the leftover part that would make it unfair. Our tests check """
+     """both, including the exact number of calls used."""),
+], kicker='Q11 · code')
+
+sid = cards('How to use the assistant here', [
+    (0, 'Ask it to check your maths', '"I believe the accept rate is 40/49 and the expected calls are 2.45. Check this — no code"', 'ok'),
+    (1, 'Do not trust a quick answer', 'Assistants often produce the biased modulo version, or claim "exactly 2 calls". Ask why each answer is equally likely', 'deny'),
+    (2, 'Test it like a statistician', 'Call it a million times; every value should be close to 10%. A test cannot prove fairness, but it catches obvious bias', 'shared'),
+], cols=1, kicker='Q11 · AI collaboration')
+for i, t in enumerate([
+    """How to use the assistant on this one. Do the maths yourself, then ask it to check: here is my accept rate and my """
+    """expected number of calls, check this, no code.""",
+    """Do not trust a quick answer. Assistants often write the unfair version with the remainder, or say it always takes two """
+    """calls. Ask it to explain why every answer is equally likely. If it cannot, you have found the bug.""",
+    """And test it the simple way: call it a million times and check every value is close to ten percent. A test like this """
+    """cannot prove the code is fair, but it catches an obvious bias quickly, and saying that difference shows maturity."""]):
+    seg(sid, i, t)
+
 # ======================================================================== debugging existing code
-E.chapter(15, 'Task type: debug an existing codebase', 'Reported format: fix a bug → add a feature → optimise',
+E.chapter(16, 'Task type: debug an existing codebase', 'Reported format: fix a bug → add a feature → optimise',
           """Chapter fifteen. Several reports describe the round starting from existing code: fix a bug, then add a feature, """
           """then optimise. So here is how to debug code you did not write, with the assistant, using two real defects. Each """
           """is reproduced by a test.""")
@@ -1435,7 +1621,7 @@ think('Get takes the lock twice. What can happen between the two?', 20,
       """between the check and the act.""")
 
 # ======================================================================== the full run-through
-E.chapter(16, 'A full 60 minutes: the logging library, run end to end', 'Everything in this video, in the order it happens',
+E.chapter(17, 'A full 60 minutes: the logging library, run end to end', 'Everything in this video, in the order it happens',
           """Chapter sixteen. Everything in this video, in the order it would actually happen, using the freshest reported """
           """question: the logging library. Minute by minute, what you do, what you prompt, and what you say.""")
 
@@ -1482,8 +1668,8 @@ for i, t in enumerate([
     """And never paste unread code to catch up. That is the clearest way to fail this round."""]):
     seg(sid, i, t)
 
-E.chapter(17, 'What to take into the room', 'The pattern across all ten',
-          """Last part. What all ten questions have in common, and what to take into the room.""")
+E.chapter(18, 'What to take into the room', 'The pattern across all eleven',
+          """Last part. What all eleven questions have in common, and what to take into the room.""")
 
 ROWS = [
     ['LRU → TTL → threads', 'Dict + linked list; lazy expiry + bounded sweep; one lock; shard to scale', 'Get not a use · ConcurrentDictionary ≠ thread-safe'],
@@ -1496,6 +1682,7 @@ ROWS = [
     ['Structured data', 'Result-with-reason per line; stream and aggregate', 'One catch around the loop drops everything after'],
     ['Friendship graph', 'One BFS core; path → distance reuse; mutual counts', 'Visited on dequeue: correct answer, wasted work'],
     ['Blocking queue', 'One monitor; while + PulseAll; Complete to drain', '`if` not `while` · Pulse wakes a producer'],
+    ['rand7 → rand10', '7×7 grid; keep 40, reject 9; ≈2.45 calls', 'The biased modulo version; claims exactly 2 calls'],
 ]
 NARR = [
     """L R U: dictionary plus linked list, lazy expiry with a bounded sweep, one lock, shard to scale. The assistant forgot """
@@ -1513,9 +1700,11 @@ NARR = [
     """everything after the first bad row.""",
     """The friendship graph: one search reused for path and distance, and mutual counts for suggestions. The assistant's """
     """search marked nodes on dequeue: right answer, wasted work.""",
-    """And the blocking queue: one monitor, while loops, pulse all, and complete to drain. The assistant's version used if """
-    """and a single pulse."""]
-for title, lo, hi in [('The ten, in one table (1 of 3)', 0, 4), ('The ten, in one table (2 of 3)', 4, 7), ('The ten, in one table (3 of 3)', 7, 10)]:
+    """The blocking queue: one monitor, while loops, pulse all, and complete to drain. The assistant's version used if """
+    """and a single pulse.""",
+    """And rand ten: a seven by seven grid, keep forty squares, throw away nine, about two and a half calls. The assistant's """
+    """first answer is often the unfair remainder version."""]
+for title, lo, hi in [('The eleven, in one table (1 of 3)', 0, 4), ('The eleven, in one table (2 of 3)', 4, 8), ('The eleven, in one table (3 of 3)', 8, 11)]:
     sid = table(title, ['Question', 'Design in one line', 'What the AI got wrong'],
                 [(k - lo, ROWS[k]) for k in range(lo, hi)], kicker='Recap')
     for k in range(lo, hi):

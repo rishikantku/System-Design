@@ -54,6 +54,42 @@ class Program {
         T.Eq("t=65 sees only its own value", r.Get(65), 7L);
         T.Eq("t=5 is gone", r.Get(5), 0L);
 
+        T.Section("F1 thread, pool, task");
+        T.Eq("new Thread + Join", RunWays.OnNewThread(() => 6 * 7), 42);
+        T.Eq("Task.Run on the pool", RunWays.OnThreadPool(() => 6 * 7).GetAwaiter().GetResult(), 42);
+        var waits = Enumerable.Range(0, 200).Select(_ => RunWays.WaitWithoutAThread(100)).ToArray();
+        var swf = System.Diagnostics.Stopwatch.StartNew(); Task.WaitAll(waits);
+        T.True($"200 concurrent 100 ms waits finish in ~100 ms ({swf.ElapsedMilliseconds} ms) — waiting needs no thread", swf.ElapsedMilliseconds < 1000);
+
+        T.Section("F2 lock protects an invariant");
+        int overdrawn = 0, okNeg = 0;
+        for (int trial = 0; trial < 300; trial++) {
+            var acct = new Account(100); var safeAcct = new Account(100);
+            using var go = new Barrier(4);
+            var ts = Enumerable.Range(0, 4).Select(_ => new Thread(() => { go.SignalAndWait(); acct.WithdrawUnsafe(100); safeAcct.Withdraw(100); })).ToList();
+            ts.ForEach(t => t.Start()); ts.ForEach(t => t.Join());
+            if (acct.Balance < 0) overdrawn++;
+            if (safeAcct.Balance < 0) okNeg++;
+        }
+        T.Note($"check-then-act overdrew the account in {overdrawn} of 300 trials");
+        T.Eq("with the lock: never negative", okNeg, 0);
+
+        T.Section("F3 CPU-bound: Parallel.For");
+        long expect = 0; for (long i = 0; i < 2_000_000; i++) expect += i * i;
+        T.Eq("Parallel.For with per-thread totals is exact", CpuWork.SumOfSquares(2_000_000), expect);
+
+        T.Section("M modern C#");
+        var o = new Order("A1", 1500m);
+        T.Eq("record value equality", o, new Order("A1", 1500m));
+        T.Eq("with-expression copies", (o with { Status = "cancelled" }).Status, "cancelled");
+        T.Eq("switch patterns: large", Modern.Classify(o), "large");
+        T.Eq("switch patterns: cancelled first", Modern.Classify(o with { Status = "cancelled" }), "ignore");
+        T.Eq("switch patterns: invalid", Modern.Classify(new Order("B", 0m)), "invalid");
+        T.True("collection expression + spread", Modern.Merge([1, 2], [3]).SequenceEqual(new[] { 1, 2, 3, 99 }));
+        var inv = new Inventory(8); inv.Add("x", 5);
+        T.True("primary constructor + TryGetValue", inv.Capacity == 8 && inv.TryTake("x", 3) && !inv.TryTake("x", 3));
+        T.Eq("required member", new Modern.Config { Name = "svc" }.Retries, 3);
+
         T.Section("C1 race on count++");
         long expected = (long)Threads * PerThread;
         long worst = expected;
@@ -174,6 +210,29 @@ class Program {
         T.True("harness exposes the unsafe counter", unsafeC.Value < 2_000_000);
         T.Note($"stress harness: unsafe {unsafeC.Value:N0} of 2,000,000");
 
+        T.Section("C13 async fan-out");
+        int inFlight = 0, peak = 0;
+        Func<int, Task<int>> fetch = async i => {
+            int now = Interlocked.Increment(ref inFlight);
+            lock (fetch_lock) peak = Math.Max(peak, now);
+            await Task.Delay(50);
+            Interlocked.Decrement(ref inFlight);
+            return i * i;
+        };
+        var swa = System.Diagnostics.Stopwatch.StartNew();
+        var seq = AsyncFanOut.Sequential(fetch, 10).GetAwaiter().GetResult();
+        long seqMs = swa.ElapsedMilliseconds; swa.Restart();
+        var con = AsyncFanOut.Concurrent(fetch, 10).GetAwaiter().GetResult();
+        long conMs = swa.ElapsedMilliseconds;
+        T.True($"sequential awaits take ~10 x 50 ms ({seqMs} ms)", seqMs >= 450);
+        T.True($"Task.WhenAll overlaps them ({conMs} ms)", conMs < 250);
+        T.True("same results, same order", seq.SequenceEqual(con) && con[9] == 81);
+        peak = 0;
+        var bnd = AsyncFanOut.Bounded(fetch, 12, 3).GetAwaiter().GetResult();
+        T.True($"bounded: never more than 3 in flight (peak {peak})", peak <= 3 && peak > 1);
+        T.True("bounded: all results", bnd.Length == 12 && bnd[11] == 121);
+
         return T.Report();
     }
+    static readonly object fetch_lock = new();
 }

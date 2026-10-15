@@ -198,3 +198,50 @@ table.fail td.f-c{color:#ff8f8f;font-weight:600;white-space:nowrap}
 .fu-h{font:700 28px 'Inter',sans-serif;color:#e6edf7;margin-bottom:16px}
 .fu-col ul{margin:0;padding-left:22px}
 .fu-col li{font:400 24px/1.5 'Inter',sans-serif;color:#cfe0f2;margin-bottom:12px}
+/* ---- lesson 11.2: the CoderPad screen ---- */
+.padslide .kicker{top:42px}
+.padslide h1{top:72px;font-size:40px;letter-spacing:-.6px}
+.padslide .stage{top:138px;bottom:62px}
+.pad{position:absolute;left:56px;right:56px;top:0;bottom:0;display:grid;grid-template-rows:44px minmax(0,1fr);gap:10px}
+.pbar{display:flex;align-items:center;gap:12px;background:#111729;border:1px solid #1f2942;border-radius:10px;padding:0 16px}
+.plogo{font:800 19px 'Inter';color:#f8fafc;margin-right:8px}
+.pchip{font:600 15px 'JetBrains Mono',monospace;color:#94a3b8;background:#182036;border-radius:6px;padding:4px 10px}
+.pchip.ai{color:#c4b5fd}.pchip.ph{color:#fbbf24}.pchip.clk{color:#5ad7c0}
+.pgap{flex:1}
+.pmain{display:grid;grid-template-columns:minmax(0,1fr) 690px;gap:14px;min-height:0}
+.pleft{display:grid;grid-template-rows:38px minmax(0,1fr) 224px;background:#0a0e1b;border:1px solid #1f2942;border-radius:10px;overflow:hidden}
+.ptabs{display:flex;background:#0f1424;border-bottom:1px solid #1f2942}
+.ptab{font:600 16px 'JetBrains Mono',monospace;color:#64748b;padding:9px 18px;border-right:1px solid #1f2942}
+.ptab.on{color:#e2e8f0;background:#0a0e1b;box-shadow:inset 0 2px 0 #60a5fa}
+.pcode{overflow:hidden;padding:8px 0}
+pre.cl.padcode{font-size:18px;line-height:1.36}
+pre.cl i.cstr{color:#ffd483}
+pre.cl.padcode .ln{opacity:.9;padding:0 14px;border-radius:0}
+pre.cl.padcode .ln.ai{box-shadow:inset 4px 0 0 #a78bfa;background:rgba(167,139,250,.06)}
+pre.cl.padcode .ln.hl{opacity:1;background:rgba(251,191,36,.18);box-shadow:inset 4px 0 0 #fbbf24}
+.pcon{border-top:1px solid #1f2942;background:#05070e;padding:8px 16px;overflow:hidden;position:relative}
+.pconh{font:700 13px 'JetBrains Mono',monospace;letter-spacing:2px;text-transform:uppercase;color:#475569;margin-bottom:6px}
+.pcon-ph{position:absolute;left:16px;top:36px;font:500 17px 'JetBrains Mono',monospace;color:#475569}
+.pcon-out{font:500 16px/1.38 'JetBrains Mono',monospace;color:#cbd5e1;white-space:pre-wrap;word-break:break-word}
+.pcon-out .cp{color:#64748b}.pcon-out .cf{color:#fb7185}.pcon-out .cok{color:#4ade80;font-weight:700}
+.pcon-out .cs3{color:#64748b}.pcon-out .cnote{color:#7dd3fc}
+.pright{background:#0f1424;border:1px solid #1f2942;border-radius:10px;display:flex;flex-direction:column;overflow:hidden}
+.pchath{font:700 14px 'JetBrains Mono',monospace;letter-spacing:2px;text-transform:uppercase;color:#c4b5fd;padding:10px 16px;border-bottom:1px solid #1f2942}
+.pmsgs{display:flex;flex-direction:column;gap:11px;padding:12px;overflow:hidden}
+.bub{border-radius:12px;padding:10px 14px;background:#151c31;border-left:4px solid var(--b,#60a5fa)}
+.bh{font:700 13.5px 'JetBrains Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--b,#60a5fa);margin-bottom:5px}
+.bb{font:500 18.5px/1.38 'Inter';color:#e2e8f0}
+.bb ul{margin:2px 0 0 20px}.bb li{margin:2px 0}
+.bb .pt{font:500 16.5px/1.42 'JetBrains Mono',monospace;color:#f1f5f9;white-space:pre-wrap}
+.b-you,.b-good{--b:#34d399}.b-bad{--b:#f87171}.b-ai{--b:#a78bfa;background:#17142b}
+.b-iv{--b:#fbbf24}.b-rev{--b:#2dd4bf;background:#0f2026}.b-fix{--b:#4ade80;background:#0f2219}
+.pcslide .stage{top:200px}
+.pcmp{position:absolute;left:90px;right:90px;top:0;bottom:10px;display:grid;grid-template-columns:1fr 1fr;gap:30px}
+.pc{border-radius:16px;padding:24px 28px;background:#111729;border-top:6px solid var(--b)}
+.pc-bad{--b:#f87171}.pc-good{--b:#34d399}
+.pctag{font:800 18px 'JetBrains Mono',monospace;letter-spacing:3px;text-transform:uppercase;color:var(--b);margin-bottom:14px}
+.pctext{font:500 20px/1.45 'JetBrains Mono',monospace;color:#f1f5f9;background:#070a16;border-radius:10px;padding:16px 18px;margin-bottom:18px}
+.pc ul{margin-left:24px}.pc li{font:500 23px/1.4 'Inter';color:#cbd5e1;margin:7px 0}
+/* Ligatures would draw <= as ≤ and -> as an arrow: wrong in a lesson about exactly those characters. */
+pre.cl,code,.pt,.pctext,.pcon-out,.pchip{font-variant-ligatures:none;font-feature-settings:"liga" 0,"calt" 0}
+.pc{align-self:start}

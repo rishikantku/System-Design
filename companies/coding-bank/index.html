@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="sim-token" content="static">
+<script>/* Served without a trailing slash, relative paths (app.js, data/...) resolve one folder too high: add it. */
+if (!/\/$|\.html$/.test(location.pathname)) location.replace(location.pathname + "/" + location.search + location.hash);</script>
 <title>Coding question bank · LinkedIn and Agoda</title>
 <link rel="stylesheet" href="app.css">
 </head>

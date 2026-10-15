@@ -28,6 +28,16 @@ HTML = '''<!DOCTYPE html>
       <div class="rd">Full loop: coding, AI coding, system design, hiring manager. Retrospective round already cleared.</div>
       <div class="meta" style="margin-top:10px">Dashboard · 4 round pages · research-backed question database</div>
     </a>
+    <a class="card round" href="coding-bank/index.html">
+      <div class="num">QUESTION BANK</div><div class="rt">Coding — LinkedIn and Agoda</div>
+      <div class="rd">57 coding questions ranked by evidence, with company and round tags, LeetCode references, Learn pages and step-by-step C# solutions.</div>
+      <div class="meta" style="margin-top:10px">Read-only on the website</div>
+    </a>
+    <a class="card round" href="linkedin/design-interview/index.html">
+      <div class="num">QUESTION BANK</div><div class="rt">System design — LinkedIn</div>
+      <div class="rd">23 design questions ranked by reports, each with diagrams, data model, read and write paths, trade-offs and failures.</div>
+      <div class="meta" style="margin-top:10px">Read-only on the website</div>
+    </a>
     <a class="card round" href="../questions-google.html">
       <div class="num">QUESTION BANK</div><div class="rt">Google — L6 / Staff</div>
       <div class="rd">81 tagged system-design questions, filtered to the 58 engineering ones and cross-linked to the guide.</div>

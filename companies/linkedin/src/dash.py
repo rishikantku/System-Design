@@ -78,6 +78,8 @@ def build():
         '<p><b>%d lessons written</b> across chapters 1–3 (trees, graphs, and how the round works), about %d minutes, '
         '%d already rendered to video. Every lesson runs the same eighteen beats and every solution is in C#.</p>'
         '<p><a class="tbtn pri" href="06-coding-course.html">Open the video course →</a></p>'
+        '<p><a class="tbtn" href="../coding-bank/index.html">Coding question bank (LinkedIn + Agoda) →</a> '
+        '<a class="tbtn" href="design-interview/index.html">System design question bank →</a></p>'
         % (len(_reg.LESSONS), _mins, len(_built)),
         title='Video coding course')
 

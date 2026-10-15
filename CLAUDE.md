@@ -761,6 +761,13 @@ show a note and the page is reading-only.
 Video **12.1** (`video/design/lessons/s12l1_top10.py`) covers the top 10 the same way in one ~75-minute file; its question
 text is also in my own words.
 
+## 2g. `companies/coding-bank/` — the coding question bank (generated, read-only)
+
+57 coding questions (LinkedIn 42, Agoda 15) with company and round tags, evidence labels, LeetCode references, Learn
+pages and the step-by-step C# Solution pages, in the same look as the local practice app. **Generated — do not hand-edit**:
+it is an export of `data/` JSON plus the app's `app.js` / `app.css` running in static mode. Practice and mock interviews
+need the local setup and show a note on the website. Linked from the Companies page and the LinkedIn dashboard.
+
 ## 3. Source material
 
 **Primary source:** Martin Kleppmann, *Designing Data-Intensive Applications* (1st ed, 613pp).

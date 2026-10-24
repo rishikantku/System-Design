@@ -47,6 +47,9 @@ h1{font-size:26px;margin-bottom:6px}h2{font-size:19px;margin:22px 0 8px}h3{font-
 .msg{max-width:92%;border-radius:12px;padding:9px 13px;font-size:14.5px}
 .msg.iv{background:var(--li-soft);align-self:flex-start}.msg.me{background:#f1f3f5;align-self:flex-end;white-space:pre-wrap}
 .msg.sys{background:var(--warn-bg);align-self:center;font-size:13px}
+.msg.coach{background:#eef7ee;border-left:3px solid #2e7d32}.msg.coach .who{color:#2e7d32}
+.helpchip{font-size:12px;padding:3px 9px;border-radius:999px;background:#eef7ee;color:#2e7d32;white-space:nowrap}
+.style-pick{display:flex;flex-direction:column;gap:6px;margin:10px 0}.style-pick label{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
 .msg .who{font:700 11px 'JetBrains Mono',monospace;letter-spacing:1px;color:var(--muted);margin-bottom:3px}
 .msg p{margin:4px 0}
 textarea.in{width:100%;min-height:78px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px;resize:vertical}
@@ -371,10 +374,14 @@ svg.write g.onpath>rect:first-child{stroke:#e65100;stroke-width:4}svg.read g.onp
       (!live ? '<div class="note">Interview mode runs only on a local setup with Claude. On this site, use the <b>Solution guide</b> tab.</div>' : '') +
       (live && !STATUS.claude ? '<div class="err">Claude is not configured on the local server (sim/.env).</div>' : '') +
       '<div id="pre" class="panel"><p>Claude will act as a LinkedIn Staff-level interviewer for this question. Speak or type your answers. Use the whiteboard on the left for your design — the interviewer can see it.</p>' +
+      '<div class="style-pick"><label><input type="radio" name="style" value="coached"' + (store.get('sd.style', 'coached') === 'coached' ? ' checked' : '') + '> <span><b>Coached mock</b> — a full interview, but you can ask it to <b>explain any concept</b> ("can you explain consistent hashing?") or press <b>Hint</b> when stuck. Help is noted in your rating.</span></label>' +
+      '<label><input type="radio" name="style" value="strict"' + (store.get('sd.style', 'coached') === 'strict' ? ' checked' : '') + '> <span><b>Strict mock</b> — like the real round: no teaching, at most one nudge if you are stuck.</span></label></div>' +
       '<div class="btns"><label>Length <select id="mins"><option>30</option><option selected>45</option><option>60</option></select> min</label>' +
       '<button class="btn pri" id="go"' + (live && STATUS.claude ? '' : ' disabled') + '>Start interview</button>' +
       (saved ? '<button class="btn" id="resume">Resume last session</button>' : '') + '</div></div>' +
       '<div id="room" hidden><div class="bar"><span class="clock" id="clk">0:00</span><span class="phases" id="phs"></span><span style="flex:1"></span>' +
+      '<span class="helpchip" id="helpc" title="Concepts explained and hints given in this session">help used: 0</span> ' +
+      '<button class="btn sm" id="explain" title="Ask the interviewer to explain a concept">📘 Explain a concept</button> <button class="btn sm" id="hint" title="Stuck? Get the smallest nudge">💡 Hint</button> ' +
       '<button class="btn red sm" id="end">End &amp; evaluate</button></div>' +
       '<div class="ivgrid"><div class="panel"><b>Whiteboard</b> <span class="small muted">— requirements, numbers, boxes and arrows in text. Sent with your next message.</span>' +
       '<textarea class="board" id="board" placeholder="Functional:\n- …\nNon-functional:\n- …\n\nNumbers:\n- …\n\nClient -> LB -> Service -> DB\n"></textarea></div>' +
@@ -384,13 +391,22 @@ svg.write g.onpath>rect:first-child{stroke:#e65100;stroke-width:4}svg.read g.onp
       '<div id="rep"></div>';
     if (!SR) $('#mic') && ($('#mic').disabled = true);
     $('#go') && $('#go').addEventListener('click', async () => {
-      try { const r = await api('start', { qid: q.id, mins: +$('#mins').value }); cur = { id: r.id, q, mins: +$('#mins').value, started: Date.now(), phase: 0, log: [] }; enter(); ask('start'); }
+      const style = (document.querySelector('input[name=style]:checked') || {}).value || 'coached'; store.set('sd.style', style);
+      try { const r = await api('start', { qid: q.id, mins: +$('#mins').value, style }); cur = { id: r.id, q, mins: +$('#mins').value, style, started: Date.now(), phase: 0, log: [], help: [] }; enter(); ask('start'); }
       catch (e) { $('#pre').insertAdjacentHTML('beforeend', '<div class="err">' + esc(e.message) + '</div>'); }
     });
     $('#resume') && $('#resume').addEventListener('click', () => { cur = Object.assign(saved, { q }); enter(); cur.log.forEach((m) => bubble(m.who, m.text)); });
     $('#send').addEventListener('click', sendMsg);
     $('#msg').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendMsg(); } });
     $('#next').addEventListener('click', () => ask('next'));
+    $('#hint').addEventListener('click', () => { bubble('me', '💡 Hint, please — I am stuck.'); cur.log.push({ who: 'me', text: '💡 Hint, please — I am stuck.' }); persist(); ask('hint'); });
+    $('#explain').addEventListener('click', () => {
+      const typed = $('#msg').value.trim();
+      const topic = typed || prompt('Which concept should the interviewer explain? (e.g. consistent hashing, Kafka partitions, quorum reads)');
+      if (!topic) return;
+      const m = /\?$/.test(topic) || /^(can|could|what|why|how|explain)\b/i.test(topic) ? topic : 'Can you explain ' + topic + '?';
+      $('#msg').value = ''; bubble('me', '📘 ' + m); cur.log.push({ who: 'me', text: '📘 ' + m }); persist(); ask('explain', m);
+    });
     $('#end').addEventListener('click', evaluate);
     $('#mic').addEventListener('click', () => recOn ? micStop() : micStart());
     $('#lang').addEventListener('change', (e) => store.set('sd.lang', e.target.value));
@@ -399,14 +415,18 @@ svg.write g.onpath>rect:first-child{stroke:#e65100;stroke-width:4}svg.read g.onp
   function enter() {
     $('#pre').hidden = true; $('#room').hidden = false;
     $('#board').value = cur.board || '';
+    cur.help ||= []; drawHelp();
+    if (cur.style === 'strict') { $('#explain').hidden = true; $('#hint').textContent = '💡 I am stuck'; }
     drawPhases(); clearInterval(timer);
     timer = setInterval(() => { const s = Math.floor((Date.now() - cur.started) / 1000); $('#clk') ? $('#clk').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') + ' / ' + cur.mins + ':00' : clearInterval(timer); }, 1000);
   }
   function drawPhases() { $('#phs').innerHTML = PHASES.map((p, i) => '<span class="ph ' + (i === cur.phase ? 'on' : i < cur.phase ? 'done' : '') + '">' + p + '</span>').join(''); }
+  function drawHelp() { const n = (cur.help || []).length; $('#helpc').textContent = 'help used: ' + n; $('#helpc').title = n ? cur.help.map((h) => h.kind === 'hint' ? 'Hint (minute ' + h.min + ')' : 'Explained: ' + h.topic).join('\n') : 'No help used yet'; }
   function persist() { const { q, ...rest } = cur; store.set('sd.cur.' + cur.q.id, rest); }
   function bubble(who, text) {
     const d = document.createElement('div'); d.className = 'msg ' + who;
-    d.innerHTML = '<div class="who">' + (who === 'iv' ? 'INTERVIEWER' : who === 'me' ? 'YOU' : 'NOTE') + '</div><div class="b">' + (who === 'me' ? esc(text) : md(text)) + '</div>';
+    if (who === 'iv' && /^\((Coach|Hint)\)/.test(text)) d.classList.add('coach');
+    d.innerHTML = '<div class="who">' + (who === 'iv' ? (d.classList.contains('coach') ? 'COACH' : 'INTERVIEWER') : who === 'me' ? 'YOU' : 'NOTE') + '</div><div class="b">' + (who === 'me' ? esc(text) : md(text)) + '</div>';
     $('#log').appendChild(d); $('#log').scrollTop = 1e9; return d;
   }
   async function sendMsg() {
@@ -418,16 +438,23 @@ svg.write g.onpath>rect:first-child{stroke:#e65100;stroke-width:4}svg.read g.onp
   }
   async function ask(event, message) {
     if (busy) return; busy = true;
+    const lock = (on) => ['#send', '#hint', '#explain', '#next'].forEach((k) => { const el = $(k); if (el) el.disabled = on; });
+    lock(true);                                  // the interviewer is talking: wait for it (a click here used to vanish)
     const d = bubble('iv', '…'), b = $('.b', d); let text = '';
     await stream('turn', { id: cur.id, event, message, board: $('#board').value }, {
-      delta: (x) => { text += x.text; b.innerHTML = md(text); $('#log').scrollTop = 1e9; },
+      delta: (x) => {
+        text += x.text; b.innerHTML = md(text); $('#log').scrollTop = 1e9;
+        if (!d.classList.contains('coach') && /^\((Coach|Hint)\)/.test(text)) { d.classList.add('coach'); $('.who', d).textContent = 'COACH'; }
+      },
       phase: (x) => { cur.phase = x.index; drawPhases(); },
+      help: (h) => { cur.help.push(h); drawHelp(); },
       end: () => { bubble('sys', 'The interviewer has closed the round. Press **End & evaluate** for your feedback.'); },
       error: (e) => { text = '_' + e.message + '_'; b.innerHTML = '<span class="err">' + esc(e.message) + '</span>'; },
       done: (x) => { $('#st').textContent = x.sessionUsd != null ? '≈ $' + x.sessionUsd.toFixed(2) + ' this session' : ''; },
     });
+    if (/^\((Coach|Hint)\)/.test(text)) { d.classList.add('coach'); $('.who', d).textContent = 'COACH'; }
     if (text) { cur.log.push({ who: 'iv', text }); persist(); }
-    busy = false;
+    busy = false; lock(false);
   }
   async function evaluate() {
     if (!cur || !confirm('End the interview and get your evaluation?')) return;
@@ -440,7 +467,9 @@ svg.write g.onpath>rect:first-child{stroke:#e65100;stroke-width:4}svg.read g.onp
       const names = { requirements: 'Requirements', estimation: 'Estimation', api_data: 'API and data model', high_level: 'High-level design', deep_dive: 'Deep dive', tradeoffs: 'Trade-offs', scale_reliability: 'Scale and failures', communication: 'Communication' };
       const lst = (t, xs) => xs && xs.length ? '<h3>' + t + '</h3><ul class="l">' + xs.map((x) => '<li>' + inl(x) + '</li>').join('') + '</ul>' : '';
       $('#rep').innerHTML = '<div class="panel" style="margin-top:16px"><h2>Your evaluation</h2><div class="verdict"><span class="chip v-' + e.verdict.split(' ')[0] + '" style="font-size:18px">' + esc(e.verdict) + '</span> ' + e.avg.toFixed(1) + ' / 10 average</div>' +
-        '<p>' + inl(e.summary) + '</p><div class="scores">' + r.dims.map((k) => '<div class="sc">' + names[k] + ' <b>' + e.scores[k].score + '</b>/10<div class="ev">' + inl(e.scores[k].evidence) + '</div></div>').join('') + '</div>' +
+        '<p>' + inl(e.summary) + '</p>' +
+        '<p class="small"><b>' + (r.style === 'coached' ? 'Coached mock' : 'Strict mock') + ' · help used: ' + (r.help || []).length + '</b>' + ((r.help || []).length ? ' — ' + r.help.map((h) => h.kind === 'hint' ? 'hint (min ' + h.min + ')' : esc(h.topic)).join(', ') : '') + '<br>' + inl(e.help_note || '') + '</p>' +
+        '<div class="scores">' + r.dims.map((k) => '<div class="sc">' + names[k] + ' <b>' + e.scores[k].score + '</b>/10<div class="ev">' + inl(e.scores[k].evidence) + '</div></div>').join('') + '</div>' +
         lst('What went well', e.strengths) + lst('What to improve', e.gaps) + lst('Important points you did not cover', e.missed) +
         (e.redo.length ? '<h3>Answers to redo</h3>' + e.redo.map((x) => '<details class="fu"><summary>' + inl(x.moment) + '</summary><div><b>Issue:</b> ' + inl(x.issue) + '<br><b>Better:</b> ' + inl(x.better) + '</div></details>').join('') : '') +
         lst('Practise next', e.next_practice) +

@@ -269,14 +269,16 @@
       '<span class="rdsep"></span>' + [['all', 'Every round'], ['coding', 'Coding round'], ['ai', 'AI round']]
         .map(([k, v]) => '<button class="rdtab' + (k === 'all' ? ' on' : '') + '" data-r="' + k + '">' + v + '</button>').join('') + '</div>' +
       '<div class="filters" id="pf">' + ['P0', 'P1', 'P2'].map((p) => '<button class="chip" data-k="prio" data-v="' + p + '">' + p + '</button>').join('') +
-      [['idb', 'InterviewDB'], ['multi', 'Multiple candidate reports'], ['single', 'Reported LinkedIn'], ['derived', 'Research-derived'], ['pattern', 'Pattern-based practice'],
+      [['idb', 'InterviewDB'], ['idb-list', 'InterviewDB-listed'], ['multi', 'Multiple candidate reports'], ['single', 'Reported LinkedIn'], ['derived', 'Research-derived'], ['pattern', 'Pattern-based practice'],
        ['ag-multi', 'Multiple Agoda reports'], ['ag-single', 'Reported Agoda'], ['ag-recon', 'Agoda — reconstructed'], ['ag-list', 'Agoda frequency list only']]
         .map(([k, v]) => '<button class="chip" data-k="label" data-v="' + k + '">' + v + '</button>').join('') +
       '<input class="search" id="pq" placeholder="Search…"></div><div class="card tw"><table class="t"><thead><tr><th>Rank</th><th>Priority</th><th>Question</th><th>Company</th><th>LeetCode</th><th>Provenance</th><th>Category</th><th>Stages</th><th></th></tr></thead><tbody id="pt"></tbody></table></div>' +
-      '<h2>Your LeetCode list (LinkedIn)</h2><p class="muted small">The 42 numbers you supplied plus 11 closest public twins, each verified against LeetCode\'s own index. No built-in tests here — the statement is on LeetCode; Run executes your own checks.</p>' +
+      '<h2>Your LeetCode list (LinkedIn)</h2><p class="muted small">The 42 numbers you supplied plus 11 closest public twins, each verified against LeetCode\'s own index. 30 of them are also full questions above, tagged <b>InterviewDB-listed</b> — with tests, a Learn page and a Solution; the rest are covered by the question named in the relation column.</p>' +
       '<div class="card tw"><table class="t"><thead><tr><th>#</th><th>Problem</th><th>Difficulty</th><th>Relation to the InterviewDB set</th><th></th></tr></thead><tbody>' +
       idx.leetcode.map((x) => '<tr><td>' + x.number + '</td><td><a href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.title) + '</a>' + (x.premium ? ' <span class="tag lab single">premium</span>' : '') +
-        '</td><td>' + esc(x.diff) + '</td><td class="small">' + esc(x.rel) + (x.linked.length ? ' · ' + x.linked.join(', ') : '') + '</td><td><a class="btn sm" href="#/practice/' + x.id + '">Practice</a></td></tr>').join('') +
+        '</td><td>' + esc(x.diff) + '</td><td class="small">' + esc(x.rel) + (x.linked.length ? ' · ' + x.linked.join(', ') : '') + '</td><td style="white-space:nowrap">' +
+        (x.full ? '<a class="btn sm" href="#/learn/' + x.full + '">Learn</a> <a class="btn sm" href="#/practice/' + x.full + '">Practice</a> <a class="btn sm sol" href="#/solution/' + x.full + '">Solution</a>'
+                : '<a class="btn sm" href="#/practice/' + x.id + '">Practice</a>') + '</td></tr>').join('') +
       '</tbody></table></div></div>';
     const cos = (p) => p.companies || ['linkedin'];
     const rankOf = (p) => f.company !== 'all' ? (p.rank || {})[f.company] : Math.min(...Object.values(p.rank || {}).concat([999]));

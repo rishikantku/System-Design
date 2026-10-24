@@ -200,6 +200,10 @@ html[data-ui="black"] body.ws-on .top .pill{background:#121212;color:#9a9a9a} ht
 .pad-stat{font:600 12px 'JetBrains Mono',monospace;color:var(--pmuted);background:var(--ppanel2);border-radius:6px;padding:3px 8px;white-space:nowrap}
 .pad-stat.clock{color:var(--ptext);font-size:13.5px} .pad-stat.over{color:#ff7b72}
 .pad-body{flex:1;min-height:0;display:grid;grid-template-columns:var(--lw) 5px minmax(0,1fr) 5px var(--rw)}
+/* plain pad (coding round): problem left, editor right — no assistant column */
+.pad.plain{--lw:min(44vw,720px)}
+.pad.plain .pad-body{grid-template-columns:var(--lw) 5px minmax(0,1fr)}
+.pad.plain .pad-lbody{font-size:14.5px;line-height:1.6}
 .pad-split.v{background:var(--pline);cursor:col-resize} .pad-split.h{background:var(--pline);cursor:row-resize;height:5px}
 .pad-left,.pad-right{background:var(--ppanel);display:flex;flex-direction:column;min-height:0;min-width:0}
 .pad-tabs{display:flex;flex-wrap:wrap;gap:2px;padding:0 6px;border-bottom:1px solid var(--pline);background:var(--ppanel2)}
@@ -253,7 +257,7 @@ html[data-ui="black"] body.ws-on .top .pill{background:#121212;color:#9a9a9a} ht
 .pad h3,.pad h4{color:var(--ptext)} .pad .muted{color:var(--pmuted)} .pad a{color:var(--pacc)}
 @media (max-width:1000px){
   .pad{height:auto}
-  .pad-body{grid-template-columns:minmax(0,1fr)} .pad-split{display:none}
+  .pad-body,.pad.plain .pad-body{grid-template-columns:minmax(0,1fr)} .pad-split{display:none}
   .pad #editor{height:420px} .pad-lbody{max-height:420px} .pad-right{min-height:420px} .pad-output{height:260px}
 }
 /* the pad toolbar stays on one line: long stats shrink and truncate instead of wrapping */
@@ -349,3 +353,7 @@ html[data-ui="black"] body.ws-on .top .pill{background:#121212;color:#9a9a9a} ht
 .aig-parts li b{color:var(--ink)}
 /* Ligatures draw >= as ≥ and -> as an arrow — wrong anywhere the exact characters matter. */
 code,pre,.aig-ptext,textarea{font-variant-ligatures:none;font-feature-settings:"liga" 0,"calt" 0}
+
+#savestat{flex-shrink:0;white-space:nowrap}
+
+.lab.idb-list{background:var(--purple-bg);color:var(--purple);opacity:.82;border:1px dashed var(--purple)}

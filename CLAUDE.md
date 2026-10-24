@@ -763,8 +763,9 @@ text is also in my own words.
 
 ## 2g. `companies/coding-bank/` — the coding question bank (generated, read-only)
 
-57 coding questions (LinkedIn 42, Agoda 15) with company and round tags, evidence labels, LeetCode references, Learn
-pages and the step-by-step C# Solution pages, in the same look as the local practice app. **Generated — do not hand-edit**:
+87 coding questions (LinkedIn 72, Agoda 15) with company and round tags, evidence labels, LeetCode references, Learn
+pages and the step-by-step C# Solution pages. 30 of the LinkedIn ones (24 Oct 2026) are tagged **InterviewDB-listed**: LeetCode
+problems on the reader's InterviewDB list that had no question of their own — evidence is the list only, and each page says so, in the same look as the local practice app. **Generated — do not hand-edit**:
 it is an export of `data/` JSON plus the app's `app.js` / `app.css` running in static mode. Practice and mock interviews
 need the local setup and show a note on the website. Linked from the Companies page and the LinkedIn dashboard.
 

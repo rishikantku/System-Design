@@ -47,6 +47,7 @@ h1{font-size:26px;margin-bottom:6px}h2{font-size:19px;margin:22px 0 8px}h3{font-
 .msg{max-width:92%;border-radius:12px;padding:9px 13px;font-size:14.5px}
 .msg.iv{background:var(--li-soft);align-self:flex-start}.msg.me{background:#f1f3f5;align-self:flex-end;white-space:pre-wrap}
 .msg.sys{background:var(--warn-bg);align-self:center;font-size:13px}
+.rtag{font-size:11px;padding:1px 7px;border-radius:999px;background:#fff4d6;color:#8a5a00;border:1px solid #f0c75e;white-space:nowrap;font-weight:600}
 .msg.coach{background:#eef7ee;border-left:3px solid #2e7d32}.msg.coach .who{color:#2e7d32}
 .helpchip{font-size:12px;padding:3px 9px;border-radius:999px;background:#eef7ee;color:#2e7d32;white-space:nowrap}
 .style-pick{display:flex;flex-direction:column;gap:6px;margin:10px 0}.style-pick label{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
@@ -166,14 +167,14 @@ svg.write g.onpath>rect:first-child{stroke:#e65100;stroke-width:4}svg.read g.onp
   function list() {
     const last = store.get('sd.last', {});
     app.innerHTML = '<h1>LinkedIn system design — ' + Q.length + ' questions, most reported first</h1>' +
-      '<p class="muted">Your InterviewDB list plus the LeetCode Discuss reports you collected, merged where they are the same question and ranked by how many independent reports we have (updated ' + esc(META.updated || '') + '). A count is evidence, not a probability. Each question has a <b>mock interview</b> with Claude as the interviewer and a <b>solution guide</b> in simple English.</p>' +
+      '<p class="muted">Your InterviewDB list plus the LeetCode Discuss reports you collected, merged where they are the same question. <b>Ranked</b>: questions reported recently at LinkedIn <i>and</i> in InterviewDB first, then recently reported ones (★), then InterviewDB-only — each group by how many independent reports we have (updated ' + esc(META.updated || '') + '). A count is evidence, not a probability. Each question has a <b>mock interview</b> with Claude as the interviewer and a <b>solution guide</b> in simple English.</p>' +
       ((META.unplaced || []).length ? '<p class="small muted">Not placed: ' + META.unplaced.map(esc).join(' · ') + '</p>' : '') +
       (live ? '' : '<div class="note">Reading mode: every solution guide, diagram and read/write path is here. The mock interview and the tutor chat need a local setup with Claude, so they are switched off on this site.</div>') +
       '<p style="margin-top:10px"><input class="search" id="qs" placeholder="Filter: cache, feed, queue…"></p><div class="grid" id="g"></div>';
     const draw = (f) => {
       $('#g').innerHTML = Q.filter((q) => !f || (q.title + ' ' + q.statement).toLowerCase().includes(f)).map((q) => {
         const l = last[q.id];
-        return '<div class="qc"><div class="n">#' + q.rank + ' · ' + q.reports + ' report' + (q.reports > 1 ? 's' : '') + (q.idb ? '' : ' · new from LeetCode Discuss') + ' · video ' + esc(q.lesson) + '</div><div class="t">' + esc(q.title) + '</div>' +
+        return '<div class="qc"><div class="n">#' + q.rank + ' · ' + q.reports + ' report' + (q.reports > 1 ? 's' : '') + (q.idb ? '' : ' · not in InterviewDB') + (q.lesson && q.lesson !== '—' ? ' · video ' + esc(q.lesson) : '') + '</div><div class="t">' + (q.recent ? '<span class="rtag" title="Reported recently at LinkedIn (LeetCode Discuss or your Oct 2026 list)">★ recent</span> ' : '') + esc(q.title) + '</div>' +
           '<div class="d">' + esc(q.statement.split('\n')[0].slice(0, 170)) + (q.statement.length > 170 ? '…' : '') + '</div>' +
           '<div class="row"><a class="btn pri sm" href="#/q/' + q.id + '/interview">Interview mode</a><a class="btn sm" href="#/q/' + q.id + '/solution">Solution</a>' +
           (l ? '<span class="chip v-' + l.v.split(' ')[0] + '">Last: ' + esc(l.v) + ' · ' + l.avg.toFixed(1) + '/10</span>' : '') + '</div></div>';
@@ -183,7 +184,7 @@ svg.write g.onpath>rect:first-child{stroke:#e65100;stroke-width:4}svg.read g.onp
   }
 
   function head(q, tab) {
-    return '<p class="small"><a href="#/">← All ' + Q.length + ' questions</a></p><h1>#' + q.rank + ' · ' + esc(q.title) + '</h1><p class="small muted">' + q.reports + ' independent report' + (q.reports > 1 ? 's' : '') + ' · video lesson ' + esc(q.lesson) + '</p>' +
+    return '<p class="small"><a href="#/">← All ' + Q.length + ' questions</a></p><h1>#' + q.rank + ' · ' + esc(q.title) + '</h1><p class="small muted">' + q.reports + ' independent report' + (q.reports > 1 ? 's' : '') + (q.recent ? ' · <b>★ reported recently at LinkedIn</b>' : '') + (q.lesson && q.lesson !== '—' ? ' · video lesson ' + esc(q.lesson) : '') + '</p>' +
       '<div class="tabs"><a href="#/q/' + q.id + '/interview" class="' + (tab === 'interview' ? 'on' : '') + '">Interview mode</a>' +
       '<a href="#/q/' + q.id + '/solution" class="' + (tab === 'solution' ? 'on' : '') + '">Solution guide</a></div>';
   }

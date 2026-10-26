@@ -467,3 +467,18 @@ D['svcauthz'] = dict(
   ('Policy management', 'Policies in Git with code review; compiled and pushed to sidecars (xDS-style)', 'Each callee receives only its own rules.', 'Auditable changes, fast rollout.'),
   ('Rollout safety', 'Log-only (shadow) mode before enforcing', 'Collect would-be denials, fix, then enforce.', 'Avoids self-inflicted outages.'),
   ('Audit', 'Decisions sampled/streamed to Kafka → warehouse', 'Investigations and access reviews.', 'Compliance.')])
+
+# Added 26 Oct 2026 — lead routing.
+D['leads'] = dict(
+ rows=[[('form', 'Web forms / CRM', 'POST /leads'), ('intake', 'Intake API', 'idempotency key'), ('q', 'Work queue', 'SQS / Kafka topic, small')],
+       [('enrich', 'Enricher + scorer', 'company data, rule score'), ('rules', 'Rule engine', 'active ruleset in memory'), ('assign', 'Assigner', 'shift + cap + round-robin')],
+       [('db', 'Postgres', 'leads, rulesets, reps, audit'), ('ui', 'Rep UI', 'accept / reject'), ('mail', 'Email notifier', 'at-least-once'), ('sla', 'SLA timer', 'due-time index')]],
+ arrows=[('form', 'intake', 'POST'), ('intake', 'q', 'lead event'), ('q', 'enrich', ''), ('enrich', 'rules', 'scored lead'), ('rules', 'assign', 'pool'),
+         ('assign', 'db', 'conditional UPDATE'), ('assign', 'mail', 'notify'), ('ui', 'db', 'read / accept'), ('sla', 'db', 'reassign')],
+ steps=[('Intake', 'HTTP API + Postgres + a small queue', 'Validate, de-dupe on (source, external id) and on email + company within 24 h, insert the lead as unassigned, enqueue.', 'The queue absorbs campaign bursts and lets intake answer at once.'),
+        ('Enrich and score', 'A worker with a company-data lookup', 'Adds industry, size, region; computes a transparent rule score; logs features for a future model.', 'Rules first: explainable and easy to tune.'),
+        ('Rule engine', 'Ordered rules as JSON, loaded per published version', 'First matching rule → target pool; no match → default pool. The version is cached and refreshed on publish.', 'The product team owns routing without deploys.'),
+        ('Assigner', 'Per-pool round-robin pointer in Postgres', 'Candidates = reps in the pool, on shift in their time zone, open_count < cap; take the next after the pointer; UPDATE lead … WHERE state = unassigned; bump pointer and open_count in one transaction.', 'Atomic → exactly one owner; round-robin → fair.'),
+        ('Delivery', 'Rep UI + email notifier', 'The UI lists the rep\'s leads (source of truth); an email with a link goes out with an idempotency key.', 'Email is a notification, never the record.'),
+        ('SLA', 'A due-time index scanned every minute (or delayed messages)', 'Not accepted by due time → reassign to the next eligible rep, audit it, notify the manager.', 'The same conditional write stops a late accept from creating two owners.'),
+        ('Rule admin', 'Draft → dry run → publish → rollback', 'Dry run replays the last 1,000 leads through the draft and shows how many would move and where.', 'Safe changes are the real requirement behind "product can configure".')])

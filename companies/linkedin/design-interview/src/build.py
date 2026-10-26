@@ -12,7 +12,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from guides import G
 from guides2 import G2, ADD
-from reports import REPORTS, ORDER, NEW, MERGED_AWAY, UNPLACED
+from reports import REPORTS, ORDER, NEW, MERGED_AWAY, UNPLACED, RECENT
 from extra13 import X
 from detail import D
 from paths import P
@@ -49,12 +49,12 @@ def build(idb):
       missing = [f for f in FIELDS if not g.get(f)]
       assert not missing, (qid, missing)
       reps = REPORTS.get(qid, [('InterviewDB', 'In your InterviewDB list.', '')])
-      count = sum(1 for r in reps if r[0] != 'Earlier research') + EARLY_COUNT.get(qid, 0)
+      count = sum(1 for r in reps if r[0] != 'Earlier research' and not r[0].endswith('not counted')) + EARLY_COUNT.get(qid, 0)
       variants = [dict(source=s, text=t, note=n) for s, t, n in reps]
       for gone, into in MERGED_AWAY.items():
           if into == qid:
               variants.append(dict(source='InterviewDB (merged into this question)', text=idb[gone]['statement'], note=''))
-      base.update(n=rank, rank=rank, reports=count, variants=variants, guide={f: g[f] for f in FIELDS}, design=design_for(qid))
+      base.update(n=rank, rank=rank, recent=qid in RECENT, reports=count, variants=variants, guide={f: g[f] for f in FIELDS}, design=design_for(qid))
       dd = D[qid]
       ids = {b[0] for row in dd['rows'] for b in row}
       assert len(dd['rows']) <= 3 and all(len(r) <= 4 for r in dd['rows']), (qid, 'detail layout too big')
@@ -88,6 +88,6 @@ if os.path.exists(SRC):
             assert sent not in pub_text, ('verbatim InterviewDB text in the public build', q['id'], sent[:80])
     io.open(os.path.join(HERE, '..', 'assets', 'questions.local.json'), 'w', encoding='utf-8').write(json.dumps(build(verbatim), ensure_ascii=False))
     print('local verbatim build -> assets/questions.local.json')
-io.open(os.path.join(HERE, '..', 'assets', 'meta.json'), 'w', encoding='utf-8').write(json.dumps(dict(unplaced=UNPLACED, updated='15 Oct 2026'), ensure_ascii=False))
+io.open(os.path.join(HERE, '..', 'assets', 'meta.json'), 'w', encoding='utf-8').write(json.dumps(dict(unplaced=UNPLACED, updated='26 Oct 2026'), ensure_ascii=False))
 for q in public: print('%2d %-10s %d report(s)%s' % (q['rank'], q['id'], q['reports'], '' if q['idb'] else '  NEW'))
 print(len(public), 'questions (public build -> assets/questions.json)')

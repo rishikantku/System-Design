@@ -268,3 +268,29 @@ X['svcauthz'] = dict(
         'Rolls out with **log-only mode first**.', 'Plans **revocation** in seconds.'])
 
 # Top 10 from the video data use the same schema (imported in build.py).
+
+# Added 26 Oct 2026 — the reader's recent LinkedIn list.
+X['leads'] = dict(
+ fr=['Ingest and de-duplicate leads (~15K/day)', 'Score each lead', 'Route by configurable rules: region, time zone, product, score',
+     'Rep sees leads in a UI and gets an email', 'Reassign if not accepted in time', 'Product team edits rules without a deploy'],
+ nfr=['Exactly one owner per lead', 'Routed within a minute', 'Rule changes are safe: dry run, versioned, rollback', 'Every routing decision explainable'],
+ rows=[[('intake', 'Lead intake', 'validate + de-dupe'), ('enrich', 'Enrich + score', 'company, region, score'), ('rules', 'Rule engine', 'versioned ruleset')],
+       [('assign', 'Assignment', 'shift, capacity, round-robin'), ('db', 'Leads DB', 'owner, state, audit'), ('ui', 'Rep UI + email', 'accept / reject'),
+        ('sla', 'SLA monitor', 'reassign late leads')]],
+ arrows=[('intake', 'enrich'), ('enrich', 'rules'), ('rules', 'assign'), ('assign', 'db'), ('db', 'ui'), ('sla', 'db')],
+ cap=[('15,000 leads/day', '÷ 86,400', '≈ 0.17 leads/s', 'Not a scale problem'), ('20× campaign burst', '', '≈ 4 leads/s', 'Still one small service'),
+      ('500 rules, 2,000 reps', '', 'all in memory', 'Evaluation is microseconds'), ('15K × 5 KB × 365', '', '≈ 27 GB/year', 'One relational database')],
+ model=[('lead', 'lead_id, contact, company, country, product, score, state, owner_rep, ruleset_version, created_at', 'lead_id', 'State changes are conditional writes'),
+        ('ruleset', 'version, status (draft/published), rules[] = {order, conditions, pool}', 'version', 'Immutable once published'),
+        ('rep', 'rep_id, pool_ids, time_zone, shift, open_cap, open_count', 'rep_id', 'open_count updated with the assignment'),
+        ('assignment_audit', 'lead_id, at, ruleset_version, rule_id, candidates, chosen, reason', 'lead_id', 'Explains every decision')],
+ trade=([('Rules as versioned data + engine', 'ok', ['Product team changes routing alone', 'Dry run, rollback, audit'], ['Need a rule editor and validation']),
+         ('Routing hard-coded in the service', 'shared', ['Simplest to start'], ['Every change is a deploy', 'Fails "product team can configure"'])],
+        'A small rule engine over versioned rulesets, with dry run before publish and the version recorded on every assignment.',
+        'If rules changed once a year and only engineers changed them, code would be fine.'),
+ fail=[('Two workers route the same lead', 'Two owners', 'Conditional write on state = unassigned; one wins'),
+       ('A bad ruleset is published', 'Leads go to the wrong team', 'Dry run first; instant rollback to the previous version'),
+       ('Nobody in the pool is on shift', 'Lead waits', 'Hold until the next shift or use the pool\'s fallback; alert if too long'),
+       ('Email provider down', 'Rep not notified', 'Retry queue; the UI still shows the lead; SLA reassigns if ignored')],
+ staff=['Notices **15K/day is tiny** and spends the time on correctness and configurability.', 'Treats **rules as versioned data** with a dry run and rollback.',
+        'Guarantees **one owner** with an atomic conditional write.', 'Makes routing **explainable** with an audit record per decision.'])

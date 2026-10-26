@@ -13,6 +13,8 @@ listing counts as one report. "reports" is evidence, not a probability.
 """
 
 LCD = 'LeetCode Discuss (supplied by you, Oct 2026)'
+RL = 'Your list of recent LinkedIn design questions (26 Oct 2026)'
+RL_SAME = RL + ' — may be the same interview as another report here; not counted'
 
 # Reports per question id. Each: (source, wording or summary, what happened — '' if not reported)
 REPORTS = {
@@ -27,13 +29,16 @@ REPORTS = {
  ],
  'kvstore': [
   ('InterviewDB', 'Key-value store on a file interface: append, read bytes at an offset, create.', ''),
-  (LCD, 'Design a Key-Value Store — components, data partitioning, replication, consistency model, use cases.', ''),
+  (LCD, 'Design a Key-Value Store — components, data partitioning, replication, consistency model, use cases.', "Didn't feel great in this round — struggled on the gateway and on file logs. (Your 26 Oct list shows this note belongs to this report.)"),
   (LCD, 'Design KV store — started with purpose, storage, compute, sharding.', 'Did not follow a standard structure.'),
   (LCD, 'Key-value based system — internal architecture, append-only log file management, log compaction, disk cleanup strategies.', 'Missed 2–3 follow-up questions.'),
  ],
  'topn': [
   ('InterviewDB', 'Top-N most requested items in the last 24 hours across several hundred machines.', ''),
   (LCD, 'Top K heavy hitters over time windows of 5 minutes, 1 hour and 24 hours.', 'Interviewer satisfied, but the candidate added a coordination service that was not needed and it caused a disagreement.'),
+  (RL, 'Track exceptions thrown by a service and report the top K most frequent AND least frequent exceptions within a sliding time window (e.g. 8:30 to 8:34).', ''),
+  (RL_SAME, 'People share articles on LinkedIn: maintain a Top-N leaderboard of the most-shared articles over rolling windows of 5 minutes, 1 hour and 24 hours.', ''),
+  (RL_SAME, 'A variation of Design Top-K YouTube — covered functional and non-functional requirements, scale estimation, core entities, high-level architecture, deep dive.', ''),
   ('Earlier research', 'Trending articles / Top-K videos — 2 LeetCode Discuss reports (lesson 11.2).', ''),
  ],
  'typeahead': [
@@ -59,7 +64,11 @@ REPORTS = {
  ],
  'ratelimit': [('InterviewDB', 'Design a rate limiter.', ''), ('Earlier research', '1 independent recent report (lesson 4.1).', '')],
  'feed': [('InterviewDB', 'Design a news feed system for LinkedIn.', ''), ('Earlier research', 'Recurring in aggregator lists (lesson 7.1).', '')],
- 'calendar': [('InterviewDB', 'Design a calendar system.', ''), ('Earlier research', '1 recent report (lesson 8.3).', '')],
+ 'calendar': [('InterviewDB', 'Design a calendar system.', ''), ('Earlier research', '1 recent report (lesson 8.3).', ''),
+              (RL, 'Design Google Calendar — discussion around the architecture, components, scalability and design decisions.', '')],
+ 'jobrec': [('InterviewDB', 'Top job picks for you: best 3 of millions of jobs, low latency, personalised.', ''),
+            (RL, 'Cold-start recommender system — discussed heavily: data preparation and pipelines, feature engineering, sparse/implicit data, model training and candidate generation.', '')],
+ 'leads': [(RL, 'Design a system to route leads to sales reps: rules by time zone, region and more, configurable by the product team; reps see leads in a UI or get an email; lead scoring; 15,000 leads per day.', '')],
  'logging': [('InterviewDB', 'Distributed logging for an analytics service.', ''), ('Earlier research', '1 report in research pass 3 (lesson 6.3).', '')],
  'cache': [
   (LCD, 'Flexible in-memory cache with customisable capacity and eviction policies (LRU, lowest priority); LLD first, then HLD across many nodes — hot keys in a write-heavy setup, Redis internals.', 'Round opened with project and leadership questions; HLD extension after the LLD was agreed.'),
@@ -67,13 +76,18 @@ REPORTS = {
 }
 # Not placed: "Didn't feel great in this round, struggled on gateway, file logs" — too little detail to tell
 # which question it was (possibly the logging system). Kept here so it is not lost; not counted.
-UNPLACED = ['"Didn\'t feel great in this round — struggled on gateway, file logs." (LeetCode Discuss) — possibly the logging system; not counted.']
+UNPLACED = []   # 26 Oct 2026: the "gateway, file logs" note was placed — it belongs to the key-value store report
 
 # Rank: by report count, ties by how recent and detailed the reports are. InterviewDB-only questions
 # follow in the reader's InterviewDB order (most recently reported first).
-ORDER = ['metrics', 'kvstore', 'topn', 'typeahead', 'denylist', 'mq', 'notify', 'scheduler', 'ratelimit', 'logging',
-         'feed', 'calendar', 'cache',
-         'coderpad', 'lynda', 'jobrec', 'photos', 'logistics', 'spell', 'quota', 'geoviz', 'inmail', 'svcauthz']
+# Rank (26 Oct 2026, on the reader's instruction): (1) recently reported at LinkedIn AND in InterviewDB, (2) recently
+# reported only, (3) InterviewDB only — each by independent report count. "Recent" = a LeetCode Discuss report or the
+# reader's recent list (Oct 2026). Earlier ranking (15 Oct) was by count alone.
+RECENT = {'metrics', 'kvstore', 'topn', 'denylist', 'notify', 'scheduler', 'calendar', 'jobrec', 'cache', 'leads'}
+ORDER = ['metrics', 'kvstore', 'topn', 'denylist', 'notify', 'calendar', 'jobrec',      # recent + InterviewDB
+         'scheduler', 'leads', 'cache',                                                  # recent
+         'typeahead', 'mq', 'ratelimit', 'logging', 'feed',                              # InterviewDB, with earlier reports
+         'coderpad', 'lynda', 'photos', 'logistics', 'spell', 'quota', 'geoviz', 'inmail', 'svcauthz']
 
 # The questions not in the InterviewDB list: their primary statement, verbatim from the reports.
 NEW = {
@@ -98,4 +112,11 @@ This flexibility ensures the cache can be tailored to meet specific requirements
 
 (Reported follow-on: once the low-level design was agreed, extend it to many nodes in a distributed setup — the challenges, hot keys in a write-heavy setup, and some Redis internals.)"""),
 }
+NEW['leads'] = dict(title='Route leads to sales reps (configurable rules, time zones, scoring)', lesson='—', statement=
+"""Design a system to route lead to sales rep
+Have a routing system, lead at a time should be routed to sales people in the correct timezone, region based, etc, routing is like mailing.
+The product team can configure the routing rules.
+Sales rep can go to UI and check lead or get a mail
+Lead scoring
+15000 leads per day""")
 MERGED_AWAY = {'hosthealth': 'metrics'}    # InterviewDB question folded into another card

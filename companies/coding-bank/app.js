@@ -258,7 +258,7 @@
     const idx = await api('problems');
     const CO = { linkedin: 'LinkedIn', agoda: 'Agoda' };
     let saved = 'all'; try { saved = localStorage.getItem('bank.company') || 'all'; } catch (e) { /* ignore */ }
-    const f = { company: CO[saved] ? saved : 'all', round: 'all', prio: new Set(), label: new Set(), q: '' };
+    const f = { company: CO[saved] ? saved : 'all', round: 'all', prio: new Set(), label: new Set(), q: '', recent: false };
     const RD = { ai: 'AI round', coding: 'Coding round' };
     const rds = (p) => p.rounds || ['coding'];
     const count = (c) => idx.problems.filter((p) => (p.companies || ['linkedin']).includes(c)).length;
@@ -268,7 +268,8 @@
         .map(([k, v, n]) => '<button class="cotab' + (f.company === k ? ' on' : '') + '" data-c="' + k + '">' + v + ' <span class="n">' + n + '</span></button>').join('') +
       '<span class="rdsep"></span>' + [['all', 'Every round'], ['coding', 'Coding round'], ['ai', 'AI round']]
         .map(([k, v]) => '<button class="rdtab' + (k === 'all' ? ' on' : '') + '" data-r="' + k + '">' + v + '</button>').join('') + '</div>' +
-      '<div class="filters" id="pf">' + ['P0', 'P1', 'P2'].map((p) => '<button class="chip" data-k="prio" data-v="' + p + '">' + p + '</button>').join('') +
+      '<div class="filters" id="pf"><button class="chip recentchip" data-k="recent" data-v="1" title="In your list of recently asked LinkedIn questions (Oct 2026)">★ Recently asked</button>' +
+      ['P0', 'P1', 'P2'].map((p) => '<button class="chip" data-k="prio" data-v="' + p + '">' + p + '</button>').join('') +
       [['idb', 'InterviewDB'], ['idb-list', 'InterviewDB-listed'], ['multi', 'Multiple candidate reports'], ['single', 'Reported LinkedIn'], ['derived', 'Research-derived'], ['pattern', 'Pattern-based practice'],
        ['ag-multi', 'Multiple Agoda reports'], ['ag-single', 'Reported Agoda'], ['ag-recon', 'Agoda — reconstructed'], ['ag-list', 'Agoda frequency list only']]
         .map(([k, v]) => '<button class="chip" data-k="label" data-v="' + k + '">' + v + '</button>').join('') +
@@ -288,10 +289,10 @@
       return Object.entries(r).map(([c, n]) => '<span class="rk">' + (c === 'agoda' ? 'AG' : 'LI') + ' #' + n + '</span>').join(' ') || '<span class="muted">—</span>';
     }
     function draw() {
-      const rows = idx.problems.filter((p) => (f.company === 'all' || cos(p).includes(f.company)) && (f.round === 'all' || rds(p).includes(f.round)) && (!f.prio.size || f.prio.has(p.prio)) && (!f.label.size || f.label.has(p.label)) &&
+      const rows = idx.problems.filter((p) => (f.company === 'all' || cos(p).includes(f.company)) && (f.round === 'all' || rds(p).includes(f.round)) && (!f.prio.size || f.prio.has(p.prio)) && (!f.label.size || f.label.has(p.label)) && (!f.recent || p.recent) &&
         (!f.q || (p.title + ' ' + p.cat).toLowerCase().includes(f.q)))
         .sort((a, b) => (rankOf(a) ?? 999) - (rankOf(b) ?? 999) || cos(a)[0].localeCompare(cos(b)[0]) || a.title.localeCompare(b.title));
-      $('#pt').innerHTML = rows.map((p) => '<tr><td style="white-space:nowrap">' + rankCell(p) + '</td><td>' + prio(p.prio) + '</td><td><b>' + esc(p.title) + '</b></td><td>' +
+      $('#pt').innerHTML = rows.map((p) => '<tr><td style="white-space:nowrap">' + rankCell(p) + '</td><td>' + prio(p.prio) + '</td><td><b>' + esc(p.title) + '</b>' + (p.recent ? ' <span class="tag recent" title="In your list of recently asked LinkedIn questions (Oct 2026)">★ recent</span>' : '') + '</td><td>' +
         cos(p).map((c) => '<span class="cotag ' + c + '">' + esc(CO[c] || c) + '</span>').join(' ') + '<br>' + rds(p).map((r) => '<span class="rdtag ' + r + '">' + esc(RD[r]) + '</span>').join(' ') + '</td><td class="lccell">' + (lcRefs(p.lcrefs) || '<span class="muted small">—</span>') + '</td><td>' + lab(p) + '</td><td class="small">' + esc(p.cat) +
         '</td><td>' + p.stages + '</td><td style="white-space:nowrap"><a class="btn sm" href="#/learn/' + p.id + '">Learn</a> <a class="btn sm" href="#/practice/' + p.id +
         '">Practice</a> <a class="btn sm pri" href="#/mock/' + p.id + '">Mock</a>' +
@@ -301,7 +302,10 @@
       f.company = b.dataset.c; try { localStorage.setItem('bank.company', f.company); } catch (e) { /* ignore */ }
       $$('#cot .cotab').forEach((x) => x.classList.toggle('on', x === b)); draw(); }));
     $$('#cot .rdtab').forEach((b) => b.addEventListener('click', () => { f.round = b.dataset.r; $$('#cot .rdtab').forEach((x) => x.classList.toggle('on', x === b)); draw(); }));
-    $$('#pf .chip').forEach((c) => c.addEventListener('click', () => { const s = f[c.dataset.k]; s.has(c.dataset.v) ? s.delete(c.dataset.v) : s.add(c.dataset.v); c.classList.toggle('on'); draw(); }));
+    $$('#pf .chip').forEach((c) => c.addEventListener('click', () => {
+      if (c.dataset.k === 'recent') f.recent = !f.recent;
+      else { const s = f[c.dataset.k]; s.has(c.dataset.v) ? s.delete(c.dataset.v) : s.add(c.dataset.v); }
+      c.classList.toggle('on'); draw(); }));
     $('#pq').addEventListener('input', (e) => { f.q = e.target.value.toLowerCase(); draw(); });
     draw();
   }

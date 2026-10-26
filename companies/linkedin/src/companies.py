@@ -35,7 +35,7 @@ HTML = '''<!DOCTYPE html>
     </a>
     <a class="card round" href="linkedin/design-interview/index.html">
       <div class="num">QUESTION BANK</div><div class="rt">System design — LinkedIn</div>
-      <div class="rd">23 design questions ranked by reports, each with diagrams, data model, read and write paths, trade-offs and failures.</div>
+      <div class="rd">24 design questions — recently reported first, each with diagrams, data model, read and write paths, trade-offs and failures.</div>
       <div class="meta" style="margin-top:10px">Read-only on the website</div>
     </a>
     <a class="card round" href="../questions-google.html">

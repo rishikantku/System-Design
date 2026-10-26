@@ -312,3 +312,18 @@ P['svcauthz'] = dict(
   ('b', 'messaging\'s sidecar verifies the caller\'s identity from the certificate.'),
   ('opa', 'allow(profile, Send)? — local, microseconds.'),
   ('audit', 'The decision is logged asynchronously.')]))
+
+# Added 26 Oct 2026 — lead routing.
+P['leads'] = dict(
+ write=['A new lead arrives from a web form', [
+   ('form', 'The form posts the lead with its source and external id.'),
+   ('intake', 'Validated and de-duplicated; stored as unassigned; idempotency key stops double submits.'),
+   ('q', 'An event goes on the work queue.'),
+   ('enrich', 'Company data added; a lead score computed.'),
+   ('rules', 'The active ruleset picks the target pool (first matching rule).'),
+   ('assign', 'Next eligible rep (on shift, under cap) by round-robin; conditional UPDATE makes them the only owner.'),
+   ('mail', 'An email tells the rep a lead is waiting.')]],
+ read=['A sales rep checks their leads', [
+   ('ui', 'The rep opens the UI.'),
+   ('db', 'Their assigned leads, newest and highest score first; accept or reject is another conditional write.'),
+   ('sla', 'Leads not accepted in time are reassigned and show up for the next rep.')]])

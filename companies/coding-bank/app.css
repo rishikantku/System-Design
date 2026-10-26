@@ -373,3 +373,6 @@ code,pre,.aig-ptext,textarea{font-variant-ligatures:none;font-feature-settings:"
 .cu-verdict{font-weight:600;margin:2px 0 8px;font-size:13px}.cu-verdict.ok{color:var(--green)}.cu-verdict.bad{color:var(--red)}
 
 header.top nav{white-space:nowrap}
+
+.tag.recent{background:#fff4d6;color:#8a5a00;border:1px solid #f0c75e;font-size:11px;padding:1px 6px;border-radius:999px;white-space:nowrap}
+.chip.recentchip{border-color:#f0c75e}.chip.recentchip.on{background:#f0c75e;color:#3d2a00}

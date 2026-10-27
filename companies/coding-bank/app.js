@@ -258,7 +258,9 @@
     const idx = await api('problems');
     const CO = { linkedin: 'LinkedIn', agoda: 'Agoda' };
     let saved = 'all'; try { saved = localStorage.getItem('bank.company') || 'all'; } catch (e) { /* ignore */ }
-    const f = { company: CO[saved] ? saved : 'all', round: 'all', prio: new Set(), label: new Set(), q: '', recent: false };
+    const f = { company: CO[saved] ? saved : 'all', round: 'all', prio: new Set(), label: new Set(), q: '', recent: false, psort: '' };
+    try { f.psort = ['asc', 'desc'].includes(localStorage.getItem('bank.psort')) ? localStorage.getItem('bank.psort') : ''; } catch (e) { /* ignore */ }
+    const PRI = { P0: 0, P1: 1, P2: 2, P3: 3 };
     const RD = { ai: 'AI round', coding: 'Coding round' };
     const rds = (p) => p.rounds || ['coding'];
     const count = (c) => idx.problems.filter((p) => (p.companies || ['linkedin']).includes(c)).length;
@@ -273,7 +275,7 @@
       [['idb', 'InterviewDB'], ['idb-list', 'InterviewDB-listed'], ['multi', 'Multiple candidate reports'], ['single', 'Reported LinkedIn'], ['derived', 'Research-derived'], ['pattern', 'Pattern-based practice'],
        ['ag-multi', 'Multiple Agoda reports'], ['ag-single', 'Reported Agoda'], ['ag-recon', 'Agoda — reconstructed'], ['ag-list', 'Agoda frequency list only']]
         .map(([k, v]) => '<button class="chip" data-k="label" data-v="' + k + '">' + v + '</button>').join('') +
-      '<input class="search" id="pq" placeholder="Search…"></div><div class="card tw"><table class="t"><thead><tr><th>Rank</th><th>Priority</th><th>Question</th><th>Company</th><th>LeetCode</th><th>Provenance</th><th>Category</th><th>Stages</th><th></th></tr></thead><tbody id="pt"></tbody></table></div>' +
+      '<input class="search" id="pq" placeholder="Search…"></div><div class="card tw"><table class="t"><thead><tr><th>Rank</th><th class="sortable" id="psort" title="Sort by priority: P0 first → P2 first → rank order">Priority <span id="psortic">⇅</span></th><th>Question</th><th>Company</th><th>LeetCode</th><th>Provenance</th><th>Category</th><th>Stages</th><th></th></tr></thead><tbody id="pt"></tbody></table></div>' +
       '<h2>Your LeetCode list (LinkedIn)</h2><p class="muted small">The 42 numbers you supplied plus 11 closest public twins, each verified against LeetCode\'s own index. 30 of them are also full questions above, tagged <b>InterviewDB-listed</b> — with tests, a Learn page and a Solution; the rest are covered by the question named in the relation column.</p>' +
       '<div class="card tw"><table class="t"><thead><tr><th>#</th><th>Problem</th><th>Difficulty</th><th>Relation to the InterviewDB set</th><th></th></tr></thead><tbody>' +
       idx.leetcode.map((x) => '<tr><td>' + x.number + '</td><td><a href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.title) + '</a>' + (x.premium ? ' <span class="tag lab single">premium</span>' : '') +
@@ -291,7 +293,10 @@
     function draw() {
       const rows = idx.problems.filter((p) => (f.company === 'all' || cos(p).includes(f.company)) && (f.round === 'all' || rds(p).includes(f.round)) && (!f.prio.size || f.prio.has(p.prio)) && (!f.label.size || f.label.has(p.label)) && (!f.recent || p.recent) &&
         (!f.q || (p.title + ' ' + p.cat).toLowerCase().includes(f.q)))
-        .sort((a, b) => (rankOf(a) ?? 999) - (rankOf(b) ?? 999) || cos(a)[0].localeCompare(cos(b)[0]) || a.title.localeCompare(b.title));
+        .sort((a, b) => (f.psort ? ((PRI[a.prio] ?? 9) - (PRI[b.prio] ?? 9)) * (f.psort === 'asc' ? 1 : -1) : 0) ||   // priority only when chosen
+          (rankOf(a) ?? 999) - (rankOf(b) ?? 999) || cos(a)[0].localeCompare(cos(b)[0]) || a.title.localeCompare(b.title));
+      $('#psortic').textContent = f.psort === 'asc' ? '▲' : f.psort === 'desc' ? '▼' : '⇅';
+      $('#psort').classList.toggle('on', !!f.psort);
       $('#pt').innerHTML = rows.map((p) => '<tr><td style="white-space:nowrap">' + rankCell(p) + '</td><td>' + prio(p.prio) + '</td><td><b>' + esc(p.title) + '</b>' + (p.recent ? ' <span class="tag recent" title="In your list of recently asked LinkedIn questions (Oct 2026)">★ recent</span>' : '') + '</td><td>' +
         cos(p).map((c) => '<span class="cotag ' + c + '">' + esc(CO[c] || c) + '</span>').join(' ') + '<br>' + rds(p).map((r) => '<span class="rdtag ' + r + '">' + esc(RD[r]) + '</span>').join(' ') + '</td><td class="lccell">' + (lcRefs(p.lcrefs) || '<span class="muted small">—</span>') + '</td><td>' + lab(p) + '</td><td class="small">' + esc(p.cat) +
         '</td><td>' + p.stages + '</td><td style="white-space:nowrap"><a class="btn sm" href="#/learn/' + p.id + '">Learn</a> <a class="btn sm" href="#/practice/' + p.id +
@@ -302,6 +307,11 @@
       f.company = b.dataset.c; try { localStorage.setItem('bank.company', f.company); } catch (e) { /* ignore */ }
       $$('#cot .cotab').forEach((x) => x.classList.toggle('on', x === b)); draw(); }));
     $$('#cot .rdtab').forEach((b) => b.addEventListener('click', () => { f.round = b.dataset.r; $$('#cot .rdtab').forEach((x) => x.classList.toggle('on', x === b)); draw(); }));
+    $('#psort').addEventListener('click', () => {
+      f.psort = f.psort === '' ? 'asc' : f.psort === 'asc' ? 'desc' : '';      // P0 first → P2 first → rank order
+      try { localStorage.setItem('bank.psort', f.psort); } catch (e) { /* ignore */ }
+      draw();
+    });
     $$('#pf .chip').forEach((c) => c.addEventListener('click', () => {
       if (c.dataset.k === 'recent') f.recent = !f.recent;
       else { const s = f[c.dataset.k]; s.has(c.dataset.v) ? s.delete(c.dataset.v) : s.add(c.dataset.v); }

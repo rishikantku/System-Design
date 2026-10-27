@@ -376,3 +376,5 @@ header.top nav{white-space:nowrap}
 
 .tag.recent{background:#fff4d6;color:#8a5a00;border:1px solid #f0c75e;font-size:11px;padding:1px 6px;border-radius:999px;white-space:nowrap}
 .chip.recentchip{border-color:#f0c75e}.chip.recentchip.on{background:#f0c75e;color:#3d2a00}
+
+th.sortable{cursor:pointer;user-select:none;white-space:nowrap}th.sortable:hover{color:var(--accent)}th.sortable.on{color:var(--accent)}#psortic{font-size:11px;margin-left:2px}
